@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styles globaux PCR Manager */
+
+:root {
+  /* Couleurs de statut radioprotection */
+  --color-status-valid: #10b981;    /* vert */
+  --color-status-warning: #f97316;  /* orange */
+  --color-status-invalid: #ef4444;  /* rouge */
+  --color-status-disabled: #9ca3af; /* gris */
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-gray-900 font-sans;
+  -webkit-app-region: drag;
+}
+
+/* Désactiver la région draggable pour les contrôles interactifs */
+button, input, [role="button"], a {
+  -webkit-app-region: no-drag;
+}
+
+/* Badges de statut */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium;
+}
+
+.badge-valid {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-warning {
+  @apply bg-orange-100 text-orange-800;
+}
+
+.badge-invalid {
+  @apply bg-red-100 text-red-800;
+}
+
+.badge-disabled {
+  @apply bg-gray-100 text-gray-800;
+}
+
+/* Cartes visuelles */
+.card {
+  @apply rounded-lg border border-gray-200 bg-white p-6 shadow-sm;
+}
+
+.card:hover {
+  @apply shadow-md transition-shadow duration-200;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
