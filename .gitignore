@@ -1,0 +1,129 @@
+# ============================================================================
+# PCR Manager — Application de Suivi Radioprotection
+# Tauri + React + TypeScript + Rust
+# ============================================================================
+
+# Node.js / NPM
+node_modules/
+npm-debug.log
+npm-error.log
+yarn-error.log
+.npm/
+.yarn/
+dist/
+build/
+
+# Frontend build artifacts
+src-tauri/target/
+target/
+out/
+
+# Rust / Cargo
+target/
+Cargo.lock
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Tauri build outputs
+src-tauri/tauri.conf.json.bak
+*.app/
+*.dmg
+*.msi
+*.exe.zip
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.vim/
+.emacs
+*.code-workspace
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database & Data (sensitive)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+/data/
+/app-data/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+.cache/
+.tmp/
+/tmp/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Private keys & secrets
+*.pem
+*.key
+*.crt
+*.pfx
+.ssh/
+/.credentials
+
+# User-specific files
+*.suo
+*.user
+.classpath
+.c9/
+*.launch
+.settings/
+
+# Testing
+coverage/
+.nyc_output/
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# Lock files (optional — customize selon votre politique)
+# Décommenter si vous souhaitez ignorer les lockfiles (moins recommandé)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Local history for Visual Studio Code
+.history/
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# IDE spécifiques
+.vscode-test
+.vscode/settings.json
+.vscode/launch.json
+
+# Documentation
+docs/node_modules/
