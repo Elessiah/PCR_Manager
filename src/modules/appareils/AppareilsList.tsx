@@ -141,7 +141,7 @@ export default function AppareilsList() {
                   <TD className="font-mono text-sm">{a.numero_serie || '-'}</TD>
                   <TD className="text-textMuted">
                     {a.lieu_utilisation}
-                    {a.utilisation_partagee && (
+                    {Boolean(a.utilisation_partagee) && (
                       <Badge variant="neutral" className="ml-2">partagé</Badge>
                     )}
                   </TD>
