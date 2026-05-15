@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: oklch(0.99 0 0);
+  --surface: oklch(0.97 0 0);
+  --surface-2: oklch(0.95 0 0);
+  --surface-hover: oklch(0.93 0 0);
+  --border: oklch(0.90 0 0);
+  --border-strong: oklch(0.70 0 0);
+  --text: oklch(0.20 0 0);
+  --text-muted: oklch(0.50 0 0);
+  --text-soft: oklch(0.65 0 0);
+  --accent: oklch(0.58 0.16 258);
+  --accent-hover: oklch(0.52 0.16 258);
+  --accent-soft: oklch(0.85 0.08 258);
+  --accent-soft-border: oklch(0.70 0.10 258);
+  --ok: oklch(0.65 0.15 142);
+  --ok-bg: oklch(0.90 0.08 142);
+  --ok-border: oklch(0.75 0.12 142);
+  --warn: oklch(0.65 0.15 60);
+  --warn-bg: oklch(0.92 0.10 60);
+  --warn-border: oklch(0.78 0.12 60);
+  --danger: oklch(0.60 0.16 20);
+  --danger-bg: oklch(0.90 0.10 20);
+  --danger-border: oklch(0.72 0.14 20);
+  --neutral: oklch(0.55 0 0);
+  --neutral-bg: oklch(0.88 0 0);
+  --neutral-border: oklch(0.75 0 0);
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+
+body {
+  font-family: 'Public Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: 'ss01', 'cv11';
+  background: var(--bg);
+  color: var(--text);
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'zero';
+}

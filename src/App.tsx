@@ -1,39 +1,27 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-// Pages (à créer)
-// import Dashboard from './pages/Dashboard'
-// import Etablissement from './pages/Etablissement'
-// import Travailleurs from './pages/Travailleurs'
-// import Appareils from './pages/Appareils'
-// import Actions from './pages/Actions'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes (anciennement cacheTime)
-    },
-  },
-})
+import { Routes, Route } from 'react-router-dom';
+import AppShell from './components/layout/AppShell';
+import Dashboard from './modules/dashboard/Dashboard';
+import Etablissement from './modules/etablissement/Etablissement';
+import TravailleursList from './modules/travailleurs/TravailleursList';
+import TravailleurFiche from './modules/travailleurs/TravailleurFiche';
+import AppareilsList from './modules/appareils/AppareilsList';
+import AppareilFiche from './modules/appareils/AppareilFiche';
+import Actions from './modules/actions/Actions';
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <Routes>
-          {/* Routes à implémenter selon le cahier des charges */}
-          {/* <Route path="/" element={<Dashboard />} />
-          <Route path="/etablissement" element={<Etablissement />} />
-          <Route path="/travailleurs" element={<Travailleurs />} />
-          <Route path="/appareils" element={<Appareils />} />
-          <Route path="/actions" element={<Actions />} /> */}
-
-          <Route path="/" element={<div className="p-8 text-center">PCR Manager - En construction</div>} />
-        </Routes>
-      </Router>
-    </QueryClientProvider>
-  )
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Dashboard />} />
+        <Route path="etablissement" element={<Etablissement />} />
+        <Route path="travailleurs" element={<TravailleursList />} />
+        <Route path="travailleurs/:id" element={<TravailleurFiche />} />
+        <Route path="appareils" element={<AppareilsList />} />
+        <Route path="appareils/:id" element={<AppareilFiche />} />
+        <Route path="actions" element={<Actions />} />
+      </Route>
+    </Routes>
+  );
 }
 
-export default App
+export default App;
