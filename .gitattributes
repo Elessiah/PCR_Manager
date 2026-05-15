@@ -1,0 +1,36 @@
+# Normaliser les fins de ligne en LF dans le repo,
+# checkout natif sur Windows (CRLF) via core.autocrlf.
+* text=auto eol=lf
+
+# Sources : LF strict.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.rs text eol=lf
+*.sql text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+
+# Scripts Windows : CRLF préservé.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaires.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.db binary
+*.sqlite binary
