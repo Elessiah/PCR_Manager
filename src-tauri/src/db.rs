@@ -2,6 +2,7 @@ use rusqlite::Connection;
 use std::path::PathBuf;
 use anyhow::{Result, Context};
 use parking_lot::Mutex;
+use tauri::Manager;
 
 pub struct DbState {
     pub conn: Mutex<Connection>,
@@ -79,7 +80,11 @@ mod tests {
         run_migrations(&mut conn).expect("Failed to run migrations");
 
         let mut stmt = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .prepare(
+                "SELECT name FROM sqlite_master \
+                 WHERE type='table' AND name NOT LIKE 'sqlite_%' \
+                 ORDER BY name",
+            )
             .expect("Failed to prepare statement");
 
         let tables: Vec<String> = stmt

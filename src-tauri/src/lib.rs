@@ -3,6 +3,8 @@ mod auth;
 mod models;
 mod commands;
 
+use tauri::Manager;
+
 #[tauri::command]
 fn ping() -> &'static str {
     "pong"
@@ -28,19 +30,24 @@ pub fn run() {
                 conn: parking_lot::Mutex::new(conn),
             });
 
-            // Initialize WebAuthn state
-            let webauthn = webauthn_rs::prelude::Webauthn::new(
-                "pcrmanager.local",
-                &url::Url::parse("https://localhost")
-                    .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        e.to_string(),
-                    )))?,
-            )
-            .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            )))?;
+            // Initialize WebAuthn state — webauthn-rs 0.5 utilise le pattern WebauthnBuilder.
+            let rp_id = "pcrmanager.local";
+            let rp_origin = url::Url::parse("https://pcrmanager.local")
+                .map_err(|e| tauri::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                )))?;
+            let webauthn = webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin)
+                .map_err(|e| tauri::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                )))?
+                .rp_name("PCR Manager")
+                .build()
+                .map_err(|e| tauri::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                )))?;
 
             app.manage(auth::WebauthnState {
                 webauthn: std::sync::Arc::new(webauthn),

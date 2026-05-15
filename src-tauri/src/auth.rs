@@ -17,14 +17,14 @@ pub struct WebauthnState {
 pub async fn passkey_register_start(
     state: tauri::State<'_, WebauthnState>,
 ) -> Result<CreationChallengeResponse, String> {
-    let user_id = Uuid::new_v4().as_bytes().to_vec();
+    let user_id = Uuid::new_v4();
     let user_name = format!("user_{}", Uuid::new_v4());
     let user_display_name = "PCR Manager User";
 
     let (challenge, registration_state) = state
         .webauthn
         .start_passkey_registration(
-            &user_id,
+            user_id,
             &user_name,
             user_display_name,
             None,
@@ -53,9 +53,13 @@ pub async fn passkey_register_finish(
         .finish_passkey_registration(&response, &reg_state)
         .map_err(|e| e.to_string())?;
 
-    let credential_id_b64 = STANDARD.encode(passkey.cred_public_key().cred_id());
+    let credential_id_b64 = STANDARD.encode(passkey.cred_id());
     let public_key_json = serde_json::to_vec(&passkey)
         .map_err(|e| e.to_string())?;
+
+    // webauthn-rs 0.5: la Passkey ne stocke pas de counter explicite côté serveur
+    // (l'API gere les replay-attacks differemment). On initialise a 0.
+    let initial_sign_count: i32 = 0;
 
     let conn = db.conn.lock();
     conn.execute(
@@ -64,7 +68,7 @@ pub async fn passkey_register_finish(
         rusqlite::params![
             &credential_id_b64,
             &public_key_json,
-            passkey.counter as i32,
+            initial_sign_count,
             "Unnamed Passkey"
         ],
     )
@@ -121,14 +125,14 @@ pub async fn passkey_auth_finish(
         .finish_passkey_authentication(&response, &auth_state)
         .map_err(|e| e.to_string())?;
 
-    let credential_id_b64 = STANDARD.encode(&auth_result.credential_id().cred_id());
+    let credential_id_b64 = STANDARD.encode(auth_result.cred_id());
 
     let conn = db.conn.lock();
     conn.execute(
         "UPDATE passkey SET sign_count = ?1, last_used_at = datetime('now')
          WHERE credential_id = ?2",
         rusqlite::params![
-            auth_result.counter as i32,
+            auth_result.counter() as i32,
             &credential_id_b64
         ],
     )

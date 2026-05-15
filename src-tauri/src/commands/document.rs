@@ -3,6 +3,7 @@ use crate::models::Document;
 use std::path::Path;
 use uuid::Uuid;
 use chrono;
+use tauri::Manager;
 
 #[tauri::command]
 pub async fn document_list(state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
