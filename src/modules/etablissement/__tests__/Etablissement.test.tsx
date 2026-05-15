@@ -102,12 +102,14 @@ describe('Etablissement', () => {
     // Create a mock File
     const file = new File(['test'], 'kbis.pdf', { type: 'application/pdf' });
 
-    // Simulate file selection
+    // Simulate file selection — jsdom n'expose pas DataTransfer ; on injecte directement
+    // un FileList synthétique via Object.defineProperty.
     if (fileInput) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      fileInput.files = dataTransfer.files;
-      fireEvent.change(fileInput, { target: { files: dataTransfer.files } });
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: false,
+      });
+      fireEvent.change(fileInput);
     }
 
     // Wait for document_upload to be called

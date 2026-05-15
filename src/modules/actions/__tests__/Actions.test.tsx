@@ -87,41 +87,33 @@ describe('Actions', () => {
   it('should display actions list with correct items', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for the queries to resolve and data to appear
+    // "Scanner X-Ray" peut apparaître plusieurs fois (lignes Vérif + CQ pour le même appareil).
     await waitFor(() => {
-      expect(screen.getByText(/Scanner X-Ray/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Scanner X-Ray/i).length).toBeGreaterThan(0);
     });
 
-    // Check that action rows are displayed
-    expect(screen.getByText(/Vérification/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Vérification/i).length).toBeGreaterThan(0);
   });
 
   it('should filter actions by "En retard" status', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for the actions list to load
     await waitFor(() => {
-      expect(screen.getByText(/Scanner X-Ray/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Scanner X-Ray/i).length).toBeGreaterThan(0);
     });
 
-    // Count all action rows (excluding header) before filtering
-    const allRows = screen.getAllByRole('row');
-    const initialActionCount = allRows.length - 1; // Exclude header row
+    const initialActionCount = screen.getAllByRole('row').length - 1;
 
-    // Click on the "En retard" filter
-    const enRetardFilter = screen.getByText('En retard');
-    fireEvent.click(enRetardFilter);
+    // "En retard" apparaît dans le PillFilter ET dans les badges de statut.
+    // On cible spécifiquement le bouton du filtre.
+    const enRetardFilterButton = screen.getByRole('button', { name: 'En retard' });
+    fireEvent.click(enRetardFilterButton);
 
-    // Wait for filter to apply - should have fewer rows
     await waitFor(() => {
-      const filteredRows = screen.getAllByRole('row');
-      const filteredActionCount = filteredRows.length - 1;
-
-      // Should have fewer or equal actions after filtering to "En retard"
+      const filteredActionCount = screen.getAllByRole('row').length - 1;
       expect(filteredActionCount).toBeLessThanOrEqual(initialActionCount);
     });
 
-    // Verify that remaining actions have "En retard" status badge
     const retardBadges = screen.getAllByText('En retard');
     expect(retardBadges.length).toBeGreaterThan(0);
   });

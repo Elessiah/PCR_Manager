@@ -128,12 +128,14 @@ describe('AppareilFiche', () => {
   it('should render appareil details', async () => {
     renderWithProviders(<AppareilFiche />, { route: '/appareils/1' });
 
+    // La désignation peut apparaître dans le breadcrumb ET dans le titre/header.
     await waitFor(() => {
-      expect(screen.getByText('Appareil Radiographique X100')).toBeInTheDocument();
+      expect(screen.getAllByText('Appareil Radiographique X100').length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByText('AXIOM Alpha')).toBeInTheDocument();
-    expect(screen.getByText('SN-2023-001')).toBeInTheDocument();
+    // "AXIOM Alpha" et "SN-2023-001" peuvent apparaître plusieurs fois (header + section technique).
+    expect(screen.getAllByText('AXIOM Alpha').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('SN-2023-001').length).toBeGreaterThan(0);
   });
 
   it('should display general information section', async () => {
@@ -143,7 +145,8 @@ describe('AppareilFiche', () => {
       expect(screen.getByText('Informations générales')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Siemens')).toBeInTheDocument();
+    // "Siemens" peut apparaître plusieurs fois (label marque + valeur d'affichage compacte).
+    expect(screen.getAllByText('Siemens').length).toBeGreaterThan(0);
     expect(screen.getByText('Cabinet dentaire principal')).toBeInTheDocument();
   });
 

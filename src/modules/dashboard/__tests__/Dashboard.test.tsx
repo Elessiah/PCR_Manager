@@ -128,8 +128,8 @@ describe('Dashboard', () => {
       expect(screen.getByText('Travailleurs actifs')).toBeInTheDocument();
     });
 
-    // Check KPI values
-    expect(screen.getByText('2')).toBeInTheDocument(); // 2 travailleurs
+    // Check KPI values — "2" apparaît dans plusieurs tuiles KPI (travailleurs, appareils, etc.)
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
     expect(screen.getByText('Appareils suivis')).toBeInTheDocument();
   });
 

@@ -33,7 +33,8 @@ describe('Sidebar', () => {
   it('should display the brand name', () => {
     renderWithProviders(<Sidebar />, { route: '/' });
 
-    expect(screen.getByText('PCR Manager')).toBeInTheDocument();
+    // Sidebar rend "PCR Manager" deux fois (brand-mark abrégé + brand-name complet).
+    expect(screen.getAllByText('PCR Manager').length).toBeGreaterThanOrEqual(1);
   });
 
   it('should display user profile in footer', () => {

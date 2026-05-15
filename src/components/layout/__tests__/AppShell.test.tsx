@@ -45,7 +45,8 @@ describe('AppShell', () => {
   it('should render brand name in sidebar', () => {
     renderWithProviders(<AppShellWrapper />, { route: '/' });
 
-    expect(screen.getByText('PCR Manager')).toBeInTheDocument();
+    // Brand mark + brand name => 2 occurrences attendues.
+    expect(screen.getAllByText('PCR Manager').length).toBeGreaterThanOrEqual(1);
   });
 
   it('should display all sidebar navigation links', () => {
