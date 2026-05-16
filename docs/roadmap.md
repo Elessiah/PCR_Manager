@@ -122,11 +122,27 @@ Liste explicite (cf. `cahier_des_charges_radioprotection_v2.md` §10) :
 - [ ] Rapports régulateurs (ASN, etc.)
 - [ ] Import / synchronisation entre postes (chiffré)
 
-### 10. Internationalisation (i18n) — optionnel
+### 10. Cloche de notifications — panneau au clic
+
+**État actuel** : le badge rouge dans `Topbar.tsx` est fonctionnel (compte en live les vérifications techniques en retard + CQ dont `date_echeance` est dépassée). Le clic sur la cloche ne fait rien (`<button>` sans `onClick`).
+
+**À développer** :
+- Composant `NotificationDropdown` (positionnement absolu sous la cloche, `useRef` + `useClickOutside` pour fermer au clic extérieur).
+- Liste des items en retard avec lien direct (vérifs → fiche Appareil, CQ → page Actions).
+- Badge avec le nombre exact d'alertes afloat sur la cloche.
+
+**Estimation** : ~2-3h. Les données sont déjà fetchées dans `Topbar.tsx` (`verifications`, `controleQualites`) — pas de nouvel appel API nécessaire.
+
+**Fichiers concernés** :
+- `src/components/layout/Topbar.tsx` (ajouter onClick + état ouvert/fermé)
+- `src/components/layout/NotificationDropdown.tsx` (nouveau)
+- `src/hooks/useClickOutside.ts` (nouveau ou réutiliser si déjà présent)
+
+### 11. Internationalisation (i18n) — optionnel
 
 Tout est en français hardcodé. Si une version anglophone est envisagée, intégrer `react-i18next` avant que le volume de chaînes ne devienne trop important.
 
-### 11. macOS DMG
+### 12. macOS DMG
 
 Nécessite un runner macOS (impossible depuis Windows). À déléguer à GitHub Actions (le job `build-windows` dans `.github/workflows/ci.yml` est le modèle — dupliquer avec `macos-latest`).
 
