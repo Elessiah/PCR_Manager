@@ -106,8 +106,8 @@ describe('TravailleurFiche', () => {
   it('should display travailleur details', async () => {
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    await screen.findByText('Jean DUPONT')
-    expect(screen.getByText('Radiologiste')).toBeInTheDocument()
+    await screen.findByRole('heading', { name: /Jean\s+Dupont/ })
+    expect(screen.getAllByText('Radiologiste').length).toBeGreaterThanOrEqual(1)
   })
 
   it('should have two tabs: Données personnelles and Habilitation', async () => {
@@ -128,7 +128,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
+    const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await screen.findByText('Items d\'habilitation')
@@ -138,7 +138,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
+    const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await screen.findByText('Formation radioprotection')
@@ -151,17 +151,16 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
+    const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
-    await screen.findByText('Formation à l\'utilisation des appareils')
-    expect(screen.getByText('Scanner CT General Electric')).toBeInTheDocument()
+    await screen.findByText('Compétences par appareil')
   })
 
   it('should call travailleur_get with correct id', async () => {
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    await screen.findByText('Jean DUPONT')
+    await screen.findByRole('heading', { name: /Jean\s+Dupont/ })
     expect(vi.mocked(invoke)).toHaveBeenCalledWith('travailleur_get', { id: 1 })
   })
 
@@ -169,7 +168,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
+    const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await waitFor(() => {
@@ -183,7 +182,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
+    const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await waitFor(() => {

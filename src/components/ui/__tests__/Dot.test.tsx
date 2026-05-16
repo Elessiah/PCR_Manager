@@ -20,31 +20,31 @@ describe('Dot', () => {
     it('applies ok variant classes', () => {
       render(<Dot variant="ok" data-testid="dot-ok" />);
       const dot = screen.getByTestId('dot-ok');
-      expect(dot).toHaveClass('bg-ok');
+      expect(dot).toHaveStyle({ backgroundColor: 'var(--ok)' });
     });
 
     it('applies warn variant classes', () => {
       render(<Dot variant="warn" data-testid="dot-warn" />);
       const dot = screen.getByTestId('dot-warn');
-      expect(dot).toHaveClass('bg-warn');
+      expect(dot).toHaveStyle({ backgroundColor: 'var(--warn)' });
     });
 
     it('applies danger variant classes', () => {
       render(<Dot variant="danger" data-testid="dot-danger" />);
       const dot = screen.getByTestId('dot-danger');
-      expect(dot).toHaveClass('bg-danger');
+      expect(dot).toHaveStyle({ backgroundColor: 'var(--danger)' });
     });
 
     it('applies neutral variant classes', () => {
       render(<Dot variant="neutral" data-testid="dot-neutral" />);
       const dot = screen.getByTestId('dot-neutral');
-      expect(dot).toHaveClass('bg-neutral');
+      expect(dot).toHaveStyle({ backgroundColor: 'var(--neutral)' });
     });
 
     it('uses neutral variant by default', () => {
       render(<Dot data-testid="dot-default" />);
       const dot = screen.getByTestId('dot-default');
-      expect(dot).toHaveClass('bg-neutral');
+      expect(dot).toHaveStyle({ backgroundColor: 'var(--neutral)' });
     });
   });
 

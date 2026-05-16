@@ -109,21 +109,26 @@ export default function Sidebar() {
                 ? 'bg-accentSoft text-accent'
                 : 'text-textMuted hover:bg-surfaceHover hover:text-text'
             }`}
+            end={item.to === '/'}
           >
-            <span className="flex-shrink-0">{item.icon}</span>
-            <span className="flex-1">{item.label}</span>
-            {item.count !== undefined && (
-              <span
-                className={`text-[11px] font-semibold px-[6px] py-px rounded-full border tabular-nums ${
-                  item.countVariant === 'danger'
-                    ? 'bg-dangerBg border-dangerBorder text-danger'
-                    : isActive
-                    ? 'bg-white border-accentSoftBorder text-accent'
-                    : 'bg-neutralBg border-neutralBorder text-textMuted'
-                }`}
-              >
-                {item.count}
-              </span>
+            {({ isActive }) => (
+              <>
+                <span className="flex-shrink-0">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                {item.count !== undefined && (
+                  <span
+                    className={`text-[11px] font-semibold px-[6px] py-px rounded-full border tabular-nums ${
+                      item.countVariant === 'danger'
+                        ? 'bg-dangerBg border-dangerBorder text-danger'
+                        : isActive
+                        ? 'bg-white border-accentSoftBorder text-accent'
+                        : 'bg-neutralBg border-neutralBorder text-textMuted'
+                    }`}
+                  >
+                    {item.count}
+                  </span>
+                )}
+              </>
             )}
           </NavLink>
         ))}

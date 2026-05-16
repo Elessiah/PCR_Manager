@@ -185,7 +185,7 @@ describe('HabilitationTab and Competences', () => {
 
     if (habiltationTab) {
       await user.click(habiltationTab)
-      await screen.findByText('Formation à l\'utilisation des appareils')
+      await screen.findByText('Compétences par appareil')
     }
   })
 
