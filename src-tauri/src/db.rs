@@ -27,30 +27,38 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
     Ok(conn)
 }
 
+/// Liste ordonnée des migrations à exécuter. Ajouter une nouvelle entrée
+/// pour chaque fichier `Vn__*.sql` ; les versions déjà appliquées sont
+/// détectées via la table `__migrations` et skippées.
+const MIGRATIONS: &[(i32, &str, &str)] = &[
+    (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
+    (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
+];
+
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
-    // Create migrations tracking table if not exists
     conn.execute(
         "CREATE TABLE IF NOT EXISTS __migrations (version INTEGER PRIMARY KEY)",
         [],
     )?;
 
-    // Check if V1 has already been applied
-    let mut stmt = conn.prepare("SELECT 1 FROM __migrations WHERE version = 1")?;
-    let already_migrated: bool = stmt
-        .exists([])
-        .context("Failed to check migration status")?;
+    for (version, label, sql) in MIGRATIONS {
+        let already_applied: bool = conn
+            .prepare("SELECT 1 FROM __migrations WHERE version = ?1")?
+            .exists([version])
+            .with_context(|| format!("Failed to check migration {} status", label))?;
 
-    if already_migrated {
-        return Ok(());
+        if already_applied {
+            continue;
+        }
+
+        conn.execute_batch(sql)
+            .with_context(|| format!("Failed to execute migration {}", label))?;
+
+        conn.execute(
+            "INSERT INTO __migrations (version) VALUES (?1)",
+            [version],
+        )?;
     }
-
-    // Execute migration
-    let sql = include_str!("../migrations/V1__initial.sql");
-    conn.execute_batch(sql)
-        .context("Failed to execute migration V1")?;
-
-    // Mark V1 as applied
-    conn.execute("INSERT INTO __migrations (version) VALUES (1)", [])?;
 
     Ok(())
 }
