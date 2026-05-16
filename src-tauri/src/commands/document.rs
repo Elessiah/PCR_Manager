@@ -107,7 +107,11 @@ pub async fn document_upload(
 }
 
 #[tauri::command]
-pub async fn document_delete(id: i64, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn document_delete(
+    app_handle: tauri::AppHandle,
+    id: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
     let conn = state.conn.lock();
 
     let chemin_relatif: String = conn
@@ -120,6 +124,17 @@ pub async fn document_delete(id: i64, state: tauri::State<'_, DbState>) -> Resul
         .map_err(|e| e.to_string())?;
 
     drop(conn);
+
+    // Best-effort : on supprime le fichier physique après le DELETE SQL.
+    // Si la suppression filesystem échoue (fichier déjà absent, ACL, etc.),
+    // on ne fait pas échouer l'opération : la ligne DB est déjà partie,
+    // inutile de remonter une erreur côté UI pour un fichier orphelin.
+    let abs_path = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| e.to_string())?
+        .join(&chemin_relatif);
+    let _ = std::fs::remove_file(&abs_path);
 
     Ok(())
 }

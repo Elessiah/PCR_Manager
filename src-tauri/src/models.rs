@@ -40,6 +40,11 @@ pub struct Travailleur {
     pub updated_at: String,
 }
 
+/// Miroir 1:1 de la table `habilitation`. Pas encore exposé via une commande
+/// CRUD dédiée (l'app ne consomme que `HabilitationStatus` calculé), mais on
+/// garde la struct comme contrat stable pour de futures lectures détaillées
+/// et la sérialisation côté frontend.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Habilitation {
     pub id: i64,

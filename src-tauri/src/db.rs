@@ -1,5 +1,4 @@
 use rusqlite::Connection;
-use std::path::PathBuf;
 use anyhow::{Result, Context};
 use parking_lot::Mutex;
 use tauri::Manager;
@@ -19,7 +18,7 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
 
     let db_path = app_data_dir.join("pcr.db");
 
-    let mut conn = Connection::open(&db_path)
+    let conn = Connection::open(&db_path)
         .context("Failed to open database connection")?;
 
     conn.execute_batch("PRAGMA key = 'CHANGEME_DEV_KEY';")?;
@@ -77,7 +76,7 @@ mod tests {
     fn create_test_db() -> Result<Connection> {
         let dir = tempfile::tempdir()?;
         let db_path = dir.path().join("test.db");
-        let mut conn = Connection::open(&db_path)?;
+        let conn = Connection::open(&db_path)?;
         conn.execute_batch("PRAGMA key = 'test-key';")?;
         Ok(conn)
     }
