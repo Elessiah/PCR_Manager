@@ -114,7 +114,7 @@ describe('TravailleurFiche', () => {
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
     await screen.findByText('Données personnelles')
-    expect(screen.getByText('Habilitation')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Habilitation/ })).toBeInTheDocument()
   })
 
   it('should display Données personnelles tab by default', async () => {
@@ -128,7 +128,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = await screen.findByText('Habilitation')
+    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await screen.findByText('Items d\'habilitation')
@@ -138,7 +138,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = await screen.findByText('Habilitation')
+    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await screen.findByText('Formation radioprotection')
@@ -147,25 +147,14 @@ describe('TravailleurFiche', () => {
     expect(screen.getByText('Visite médicale')).toBeInTheDocument()
   })
 
-  it('should display global status badge in Habilitation tab', async () => {
+  it('should display formation à l\'utilisation des appareils section', async () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = await screen.findByText('Habilitation')
+    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
-    await screen.findByText('Statut global')
-    expect(screen.getByText('Validee')).toBeInTheDocument()
-  })
-
-  it('should display competences par appareil subsection', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
-
-    const habilitationTab = await screen.findByText('Habilitation')
-    await user.click(habilitationTab)
-
-    await screen.findByText('Compétences par appareil')
+    await screen.findByText('Formation à l\'utilisation des appareils')
     expect(screen.getByText('Scanner CT General Electric')).toBeInTheDocument()
   })
 
@@ -180,7 +169,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = await screen.findByText('Habilitation')
+    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await waitFor(() => {
@@ -194,7 +183,7 @@ describe('TravailleurFiche', () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
-    const habilitationTab = await screen.findByText('Habilitation')
+    const habilitationTab = screen.getByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
     await waitFor(() => {

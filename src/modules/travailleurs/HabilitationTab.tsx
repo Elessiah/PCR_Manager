@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { habilitationToBadge } from '../../lib/habilitation';
 import { Badge } from '../../components/ui/Badge';
-import { Dot } from '../../components/ui/Dot';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
+import { Activity, GraduationCap, Stethoscope, CheckCircle2 } from 'lucide-react';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
 interface HabilitationTabProps {
@@ -16,90 +15,88 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     queryFn: () => api.habilitation.compute(travailleurId),
   });
 
-  const { data: travailleurs = [] } = useQuery({
-    queryKey: ['travailleurs'],
-    queryFn: () => api.travailleur.list(),
-  });
-
   const { data: appareils = [] } = useQuery({
     queryKey: ['appareils'],
     queryFn: () => api.appareil.list(),
   });
 
-  const travailleur = travailleurs.find(t => t.id === travailleurId);
+  const { data: travailleur } = useQuery({
+    queryKey: ['travailleur', travailleurId],
+    queryFn: () => api.travailleur.get(travailleurId),
+  });
 
   if (!habStatus || !travailleur) {
     return null;
   }
 
-  const badge = habilitationToBadge[habStatus.statut];
   const details = habStatus.details;
-
-  const getDotVariant = (isOk: boolean): 'ok' | 'warn' | 'danger' | 'neutral' => {
-    return isOk ? 'ok' : 'neutral';
-  };
-
   const travailleurAppareils = appareils.filter(
     a => a.etablissement_id === travailleur.etablissement_id
   );
 
+  const habItems = [
+    {
+      icon: Activity,
+      title: 'Dosimétries',
+      ok: details.dosimetries_ok,
+    },
+    {
+      icon: GraduationCap,
+      title: 'Formation radioprotection',
+      ok: details.formation_rp_ok,
+    },
+    {
+      icon: CheckCircle2,
+      title: 'Compétences',
+      ok: details.competences_ok,
+    },
+    {
+      icon: Stethoscope,
+      title: 'Visite médicale',
+      ok: details.visite_med_ok,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardBody className="flex items-center gap-4">
-          <div>
-            <div className="text-xs font-semibold text-textMuted uppercase tracking-wider">
-              Statut global
+        <CardHead>
+          <CardTitle>Items d'habilitation</CardTitle>
+        </CardHead>
+        <CardBody className="space-y-0">
+          {habItems.map((item, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-3.5 px-4 py-3.5 ${i < habItems.length - 1 ? 'border-b border-border' : ''}`}
+            >
+              <div className="w-8 h-8 flex items-center justify-center">
+                <item.icon className="w-5 h-5 text-textMuted" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">{item.title}</div>
+              </div>
+              <Badge variant={item.ok ? 'ok' : 'neutral'}>
+                {item.ok ? 'Validé' : 'Non validé'}
+              </Badge>
             </div>
-            <Badge variant={badge.variant} className="mt-2">
-              {badge.label}
-            </Badge>
-          </div>
+          ))}
         </CardBody>
       </Card>
 
       <Card>
         <CardHead>
-          <CardTitle>Items d'habilitation</CardTitle>
+          <CardTitle>Compétences par appareil</CardTitle>
         </CardHead>
         <CardBody className="space-y-4">
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <span className="text-sm font-medium">Formation radioprotection</span>
-            <Dot variant={getDotVariant(details.formation_rp_ok)} />
-          </div>
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <span className="text-sm font-medium">Dosimétries</span>
-            <Dot variant={getDotVariant(details.dosimetries_ok)} />
-          </div>
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <span className="text-sm font-medium">Compétences</span>
-            <Dot variant={getDotVariant(details.competences_ok)} />
-          </div>
-          <div className="flex items-center justify-between p-3">
-            <span className="text-sm font-medium">Visite médicale</span>
-            <Dot variant={getDotVariant(details.visite_med_ok)} />
-          </div>
+          {travailleurAppareils.map((appareil) => (
+            <CompetencesAppareilSubsheet
+              key={appareil.id}
+              appareilId={appareil.id}
+              travailleurId={travailleurId}
+            />
+          ))}
         </CardBody>
       </Card>
-
-      {travailleurAppareils.length > 0 && (
-        <Card>
-          <CardHead>
-            <CardTitle>Compétences par appareil</CardTitle>
-          </CardHead>
-          <CardBody className="space-y-6">
-            {travailleurAppareils.map(appareil => (
-              <div key={appareil.id}>
-                <h4 className="font-medium mb-3">{appareil.designation}</h4>
-                <CompetencesAppareilSubsheet
-                  appareilId={appareil.id}
-                  travailleurId={travailleurId}
-                />
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      )}
     </div>
   );
 }

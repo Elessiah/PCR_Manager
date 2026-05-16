@@ -1,24 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
-import { Button } from '../../components/ui/Button';
+import { Check } from 'lucide-react';
+import { Badge } from '../../components/ui/Badge';
 
 interface CompetencesAppareilSubsheetProps {
   appareilId: number;
   travailleurId: number;
 }
-
-const STATUS_CYCLE = {
-  'non_validee': 'validee_seule',
-  'validee_seule': 'validee_complete',
-  'validee_complete': 'non_validee',
-} as const;
-
-const STATUS_LABELS: Record<string, string> = {
-  'non_validee': 'Non validée',
-  'validee_seule': 'Validée seule',
-  'validee_complete': 'Validée complète',
-};
 
 export default function CompetencesAppareilSubsheet({
   appareilId,
@@ -44,64 +32,74 @@ export default function CompetencesAppareilSubsheet({
     },
   });
 
-  const handleCycleStatus = async (competenceRefId: number) => {
+  const handleToggle = async (competenceRefId: number) => {
     const existing = competences.find(
       c => c.appareil_id === appareilId && c.competence_ref_id === competenceRefId
     );
 
     const isValidated = existing?.validated === 1;
-    const currentStatus = isValidated ? 'validee_seule' : 'non_validee';
-    const nextStatus = STATUS_CYCLE[currentStatus as keyof typeof STATUS_CYCLE];
 
     await setMutation.mutateAsync({
       travailleurId,
       appareilId,
       competenceRefId,
-      validated: nextStatus !== 'non_validee' ? 1 : 0,
+      validated: isValidated ? 0 : 1,
     });
   };
 
   const appareilCompetences = competences.filter(c => c.appareil_id === appareilId);
+  const validatedCount = appareilCompetences.filter(c => c.validated === 1).length;
+  const variant = validatedCount === competenceRefs.length ? 'ok' : validatedCount > 0 ? 'warn' : 'neutral';
 
   return (
-    <Table>
-      <THead>
-        <TR>
-          <TH>Compétence</TH>
-          <TH>Statut</TH>
-          <TH style={{ width: 100, textAlign: 'right' }}>Actions</TH>
-        </TR>
-      </THead>
-      <TBody>
-        {competenceRefs.map(ref => {
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div></div>
+        <div className="flex items-center gap-2">
+          <span className="text-textMuted text-xs mono">{validatedCount}/{competenceRefs.length}</span>
+          <Badge variant={variant}>
+            {validatedCount === competenceRefs.length ? 'Complète' : validatedCount > 0 ? 'Partielle' : 'Non validée'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        {competenceRefs.map((ref, idx) => {
           const competence = appareilCompetences.find(
             c => c.competence_ref_id === ref.id
           );
-
-          const status = competence?.validated === 1 ? 'validee_seule' : 'non_validee';
+          const checked = competence?.validated === 1;
 
           return (
-            <TR key={ref.id}>
-              <TD>{ref.libelle}</TD>
-              <TD>
-                <span className="text-sm text-textMuted">
-                  {STATUS_LABELS[status]}
-                </span>
-              </TD>
-              <TD style={{ textAlign: 'right' }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleCycleStatus(ref.id)}
-                  disabled={setMutation.isPending}
-                >
-                  Éditer
-                </Button>
-              </TD>
-            </TR>
+            <button
+              key={ref.id}
+              onClick={() => handleToggle(ref.id)}
+              disabled={setMutation.isPending}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${
+                checked
+                  ? 'bg-okBg border-okBorder'
+                  : 'bg-surface border-border hover:border-textMuted'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center ${
+                  checked
+                    ? 'bg-ok border-ok'
+                    : 'bg-white border-borderStrong'
+                }`}
+              >
+                {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-xs text-textMuted mono">{String(idx + 1).padStart(2, '0')}</div>
+                <div className={`text-xs ${checked ? 'font-semibold text-ok' : 'text-text'}`}>
+                  {ref.libelle}
+                </div>
+              </div>
+            </button>
           );
         })}
-      </TBody>
-    </Table>
+      </div>
+    </div>
   );
 }
