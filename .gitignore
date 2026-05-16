@@ -125,5 +125,8 @@ logs/
 .vscode/settings.json
 .vscode/launch.json
 
+# Claude Code — settings locaux (non partagés en équipe)
+.claude/settings.local.json
+
 # Documentation
 docs/node_modules/
