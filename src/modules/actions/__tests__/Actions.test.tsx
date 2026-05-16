@@ -423,8 +423,8 @@ describe('Actions', () => {
       expect(badge).toHaveClass('bg-neutralBg');
     });
 
-    // Check that Visite méd. badge appears in table rows
-    const visitBadges = screen.getAllByText('Visite méd.');
+    // Check that Visite médicale badge appears in table rows
+    const visitBadges = screen.getAllByText('Visite médicale');
     const visitBadgeSpans = visitBadges.filter(el => el.tagName === 'SPAN');
     expect(visitBadgeSpans.length).toBeGreaterThan(0);
     visitBadgeSpans.forEach(badge => {
