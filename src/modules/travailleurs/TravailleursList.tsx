@@ -2,20 +2,30 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { habilitationToBadge } from '../../lib/habilitation';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
 import { Plus, Search, ChevronRight } from 'lucide-react';
-import { cn } from '../../lib/cn';
 
 type HabilitationFilter = 'tous' | 'validee' | 'partielle' | 'non_validee';
 
+function Avatar({ name, size = 28 }: { name: string; size?: number }) {
+  const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
+  return (
+    <span
+      className="inline-grid place-items-center rounded-full font-bold flex-shrink-0"
+      style={{ width: size, height: size, background: `oklch(0.92 0.04 ${hue})`, color: `oklch(0.45 0.15 ${hue})`, fontSize: size * 0.4 }}
+      data-testid={`avatar-${name}`}
+    >{initials}</span>
+  );
+}
+
 export default function TravailleursList() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [habilitationFilter, setHabilitationFilter] = useState<HabilitationFilter>('tous');
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<HabilitationFilter>('tous');
   const { data: travailleurs = [] } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
@@ -25,167 +35,92 @@ export default function TravailleursList() {
     queries: travailleurs.map(t => ({
       queryKey: ['habilitation', t.id],
       queryFn: () => api.habilitation.compute(t.id),
+      staleTime: 60_000,
     })),
   });
 
-  const habilitationMap = travailleurs.reduce((acc, t, idx) => {
-    const result = habilitationQueries[idx]?.data;
-    acc[t.id] = result?.statut ?? 'non_validee';
-    return acc;
-  }, {} as Record<number, string>);
+  const habilitations = useMemo(() => {
+    const map: Record<number, string> = {};
+    travailleurs.forEach((t, i) => {
+      map[t.id] = habilitationQueries[i]?.data?.statut ?? 'non_validee';
+    });
+    return map;
+  }, [travailleurs, habilitationQueries]);
 
-  const counts = useMemo(() => {
-    const validee = Object.values(habilitationMap).filter(s => s === 'validee').length;
-    const partielle = Object.values(habilitationMap).filter(s => s === 'partielle').length;
-    const non_validee = Object.values(habilitationMap).filter(s => s === 'non_validee').length;
-    return {
-      tous: travailleurs.length,
-      validee,
-      partielle,
-      non_validee,
-    };
-  }, [habilitationMap, travailleurs.length]);
+  const filters = [
+    { value: 'tous' as const, label: 'Tous', count: travailleurs.length },
+    { value: 'validee' as const, label: 'Validée', count: Object.values(habilitations).filter(v => v === 'validee').length },
+    { value: 'partielle' as const, label: 'Partielle', count: Object.values(habilitations).filter(v => v === 'partielle').length },
+    { value: 'non_validee' as const, label: 'Non validée', count: Object.values(habilitations).filter(v => v === 'non_validee').length },
+  ];
 
-  const filtered = travailleurs.filter(t => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch =
-      t.nom.toLowerCase().includes(query) ||
-      t.prenom.toLowerCase().includes(query) ||
-      (t.fonction?.toLowerCase().includes(query) ?? false);
+  const filtered = useMemo(() => travailleurs.filter(t => {
+    const matchSearch = !q || [t.nom, t.prenom, t.fonction].some(x => x?.toLowerCase().includes(q.toLowerCase()));
+    const matchStatus = filter === 'tous' || habilitations[t.id] === filter;
+    return matchSearch && matchStatus;
+  }), [travailleurs, q, filter, habilitations]);
 
-    if (!matchesSearch) return false;
-
-    if (habilitationFilter === 'tous') return true;
-    return habilitationMap[t.id] === habilitationFilter;
-  });
-
-  const handleRowClick = (id: number) => {
-    navigate(`/travailleurs/${id}`);
-  };
-
-  const getInitials = (prenom: string, nom: string) => {
-    return ((prenom?.[0] ?? nom?.[0] ?? '') + (nom?.[0] ?? '')).toUpperCase();
-  };
-
-  const getAvatarColors = (name: string) => {
-    const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
-    return {
-      bg: `hsl(${hue} 65% 85%)`,
-      fg: `hsl(${hue} 60% 30%)`,
-    };
-  };
+  const habToVariant = (s: string) => s === 'validee' ? 'ok' : s === 'partielle' ? 'warn' : 'danger';
+  const habToLabel = (s: string) => s === 'validee' ? 'Validée' : s === 'partielle' ? 'Partielle' : 'Non validée';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Travailleurs</h1>
-        <p className="text-sm text-textMuted">{travailleurs.length} travailleurs sous suivi radioprotection</p>
-      </div>
+    <div className="space-y-4">
+      <PageHead
+        title="Travailleurs"
+        sub={`${travailleurs.length} personnes suivies`}
+        actions={<button onClick={() => {}} className="btn-primary"><Plus size={14}/> Ajouter un travailleur</button>}
+      />
 
-      <div className="flex items-center gap-4">
-        <Button variant="primary" className="inline-flex items-center gap-2">
-          <Plus size={16} />
-          Nouveau travailleur
-        </Button>
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textMuted" size={16} />
-          <input
-            type="text"
-            placeholder="Rechercher un travailleur"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded border border-border bg-surface text-sm focus:outline-none focus:border-accent"
-          />
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1.5 w-[320px]">
+          <Search size={14} className="text-textSoft"/>
+          <input type="text" placeholder="Rechercher par nom, prénom, fonction…" value={q} onChange={e => setQ(e.target.value)} className="bg-transparent border-0 outline-0 flex-1 text-[13px] placeholder:text-textSoft"/>
         </div>
-        <span className="text-xs text-textMuted">{filtered.length} résultats</span>
-      </div>
-
-      <div className="flex gap-2">
-        {(['tous', 'validee', 'partielle', 'non_validee'] as HabilitationFilter[]).map((filter) => {
-          const labels: Record<HabilitationFilter, string> = {
-            tous: 'Tous',
-            validee: 'Validée',
-            partielle: 'Partielle',
-            non_validee: 'Non validée',
-          };
-          const isActive = habilitationFilter === filter;
-          return (
-            <button
-              key={filter}
-              onClick={() => setHabilitationFilter(filter)}
-              className={cn(
-                'inline-flex items-center gap-2 px-3 py-1.5 rounded font-medium text-sm transition-colors',
-                isActive
-                  ? 'bg-accent text-accentText'
-                  : 'bg-surface2 text-text border border-border hover:border-accent'
-              )}
-              data-testid={`filter-pill-${filter}`}
-            >
-              {labels[filter]}
-              <Badge variant={isActive ? 'accent' : 'neutral'} className="text-xs">
-                {counts[filter]}
-              </Badge>
+        <div className="inline-flex bg-surface2 border border-border rounded p-[3px] gap-[2px]">
+          {filters.map(f => (
+            <button key={f.value} onClick={() => setFilter(f.value)}
+              className={`border-0 px-[11px] py-[5px] font-semibold text-[12.5px] rounded-sm ${
+                filter === f.value ? 'bg-surface text-text shadow-sm' : 'bg-transparent text-textMuted'
+              }`}
+              data-testid={`filter-pill-${f.value}`}>
+              {f.label} <span className="font-mono text-[11.5px] opacity-60 ml-1.5">{f.count}</span>
             </button>
-          );
-        })}
+          ))}
+        </div>
+        <div className="flex-1"/>
+        <span className="text-textSoft font-mono text-[12.5px]">{filtered.length} résultats</span>
       </div>
 
-      <Card>
+      <Card className="p-0 overflow-hidden">
         <Table>
           <THead>
             <TR>
-              <TH style={{ width: 40 }}></TH>
+              <TH className="w-10"><input type="checkbox"/></TH>
               <TH>Nom</TH>
               <TH>Prénom</TH>
               <TH>Fonction</TH>
               <TH>Catégorie</TH>
-              <TH>Statut habilitation</TH>
-              <TH style={{ width: 50, textAlign: 'right' }}>Actions</TH>
+              <TH>Habilitation</TH>
+              <TH className="w-12"/>
             </TR>
           </THead>
           <TBody>
             {filtered.map(t => {
-              const habilitationStatus = habilitationMap[t.id];
-              const badge = habilitationToBadge[habilitationStatus as keyof typeof habilitationToBadge];
-              const colors = getAvatarColors(`${t.prenom} ${t.nom}`);
-              const initials = getInitials(t.prenom, t.nom);
+              const hab = habilitations[t.id];
               return (
-                <TR
-                  key={t.id}
-                  className="cursor-pointer"
-                  onClick={() => handleRowClick(t.id)}
-                >
+                <TR key={t.id} className="cursor-pointer" onClick={() => navigate(`/travailleurs/${t.id}`)}>
+                  <TD onClick={e => e.stopPropagation()}><input type="checkbox"/></TD>
                   <TD>
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: colors.bg,
-                        color: colors.fg,
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                      }}
-                      data-testid={`avatar-${t.id}`}
-                    >
-                      {initials}
+                    <div className="flex items-center gap-2">
+                      <Avatar name={`${t.prenom} ${t.nom}`} size={28}/>
+                      <span className="font-semibold uppercase">{t.nom}</span>
                     </div>
                   </TD>
-                  <TD>{t.nom.toUpperCase()}</TD>
                   <TD>{t.prenom}</TD>
                   <TD className="text-textMuted">{t.fonction}</TD>
-                  <TD className="text-textMuted">{t.categorie_reglementaire}</TD>
-                  <TD>
-                    <Badge variant={badge.variant}>
-                      {badge.label}
-                    </Badge>
-                  </TD>
-                  <TD style={{ textAlign: 'right' }}>
-                    <ChevronRight size={16} className="text-textMuted" />
-                  </TD>
+                  <TD><Badge variant="neutral" icon={null}>Cat. {t.categorie_reglementaire ?? '—'}</Badge></TD>
+                  <TD><Badge variant={habToVariant(hab)}>{habToLabel(hab)}</Badge></TD>
+                  <TD className="text-right"><ChevronRight size={14} className="text-textSoft"/></TD>
                 </TR>
               );
             })}

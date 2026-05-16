@@ -92,13 +92,13 @@ describe('TravailleursList', () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+      expect(screen.getByText('Dupont')).toBeInTheDocument()
     })
 
     expect(screen.getByText('Jean')).toBeInTheDocument()
-    expect(screen.getByText('MARTIN')).toBeInTheDocument()
+    expect(screen.getByText('Martin')).toBeInTheDocument()
     expect(screen.getByText('Marie')).toBeInTheDocument()
-    expect(screen.getByText('BERNARD')).toBeInTheDocument()
+    expect(screen.getByText('Bernard')).toBeInTheDocument()
     expect(screen.getByText('Pierre')).toBeInTheDocument()
   })
 
@@ -125,7 +125,7 @@ describe('TravailleursList', () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      expect(screen.getByText(/3 travailleurs/)).toBeInTheDocument()
+      expect(screen.getByText(/3 personnes suivies/)).toBeInTheDocument()
     })
   })
 
@@ -133,16 +133,16 @@ describe('TravailleursList', () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      const avatar1 = screen.getByTestId('avatar-1')
+      const avatar1 = screen.getByTestId('avatar-Jean Dupont')
       expect(avatar1).toBeInTheDocument()
       expect(avatar1).toHaveTextContent('JD')
     })
 
-    const avatar2 = screen.getByTestId('avatar-2')
+    const avatar2 = screen.getByTestId('avatar-Marie Martin')
     expect(avatar2).toBeInTheDocument()
     expect(avatar2).toHaveTextContent('MM')
 
-    const avatar3 = screen.getByTestId('avatar-3')
+    const avatar3 = screen.getByTestId('avatar-Pierre Bernard')
     expect(avatar3).toBeInTheDocument()
     expect(avatar3).toHaveTextContent('PB')
   })
@@ -152,11 +152,11 @@ describe('TravailleursList', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Catégorie')).toBeInTheDocument()
-      expect(screen.getByText('A')).toBeInTheDocument()
+      expect(screen.getByText('Cat. A')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('B')).toBeInTheDocument()
-    expect(screen.getByText('C')).toBeInTheDocument()
+    expect(screen.getByText('Cat. B')).toBeInTheDocument()
+    expect(screen.getByText('Cat. C')).toBeInTheDocument()
   })
 
   it('should call habilitation_compute for each travailleur', async () => {
@@ -182,10 +182,9 @@ describe('TravailleursList', () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+      expect(screen.getByText('Dupont')).toBeInTheDocument()
     })
 
-    // No button with a lucide-pencil SVG should be present
     const pencilSvgs = document.querySelectorAll('svg.lucide-pencil')
     expect(pencilSvgs.length).toBe(0)
   })
@@ -225,40 +224,40 @@ describe('TravailleursList', () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+      expect(screen.getByText('Dupont')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('MARTIN')).toBeInTheDocument()
-    expect(screen.getByText('BERNARD')).toBeInTheDocument()
+    expect(screen.getByText('Martin')).toBeInTheDocument()
+    expect(screen.getByText('Bernard')).toBeInTheDocument()
 
     const user = userEvent.setup()
     const valideePill = screen.getByTestId('filter-pill-validee')
     await user.click(valideePill)
 
-    expect(screen.getByText('DUPONT')).toBeInTheDocument()
-    expect(screen.queryByText('MARTIN')).not.toBeInTheDocument()
-    expect(screen.queryByText('BERNARD')).not.toBeInTheDocument()
+    expect(screen.getByText('Dupont')).toBeInTheDocument()
+    expect(screen.queryByText('Martin')).not.toBeInTheDocument()
+    expect(screen.queryByText('Bernard')).not.toBeInTheDocument()
   })
 
   it('should display all travailleurs when Tous pill is selected', async () => {
     renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
 
     await waitFor(() => {
-      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+      expect(screen.getByText('Dupont')).toBeInTheDocument()
     })
 
     const user = userEvent.setup()
     const valideePill = screen.getByTestId('filter-pill-validee')
     await user.click(valideePill)
 
-    expect(screen.getByText('DUPONT')).toBeInTheDocument()
-    expect(screen.queryByText('MARTIN')).not.toBeInTheDocument()
+    expect(screen.getByText('Dupont')).toBeInTheDocument()
+    expect(screen.queryByText('Martin')).not.toBeInTheDocument()
 
     const tousPill = screen.getByTestId('filter-pill-tous')
     await user.click(tousPill)
 
-    expect(screen.getByText('DUPONT')).toBeInTheDocument()
-    expect(screen.getByText('MARTIN')).toBeInTheDocument()
-    expect(screen.getByText('BERNARD')).toBeInTheDocument()
+    expect(screen.getByText('Dupont')).toBeInTheDocument()
+    expect(screen.getByText('Martin')).toBeInTheDocument()
+    expect(screen.getByText('Bernard')).toBeInTheDocument()
   })
 })
