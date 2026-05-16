@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { KpiTile } from '../../components/ui/KpiTile';
-import { Card, CardBody, CardTitle } from '../../components/ui/Card';
+import { Card, CardHead, CardBody, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Dot } from '../../components/ui/Dot';
+import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import type { Appareil, VerificationTechnique, ControleQualite, HabilitationStatus } from '../../types/domain';
-import { AlertCircle, CheckCircle, Clock, Zap, FileCheck, AlertTriangle } from 'lucide-react';
+import { Download, RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap } from 'lucide-react';
 
 interface Action {
   id: string;
@@ -22,6 +25,8 @@ interface Action {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   const { data: travailleurs = [], isLoading: loadingTrav } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
@@ -134,22 +139,21 @@ export default function Dashboard() {
   }, [appareils, verifications, controles]);
 
   const alertCategories = useMemo(() => {
-    const verifications = actions.filter(a => a.categorie === 'verification');
-    const controles = actions.filter(a => a.categorie === 'controle');
+    const verificationsList = actions.filter(a => a.categorie === 'verification');
+    const controlesList = actions.filter(a => a.categorie === 'controle');
 
     const countByStatus = (items: Action[]) => {
       const danger = items.filter(a => statusFromDate(a.deadline, 1) === 'en_retard').length;
       const warn = items.filter(a => statusFromDate(a.deadline, 3) === 'a_prevoir').length;
-      const ok = items.filter(a => statusFromDate(a.deadline, 3) === 'valide').length;
-      return { danger, warn, ok };
+      return { danger, warn };
     };
 
     return {
-      formations: { danger: 0, warn: 0, ok: 0 },
-      visites: { danger: 0, warn: 0, ok: 0 },
-      verifications: countByStatus(verifications),
-      controles: countByStatus(controles),
-      dosimetrie: { danger: 0, warn: 0, ok: 0 },
+      formations: { danger: 0, warn: 0 },
+      visites: { danger: 0, warn: 0 },
+      verifications: countByStatus(verificationsList),
+      controles: countByStatus(controlesList),
+      dosimetrie: { danger: 0, warn: 0 },
     };
   }, [actions]);
 
@@ -203,6 +207,12 @@ export default function Dashboard() {
     return actions.filter(a => statusFromDate(a.deadline, 3) === 'a_prevoir').length;
   }, [actions]);
 
+  const todayFormatted = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
@@ -224,122 +234,139 @@ export default function Dashboard() {
   }
 
   const topActions = actions.slice(0, 8);
+  const valideePartielle = habilitationsStats.validee + habilitationsStats.partielle;
+
+  const sources = [
+    { key: 'formations', label: 'Formations', icon: FileCheck, danger: alertCategories.formations.danger, warn: alertCategories.formations.warn },
+    { key: 'visites', label: 'Visites médicales', icon: CheckCircle, danger: alertCategories.visites.danger, warn: alertCategories.visites.warn },
+    { key: 'verifications', label: 'Vérifications', icon: ShieldCheck, danger: alertCategories.verifications.danger, warn: alertCategories.verifications.warn },
+    { key: 'controles', label: 'Contrôles qualité', icon: Activity, danger: alertCategories.controles.danger, warn: alertCategories.controles.warn },
+    { key: 'dosimetrie', label: 'Dosimétrie', icon: Zap, danger: alertCategories.dosimetrie.danger, warn: alertCategories.dosimetrie.warn },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* KPI Row */}
-      <div className="grid grid-cols-3 gap-4">
+      <PageHead
+        title="Tableau de bord"
+        sub={`État réglementaire du service au ${todayFormatted}`}
+        actions={
+          <>
+            <button className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-textMuted hover:text-text border border-border rounded-md">
+              <Download size={14} />
+              Exporter
+            </button>
+            <button className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accentDark border border-accentBorder rounded-md">
+              <RefreshCw size={14} />
+              Actualiser
+            </button>
+          </>
+        }
+      />
+
+      {/* KPI Grid 3 cols */}
+      <div className="grid grid-cols-3 gap-3.5">
         <KpiTile
           label="En retard"
           value={kpiInRetard}
-          footer="Actions invalides/dépassées"
           tone="danger"
-          chip={<><AlertTriangle size={12} /> {kpiInRetard} action(s)</>}
+          chip={<Badge variant="danger">{kpiInRetard} action{kpiInRetard !== 1 ? 's' : ''}</Badge>}
+          footer="Échéances réglementaires dépassées"
         />
         <KpiTile
           label="À prévoir"
           value={kpiAPrevoir}
-          footer="Échéances < 90 jours"
           tone="warn"
-          chip={<><Clock size={12} /> 90 jours</>}
+          chip={<Badge variant="warn">90 jours</Badge>}
+          footer="Échéances dans les 3 mois"
         />
         <KpiTile
           label="À jour"
-          value={`${habilitationsStats.validee + habilitationsStats.partielle}/${travailleurs.length}`}
-          footer="Travailleurs"
+          value={`${valideePartielle} / ${travailleurs.length}`}
           tone="ok"
-          chip={<><CheckCircle size={12} /> Conforme</>}
+          chip={<Badge variant="ok">Conforme</Badge>}
+          footer="Travailleurs avec habilitation valide ou partielle"
         />
       </div>
 
-      {/* 2-Column Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '1.5rem' }}>
-        {/* Left Column: Prioritary Deadlines */}
+      {/* 2-col grid 1.6fr / 1fr */}
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+        {/* LEFT — Échéances prioritaires */}
         <Card>
-          <CardTitle className="mb-4">Échéances prioritaires</CardTitle>
-          <CardBody className="p-0">
-            {topActions.length === 0 ? (
-              <p className="text-textMuted text-sm p-4">Aucune action.</p>
-            ) : (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Sujet</TH>
-                    <TH>Type</TH>
-                    <TH>Échéance</TH>
-                    <TH>Statut</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {topActions.map(action => {
-                    const status = statusFromDate(action.deadline, 1);
-                    return (
-                      <TR key={action.id}>
-                        <TD>
-                          <div className="font-medium text-sm">{action.cible.label}</div>
-                          <div className="text-xs text-textMuted mt-0.5">{action.libelle}</div>
-                        </TD>
-                        <TD className="text-accent text-sm font-medium">
-                          {action.categorie === 'verification' ? 'Vérification' : 'Contrôle'}
-                        </TD>
-                        <TD>
-                          <div className="text-sm">
-                            {formatDate(action.deadline)}
-                            <div className="text-xs text-textMuted">{relDay(action.deadline)}</div>
-                          </div>
-                        </TD>
-                        <TD>
-                          <Badge
-                            variant={statusToBadgeVariant[status]}
-                            icon={
-                              status === 'en_retard' ? <AlertTriangle size={12} /> :
-                              status === 'a_prevoir' ? <Clock size={12} /> :
-                              <CheckCircle size={12} />
-                            }
-                          >
-                            {status === 'en_retard' ? 'Invalide' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
-                          </Badge>
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </Table>
-            )}
-          </CardBody>
+          <CardHead>
+            <CardTitle>Échéances prioritaires</CardTitle>
+            <button
+              onClick={() => navigate('/actions')}
+              className="inline-flex items-center gap-1 text-textMuted hover:text-text text-xs font-semibold"
+            >
+              Voir toutes les actions
+              <RefreshCw size={14} style={{ transform: 'rotate(90deg)' }} />
+            </button>
+          </CardHead>
+          {topActions.length === 0 ? (
+            <CardBody className="text-textMuted text-sm">Aucune action.</CardBody>
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Sujet</TH>
+                  <TH>Type</TH>
+                  <TH>Échéance</TH>
+                  <TH className="text-right">Statut</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {topActions.map(action => {
+                  const status = statusFromDate(action.deadline, 1);
+                  return (
+                    <TR
+                      key={action.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/appareils/${action.cible.id}`)}
+                    >
+                      <TD>
+                        <div className="font-semibold">{action.cible.label}</div>
+                        <div className="text-textSoft text-xs mt-px">{action.libelle}</div>
+                      </TD>
+                      <TD className="text-textMuted text-sm">
+                        {action.categorie === 'verification' ? 'Vérification' : 'Contrôle'}
+                      </TD>
+                      <TD>
+                        <div className="font-mono tabular-nums text-xs">{formatDate(action.deadline)}</div>
+                        <div className="text-textSoft text-xs mt-px">{relDay(action.deadline)}</div>
+                      </TD>
+                      <TD className="text-right">
+                        <Badge variant={statusToBadgeVariant[status]}>
+                          {status === 'en_retard' ? 'Invalide' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
+                        </Badge>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          )}
         </Card>
 
-        {/* Right Column: 3 stacked cards */}
-        <div className="space-y-4">
+        {/* RIGHT — 3 cards stacked */}
+        <div className="flex flex-col gap-3.5">
           {/* Sources des alertes */}
           <Card>
-            <CardTitle className="mb-4 px-5 pt-4">Sources des alertes</CardTitle>
-            <CardBody className="space-y-3">
-              {[
-                { label: 'Formations', icon: FileCheck, ...alertCategories.formations },
-                { label: 'Visites médicales', icon: CheckCircle, ...alertCategories.visites },
-                { label: 'Vérifications', icon: AlertCircle, ...alertCategories.verifications },
-                { label: 'Contrôles qualité', icon: Clock, ...alertCategories.controles },
-                { label: 'Dosimétrie', icon: Zap, ...alertCategories.dosimetrie },
-              ].map((cat, idx) => {
-                const IconComponent = cat.icon;
-                const allZero = cat.danger === 0 && cat.warn === 0 && cat.ok === 0;
+            <CardHead>
+              <CardTitle>Sources des alertes</CardTitle>
+            </CardHead>
+            <CardBody className="flex flex-col gap-2.5">
+              {sources.map(src => {
+                const IconComponent = src.icon;
                 return (
-                  <div key={idx} className="flex items-center gap-3">
-                    <IconComponent size={30} className="text-textMuted flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-text">{cat.label}</div>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        {allZero ? (
-                          <Badge variant="ok" icon={<CheckCircle size={12} />}>À jour</Badge>
-                        ) : (
-                          <>
-                            {cat.danger > 0 && <Badge variant="danger">{cat.danger}</Badge>}
-                            {cat.warn > 0 && <Badge variant="warn">{cat.warn}</Badge>}
-                            {cat.ok > 0 && <Badge variant="ok">{cat.ok}</Badge>}
-                          </>
-                        )}
-                      </div>
+                  <div key={src.key} className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-surface2 border border-border grid place-items-center text-textMuted flex-shrink-0">
+                      <IconComponent size={14} />
+                    </div>
+                    <div className="flex-1 text-sm font-medium">{src.label}</div>
+                    <div className="flex gap-1.5 flex-wrap justify-end">
+                      {src.danger > 0 && <Badge variant="danger">{src.danger} retard</Badge>}
+                      {src.warn > 0 && <Badge variant="warn">{src.warn} à prévoir</Badge>}
+                      {src.danger === 0 && src.warn === 0 && <Badge variant="ok">À jour</Badge>}
                     </div>
                   </div>
                 );
@@ -349,141 +376,99 @@ export default function Dashboard() {
 
           {/* Habilitations travailleurs */}
           <Card>
-            <CardTitle className="mb-4 px-5 pt-4">Habilitations travailleurs</CardTitle>
+            <CardHead>
+              <CardTitle>Habilitations travailleurs</CardTitle>
+            </CardHead>
             <CardBody>
-              <div className="space-y-3">
-                {habilitationsStats.validee + habilitationsStats.partielle + habilitationsStats.non_validee === 0 ? (
-                  <div className="text-xs text-textMuted">Aucune donnée</div>
-                ) : (
-                  <>
-                    <div className="flex gap-1 h-6 rounded overflow-hidden bg-borderLight">
-                      {habilitationsStats.validee > 0 && (
+              {habilitationsStats.validee + habilitationsStats.partielle + habilitationsStats.non_validee === 0 ? (
+                <div className="text-xs text-textMuted">Aucune donnée</div>
+              ) : (
+                <>
+                  {/* Segment bar */}
+                  <div className="flex gap-1.5 mb-3">
+                    {[
+                      { count: habilitationsStats.validee, color: 'ok' },
+                      { count: habilitationsStats.partielle, color: 'warn' },
+                      { count: habilitationsStats.non_validee, color: 'danger' },
+                    ].map((seg, i) => (
+                      seg.count > 0 && (
                         <div
-                          style={{
-                            flex: habilitationsStats.validee,
-                            backgroundColor: 'var(--ok)',
-                          }}
-                          className="min-w-1"
+                          key={i}
+                          className="h-2 rounded-sm flex-1 min-w-3"
+                          style={{ backgroundColor: `var(--${seg.color})` }}
                         />
-                      )}
-                      {habilitationsStats.partielle > 0 && (
-                        <div
-                          style={{
-                            flex: habilitationsStats.partielle,
-                            backgroundColor: 'var(--warn)',
-                          }}
-                          className="min-w-1"
-                        />
-                      )}
-                      {habilitationsStats.non_validee > 0 && (
-                        <div
-                          style={{
-                            flex: habilitationsStats.non_validee,
-                            backgroundColor: 'var(--danger)',
-                          }}
-                          className="min-w-1"
-                        />
-                      )}
-                      {habilitationsStats.validee + habilitationsStats.partielle + habilitationsStats.non_validee === 0 && (
-                        <div className="w-full bg-borderLight" />
-                      )}
+                      )
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Dot variant="ok" />
+                      <span className="flex-1">Validée</span>
+                      <span className="font-mono tabular-nums text-textSoft">{habilitationsStats.validee}</span>
                     </div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">Validée</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{habilitationsStats.validee}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--ok)' }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">Partielle</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{habilitationsStats.partielle}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--warn)' }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">Non validée</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{habilitationsStats.non_validee}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--danger)' }} />
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Dot variant="warn" />
+                      <span className="flex-1">Partielle</span>
+                      <span className="font-mono tabular-nums text-textSoft">{habilitationsStats.partielle}</span>
                     </div>
-                  </>
-                )}
-              </div>
+                    <div className="flex items-center gap-2">
+                      <Dot variant="danger" />
+                      <span className="flex-1">Non validée</span>
+                      <span className="font-mono tabular-nums text-textSoft">{habilitationsStats.non_validee}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardBody>
           </Card>
 
           {/* Parc d'appareils */}
           <Card>
-            <CardTitle className="mb-4 px-5 pt-4">Parc d'appareils</CardTitle>
+            <CardHead>
+              <CardTitle>Parc d'appareils</CardTitle>
+            </CardHead>
             <CardBody>
-              <div className="space-y-3">
-                {appareilsStats.valide + appareilsStats.a_prevoir + appareilsStats.en_retard === 0 ? (
-                  <div className="text-xs text-textMuted">Aucune donnée</div>
-                ) : (
-                  <>
-                    <div className="flex gap-1 h-6 rounded overflow-hidden bg-borderLight">
-                      {appareilsStats.valide > 0 && (
+              {appareilsStats.valide + appareilsStats.a_prevoir + appareilsStats.en_retard === 0 ? (
+                <div className="text-xs text-textMuted">Aucune donnée</div>
+              ) : (
+                <>
+                  {/* Segment bar */}
+                  <div className="flex gap-1.5 mb-3">
+                    {[
+                      { count: appareilsStats.valide, color: 'ok' },
+                      { count: appareilsStats.a_prevoir, color: 'warn' },
+                      { count: appareilsStats.en_retard, color: 'danger' },
+                    ].map((seg, i) => (
+                      seg.count > 0 && (
                         <div
-                          style={{
-                            flex: appareilsStats.valide,
-                            backgroundColor: 'var(--ok)',
-                          }}
-                          className="min-w-1"
+                          key={i}
+                          className="h-2 rounded-sm flex-1 min-w-3"
+                          style={{ backgroundColor: `var(--${seg.color})` }}
                         />
-                      )}
-                      {appareilsStats.a_prevoir > 0 && (
-                        <div
-                          style={{
-                            flex: appareilsStats.a_prevoir,
-                            backgroundColor: 'var(--warn)',
-                          }}
-                          className="min-w-1"
-                        />
-                      )}
-                      {appareilsStats.en_retard > 0 && (
-                        <div
-                          style={{
-                            flex: appareilsStats.en_retard,
-                            backgroundColor: 'var(--danger)',
-                          }}
-                          className="min-w-1"
-                        />
-                      )}
-                      {appareilsStats.valide + appareilsStats.a_prevoir + appareilsStats.en_retard === 0 && (
-                        <div className="w-full bg-borderLight" />
-                      )}
+                      )
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Dot variant="ok" />
+                      <span className="flex-1">Valide</span>
+                      <span className="font-mono tabular-nums text-textSoft">{appareilsStats.valide}</span>
                     </div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">Valide</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{appareilsStats.valide}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--ok)' }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">À prévoir</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{appareilsStats.a_prevoir}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--warn)' }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-textMuted">En retard</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{appareilsStats.en_retard}</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--danger)' }} />
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Dot variant="warn" />
+                      <span className="flex-1">À prévoir</span>
+                      <span className="font-mono tabular-nums text-textSoft">{appareilsStats.a_prevoir}</span>
                     </div>
-                  </>
-                )}
-              </div>
+                    <div className="flex items-center gap-2">
+                      <Dot variant="danger" />
+                      <span className="flex-1">En retard</span>
+                      <span className="font-mono tabular-nums text-textSoft">{appareilsStats.en_retard}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardBody>
           </Card>
         </div>

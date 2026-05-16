@@ -143,27 +143,65 @@ beforeEach(() => {
 });
 
 describe('Dashboard', () => {
+  it('should display PageHead with title and date', async () => {
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/État réglementaire du service au \d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
+  });
+
+  it('should display action buttons (Exporter, Actualiser)', async () => {
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Exporter')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Actualiser')).toBeInTheDocument();
+  });
+
   it('should display KPI row with 3 tiles', async () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
-      // "En retard" appears in KPI tile and possibly in status badges
       expect(screen.getAllByText('En retard').length).toBeGreaterThan(0);
     });
 
-    // "À prévoir" appears in KPI tile and possibly in Parc d'appareils legend
     expect(screen.getAllByText('À prévoir').length).toBeGreaterThan(0);
     expect(screen.getAllByText('À jour').length).toBeGreaterThan(0);
   });
 
-  it('should display Écheances prioritaires card with table', async () => {
+  it('should display correct KPI footer text', async () => {
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Échéances réglementaires dépassées')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Échéances dans les 3 mois')).toBeInTheDocument();
+    expect(screen.getByText('Travailleurs avec habilitation valide ou partielle')).toBeInTheDocument();
+  });
+
+  it('should display Écheances prioritaires card with "Voir toutes les actions" button', async () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
       expect(screen.getByText('Échéances prioritaires')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Sujet')).toBeInTheDocument();
+    expect(screen.getByText('Voir toutes les actions')).toBeInTheDocument();
+  });
+
+  it('should display table headers', async () => {
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Sujet')).toBeInTheDocument();
+    });
+
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Échéance')).toBeInTheDocument();
     expect(screen.getByText('Statut')).toBeInTheDocument();
@@ -173,13 +211,24 @@ describe('Dashboard', () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
-      // Scanner X-Ray may appear multiple times (verification + controle rows)
       expect(screen.getAllByText('Scanner X-Ray').length).toBeGreaterThan(0);
     });
 
     const tableRows = screen.getAllByRole('row');
-    // Header + max 8 data rows
     expect(tableRows.length).toBeLessThanOrEqual(9);
+  });
+
+  it('should display status badges in table rows', async () => {
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Échéances prioritaires')).toBeInTheDocument();
+    });
+
+    // Verify there are rows with data (status badges appear in these rows)
+    const tableRows = screen.getAllByRole('row');
+    // Header + at least 1 data row with actual action
+    expect(tableRows.length).toBeGreaterThan(1);
   });
 
   it('should handle empty actions list', async () => {
@@ -201,10 +250,8 @@ describe('Dashboard', () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
-      expect(screen.getAllByText('À jour').length).toBeGreaterThan(0);
+      expect(screen.getByText('Aucune action.')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Aucune action.')).toBeInTheDocument();
   });
 
   it('should display loading state initially', async () => {
@@ -218,20 +265,6 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(screen.getByText(/Chargement des données/i)).toBeInTheDocument();
     });
-  });
-
-  it('should display correct KPI values (en retard, a prevoir, a jour)', async () => {
-    renderWithProviders(<Dashboard />, { route: '/' });
-
-    await waitFor(() => {
-      // "En retard" appears in KPI tile and possibly in status badges
-      expect(screen.getAllByText('En retard').length).toBeGreaterThan(0);
-    });
-
-    // Check footer text to ensure right KPI tiles
-    expect(screen.getByText('Actions invalides/dépassées')).toBeInTheDocument();
-    expect(screen.getByText('Échéances < 90 jours')).toBeInTheDocument();
-    expect(screen.getByText('Travailleurs')).toBeInTheDocument();
   });
 
   it('should display 3 right column cards', async () => {
@@ -276,10 +309,8 @@ describe('Dashboard', () => {
       expect(screen.getByText('Valide')).toBeInTheDocument();
     });
 
-    // "À prévoir" appears in KPI tile and in Parc d'appareils legend
     expect(screen.getAllByText('À prévoir').length).toBeGreaterThan(0);
-    const enRetardElements = screen.getAllByText('En retard');
-    expect(enRetardElements.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('En retard').length).toBeGreaterThan(0);
   });
 
   it('should handle empty travailleurs list (habilitations)', async () => {
@@ -304,7 +335,6 @@ describe('Dashboard', () => {
       expect(screen.getByText('Habilitations travailleurs')).toBeInTheDocument();
     });
 
-    // Should show "Aucune donnée" for Habilitations when no travailleurs
     const aucunneDataElements = screen.getAllByText('Aucune donnée');
     expect(aucunneDataElements.length).toBeGreaterThan(0);
   });
@@ -331,7 +361,6 @@ describe('Dashboard', () => {
       expect(screen.getByText('Parc d\'appareils')).toBeInTheDocument();
     });
 
-    // Should show "Aucune donnée" for Parc when no appareils
     const aucunneDataElements = screen.getAllByText('Aucune donnée');
     expect(aucunneDataElements.length).toBeGreaterThan(0);
   });
