@@ -7,6 +7,7 @@ import TravailleurFiche from './modules/travailleurs/TravailleurFiche';
 import AppareilsList from './modules/appareils/AppareilsList';
 import AppareilFiche from './modules/appareils/AppareilFiche';
 import Actions from './modules/actions/Actions';
+import CompetencesList from './modules/competences/CompetencesList';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="travailleurs/:id" element={<TravailleurFiche />} />
         <Route path="appareils" element={<AppareilsList />} />
         <Route path="appareils/:id" element={<AppareilFiche />} />
+        <Route path="competences" element={<CompetencesList />} />
         <Route path="actions" element={<Actions />} />
       </Route>
     </Routes>

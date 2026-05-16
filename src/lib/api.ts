@@ -99,6 +99,11 @@ export const api = {
 
   competence: {
     list: () => invoke<CompetenceRef[]>('competence_list'),
+    refCreate: (input: { libelle: string; ordre: number }) =>
+      invoke<CompetenceRef>('competence_ref_create', input),
+    refUpdate: (input: { id: number; libelle: string; ordre: number }) =>
+      invoke<void>('competence_ref_update', input),
+    refDelete: (id: number) => invoke<void>('competence_ref_delete', { id }),
     set: (input: {
       travailleurId: number;
       appareilId: number;

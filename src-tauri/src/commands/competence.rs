@@ -2,6 +2,49 @@ use crate::db::DbState;
 use crate::models::{CompetenceRef, CompetenceTravailleur};
 
 #[tauri::command]
+pub async fn competence_ref_create(
+    libelle: String,
+    ordre: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<CompetenceRef, String> {
+    let conn = state.conn.lock();
+    conn.execute(
+        "INSERT INTO competence_ref (libelle, ordre) VALUES (?1, ?2)",
+        rusqlite::params![libelle, ordre],
+    )
+    .map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    Ok(CompetenceRef { id, libelle, ordre })
+}
+
+#[tauri::command]
+pub async fn competence_ref_update(
+    id: i64,
+    libelle: String,
+    ordre: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let conn = state.conn.lock();
+    conn.execute(
+        "UPDATE competence_ref SET libelle = ?1, ordre = ?2 WHERE id = ?3",
+        rusqlite::params![libelle, ordre, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn competence_ref_delete(
+    id: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let conn = state.conn.lock();
+    conn.execute("DELETE FROM competence_ref WHERE id = ?1", rusqlite::params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn competence_list(state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
     let conn = state.conn.lock();
     let mut stmt = conn

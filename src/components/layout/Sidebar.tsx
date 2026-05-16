@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Wrench, ListChecks } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Wrench, ListChecks, BookOpen } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -78,6 +78,7 @@ export default function Sidebar() {
     { to: '/etablissement', icon: <Building2 size={16} strokeWidth={1.75} />, label: 'Établissement' },
     { to: '/travailleurs', icon: <Users size={16} strokeWidth={1.75} />, label: 'Travailleurs', count: travailleurs.length, countVariant: 'accent' },
     { to: '/appareils', icon: <Wrench size={16} strokeWidth={1.75} />, label: 'Appareils', count: appareils.length, countVariant: 'accent' },
+    { to: '/competences', icon: <BookOpen size={16} strokeWidth={1.75} />, label: 'Compétences' },
     { to: '/actions', icon: <ListChecks size={16} strokeWidth={1.75} />, label: 'Actions', count: countRetardActions(), countVariant: 'danger' },
   ];
 
