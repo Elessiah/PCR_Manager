@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { invoke } from '@tauri-apps/api/core';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
-import type { Appareil, VerificationTechnique, ControleQualite } from '../../types/domain';
-import { PillFilter } from '../../components/ui/PillFilter';
+import { cn } from '../../lib/cn';
+import type { Appareil, VerificationTechnique, ControleQualite, Travailleur, Habilitation } from '../../types/domain';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Dot } from '../../components/ui/Dot';
 
 type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'formation' | 'controle' | 'visite_med';
-type ActionCategory = 'verification' | 'controle';
+type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med';
 
 interface Action {
   id: string;
@@ -18,7 +19,7 @@ interface Action {
   libelle: string;
   deadline: string | null;
   cible: {
-    type: 'appareil';
+    type: 'appareil' | 'travailleur';
     id: number;
     label: string;
   };
@@ -41,6 +42,25 @@ export default function Actions() {
   const { data: controleQualites = [] } = useQuery({
     queryKey: ['controleQualites'],
     queryFn: () => api.controleQualite.list(),
+  });
+
+  const { data: travailleurs = [] } = useQuery({
+    queryKey: ['travailleurs'],
+    queryFn: () => api.travailleur.list(),
+  });
+
+  const habilitationQueries = useQueries({
+    queries: travailleurs.map((t) => ({
+      queryKey: ['habilitation', 'raw', t.id],
+      queryFn: () => invoke<Habilitation>('habilitation_get_for_travailleur', { travailleurId: t.id }),
+    })),
+  });
+
+  const habilitations = new Map<number, Habilitation>();
+  habilitationQueries.forEach((q, idx) => {
+    if (q.data && travailleurs[idx]) {
+      habilitations.set(travailleurs[idx].id, q.data);
+    }
   });
 
   const buildActions = (): Action[] => {
@@ -105,6 +125,50 @@ export default function Actions() {
       });
     });
 
+    // Actions Formation et Visite médicale à partir des habilitations
+    travailleurs.forEach((travailleur) => {
+      const hab = habilitations.get(travailleur.id);
+      if (!hab) return;
+
+      // Formation RP: date_formation + 1 an
+      if (hab.formation_rp_travailleurs_date) {
+        const formationDate = new Date(hab.formation_rp_travailleurs_date);
+        const deadline = new Date(formationDate);
+        deadline.setFullYear(deadline.getFullYear() + 1);
+
+        actions.push({
+          id: `formation-${travailleur.id}`,
+          categorie: 'formation',
+          libelle: 'Formation radioprotection',
+          deadline: deadline.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+
+      // Visite médicale: date_visite_medicale + 1 an
+      if (hab.visite_medicale_date) {
+        const visitDate = new Date(hab.visite_medicale_date);
+        const deadline = new Date(visitDate);
+        deadline.setFullYear(deadline.getFullYear() + 1);
+
+        actions.push({
+          id: `visite_med-${travailleur.id}`,
+          categorie: 'visite_med',
+          libelle: 'Visite médicale',
+          deadline: deadline.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+    });
+
     return actions;
   };
 
@@ -117,10 +181,8 @@ export default function Actions() {
     if (filter === 'en_retard') return status === 'en_retard';
     if (filter === 'a_venir') return status === 'a_prevoir';
     if (filter === 'controle') return action.categorie === 'controle';
-
-    // Catégories non disponibles (données manquantes)
-    if (filter === 'formation') return false;
-    if (filter === 'visite_med') return false;
+    if (filter === 'formation') return action.categorie === 'formation';
+    if (filter === 'visite_med') return action.categorie === 'visite_med';
 
     return true;
   });
@@ -156,6 +218,19 @@ export default function Actions() {
     { value: 'visite_med', label: 'Visite méd.' },
   ];
 
+  const calculateCounts = (): Record<FilterValue, number> => {
+    return {
+      tout: allActions.length,
+      en_retard: allActions.filter(a => statusFromDate(a.deadline) === 'en_retard').length,
+      a_venir: allActions.filter(a => statusFromDate(a.deadline) === 'a_prevoir').length,
+      formation: allActions.filter(a => a.categorie === 'formation').length,
+      controle: allActions.filter(a => a.categorie === 'controle').length,
+      visite_med: allActions.filter(a => a.categorie === 'visite_med').length,
+    };
+  };
+
+  const counts = calculateCounts();
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -163,7 +238,28 @@ export default function Actions() {
         <p className="text-sm text-textMuted mt-1">Toutes les échéances réglementaires à effectuer</p>
       </div>
 
-      <PillFilter options={filterOptions} value={filter} onChange={(v) => setFilter(v as FilterValue)} />
+      <div className="inline-flex bg-surface2 border border-border rounded p-1 gap-0.5">
+        {filterOptions.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => setFilter(option.value as FilterValue)}
+            className={cn(
+              'px-3 py-1.5 text-sm rounded font-medium transition-colors flex items-center gap-2',
+              filter === option.value
+                ? 'bg-surface shadow-sm text-text'
+                : 'text-textMuted hover:text-text'
+            )}
+          >
+            {option.label}
+            <Badge
+              variant="neutral"
+              className="ml-0.5 text-xs font-semibold px-1.5 py-0 h-5 flex items-center justify-center"
+            >
+              {counts[option.value]}
+            </Badge>
+          </button>
+        ))}
+      </div>
 
       <div className="overflow-x-auto">
         <Table>
@@ -223,7 +319,9 @@ export default function Actions() {
                       <Dot variant={variant} />
                     </TD>
                     <TD className="text-sm font-medium capitalize">
-                      {action.categorie === 'verification' ? 'Vérification' : 'Contrôle'}
+                      <Badge variant="neutral">
+                        {action.categorie === 'verification' ? 'Vérification' : action.categorie === 'controle' ? 'Contrôle' : action.categorie === 'formation' ? 'Formation' : 'Visite méd.'}
+                      </Badge>
                     </TD>
                     <TD className="text-sm">{action.libelle}</TD>
                     <TD className="text-sm text-textMuted">{action.cible.label}</TD>

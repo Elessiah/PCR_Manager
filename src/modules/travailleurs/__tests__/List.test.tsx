@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderWithProviders, screen, waitFor } from '../../../test/test-utils'
 import { invoke } from '@tauri-apps/api/core'
+import userEvent from '@testing-library/user-event'
 import TravailleursList from '../TravailleursList'
 import type { Travailleur } from '../../../types/domain'
 
@@ -70,10 +71,17 @@ const mockTravailleurs: Travailleur[] = [
   },
 ]
 
-vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) => {
   switch (cmd) {
     case 'travailleur_list':
       return mockTravailleurs
+    case 'habilitation_compute':
+      const habilitationMap: Record<number, string> = {
+        1: 'validee',
+        2: 'partielle',
+        3: 'non_validee',
+      }
+      return { statut: habilitationMap[args?.travailleurId] || 'non_validee', details: {} }
     default:
       return null
   }
@@ -119,5 +127,138 @@ describe('TravailleursList', () => {
     await waitFor(() => {
       expect(screen.getByText(/3 travailleurs/)).toBeInTheDocument()
     })
+  })
+
+  it('should display avatar with correct initials', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      const avatar1 = screen.getByTestId('avatar-1')
+      expect(avatar1).toBeInTheDocument()
+      expect(avatar1).toHaveTextContent('JD')
+    })
+
+    const avatar2 = screen.getByTestId('avatar-2')
+    expect(avatar2).toBeInTheDocument()
+    expect(avatar2).toHaveTextContent('MM')
+
+    const avatar3 = screen.getByTestId('avatar-3')
+    expect(avatar3).toBeInTheDocument()
+    expect(avatar3).toHaveTextContent('PB')
+  })
+
+  it('should display categorie_reglementaire column', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Catégorie')).toBeInTheDocument()
+      expect(screen.getByText('A')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.getByText('C')).toBeInTheDocument()
+  })
+
+  it('should call habilitation_compute for each travailleur', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith('habilitation_compute', { travailleurId: 1 })
+    })
+
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith('habilitation_compute', { travailleurId: 2 })
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith('habilitation_compute', { travailleurId: 3 })
+  })
+
+  it('should display habilitation status from computed value', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Partielle')).toBeInTheDocument()
+    })
+  })
+
+  it('should not display Pencil button', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    })
+
+    // No button with a lucide-pencil SVG should be present
+    const pencilSvgs = document.querySelectorAll('svg.lucide-pencil')
+    expect(pencilSvgs.length).toBe(0)
+  })
+
+  it('should display 4 filter pills with correct labels', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Tous')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Validée')).toBeInTheDocument()
+    expect(screen.getByText('Partielle')).toBeInTheDocument()
+    expect(screen.getByText('Non validée')).toBeInTheDocument()
+  })
+
+  it('should display correct counts on filter pills', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      const tousPill = screen.getByTestId('filter-pill-tous')
+      expect(tousPill).toHaveTextContent('3')
+    })
+
+    const tousPill = screen.getByTestId('filter-pill-tous')
+    const valideePill = screen.getByTestId('filter-pill-validee')
+    const partialePill = screen.getByTestId('filter-pill-partielle')
+    const nonValideePill = screen.getByTestId('filter-pill-non_validee')
+
+    expect(tousPill).toHaveTextContent('3')
+    expect(valideePill).toHaveTextContent('1')
+    expect(partialePill).toHaveTextContent('1')
+    expect(nonValideePill).toHaveTextContent('1')
+  })
+
+  it('should filter list when clicking validee pill', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('MARTIN')).toBeInTheDocument()
+    expect(screen.getByText('BERNARD')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    const valideePill = screen.getByTestId('filter-pill-validee')
+    await user.click(valideePill)
+
+    expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    expect(screen.queryByText('MARTIN')).not.toBeInTheDocument()
+    expect(screen.queryByText('BERNARD')).not.toBeInTheDocument()
+  })
+
+  it('should display all travailleurs when Tous pill is selected', async () => {
+    renderWithProviders(<TravailleursList />, { route: '/travailleurs' })
+
+    await waitFor(() => {
+      expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    })
+
+    const user = userEvent.setup()
+    const valideePill = screen.getByTestId('filter-pill-validee')
+    await user.click(valideePill)
+
+    expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    expect(screen.queryByText('MARTIN')).not.toBeInTheDocument()
+
+    const tousPill = screen.getByTestId('filter-pill-tous')
+    await user.click(tousPill)
+
+    expect(screen.getByText('DUPONT')).toBeInTheDocument()
+    expect(screen.getByText('MARTIN')).toBeInTheDocument()
+    expect(screen.getByText('BERNARD')).toBeInTheDocument()
   })
 })
