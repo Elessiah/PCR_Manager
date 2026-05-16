@@ -1,70 +1,40 @@
 # Roadmap — Reste à faire
 
-État au 2026-05-16. Le projet est scaffolé à 100% (frontend + backend + DB + auth + tests + docs) **et l'installer NSIS Windows est généré**. Reste : smoke test fonctionnel, durcissement, Phase 2.
+État au 2026-05-17. Le projet est scaffolé à 100% (frontend + backend + DB + auth + tests + docs) **et l'installer NSIS Windows est généré**.
 
-> Mise à jour 2026-05-16 :
-> - ✅ Rust toolchain MSVC + Strawberry Perl 5.42 opérationnels.
-> - ✅ `cargo test --lib` : 9/9 Rust passent ; `vitest run` : 192/192 TS passent.
-> - ✅ Smart App Control désactivé (irréversible — accepté par l'utilisateur).
-> - ✅ Boucle infinie `npm run build` ↔ `tauri.beforeBuildCommand` corrigée : `beforeBuildCommand: "vite build"` + scripts npm explicites (`tauri:build`, `tauri:dev`).
-> - ✅ **Installer NSIS produit** : `src-tauri/target/release/bundle/nsis/PCR Manager_0.1.0_x64-setup.exe` (4.45 MB, build release 10m40).
+> Mise à jour 2026-05-17 :
+> - ✅ `.editorconfig` + `.gitattributes` LF/UTF-8 ajoutés.
+> - ✅ Audit React `{int && <JSX>}` : 16 patterns inspectés, 1 corrigé (`utilisation_partagee` dans `AppareilsList`).
+> - ✅ Fix types implicites `VerifRow`/`CycleRow` + garde `null` sur `date_realisation` (`AppareilFiche`).
+> - ✅ **Bibliothèque de compétences** : commandes Rust `competence_ref_create/update/delete`, wrappers `api.ts`, page CRUD `CompetencesList.tsx` (modales création / édition / suppression avec confirmation), route `/competences`, entrée Sidebar `BookOpen` — 6 tests RTL.
+> - ✅ **CI GitHub Actions** : `.github/workflows/ci.yml` — 4 jobs (lint+typecheck, test-frontend, test-rust, build-windows avec Strawberry Perl + upload artifact NSIS).
+> - ✅ `cargo test --lib` : 9/9 tests Rust revalidés après ajout des nouvelles commandes.
+> - ✅ TypeScript : 0 erreur (`tsc --noEmit`).
+> - ✅ Vitest : 258/258 tests (26 fichiers).
 
 ## État actuel (rappel)
 
 | Couche | Statut |
 |---|---|
-| Frontend (React 18 + TS + Tailwind + Vite) | ✅ Buildable, 192/192 tests |
-| Backend (Tauri 2 + Rust + SQLCipher + Passkey) | ✅ Code écrit, 11 tests `#[cfg(test)]` non exécutés |
+| Frontend (React 18 + TS + Tailwind + Vite) | ✅ Buildable, 258/258 tests |
+| Backend (Tauri 2 + Rust + SQLCipher + Passkey) | ✅ 9/9 tests `#[cfg(test)]` |
 | Migrations SQL (V1) | ✅ 10 tables + vue + 5 triggers |
 | TypeScript (`tsc --noEmit`) | ✅ 0 erreur |
 | `vite build` | ✅ OK (266 KB JS / 13 KB CSS) |
-| Documentation `docs/` | ✅ 9 fichiers (1460 lignes) |
-| Git | ✅ 13 commits propres, working tree clean |
+| Documentation `docs/` | ✅ 9 fichiers |
+| CI GitHub Actions | ✅ `.github/workflows/ci.yml` (4 jobs) |
+| Installer Windows NSIS | ✅ `PCR Manager_0.1.0_x64-setup.exe` (4.45 MB) |
+| Git | ✅ Commits propres, working tree clean |
 
 ---
 
 ## 🔴 Bloquant pour livraison
 
-### 1. Installer Rust toolchain et valider le backend
+### 1. Smoke test fonctionnel de l'app
 
 ```powershell
-winget install Rustlang.Rustup
-rustup default stable
-cargo --version  # >= 1.75
-```
-
-Puis depuis la racine du projet :
-```powershell
-cargo check --manifest-path src-tauri/Cargo.toml --tests
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
-**Critères de succès** :
-- `cargo check` : aucune erreur de compilation côté Rust.
-- `cargo test` : les 11 tests `#[cfg(test)]` passent (migrations, CRUD round-trips, trigger `trg_generer_cq_internes`).
-
-**Risque** : la feature `bundled-sqlcipher-vendored-openssl` de `rusqlite` requiert un compilateur C local (MSVC sur Windows). Si la build échoue, installer **Visual Studio Build Tools** avec le workload "Desktop development with C++".
-
-### 2. Build Tauri complet (installeurs) — ✅ FAIT (Windows)
-
-```powershell
-# PATH doit contenir Strawberry Perl AVANT Git Bash pour compiler openssl-sys :
 $env:PATH = "C:\Strawberry\perl\bin;C:\Strawberry\c\bin;$env:PATH"
-npm run tauri:build       # produit target/release/bundle/nsis/*.exe
-```
-
-Résultat 2026-05-16 : `PCR Manager_0.1.0_x64-setup.exe` (4.45 MB) — non signé.
-
-Reste :
-- [ ] Tester l'installation de l'`.exe` sur une machine propre (UAC, désinstallation propre).
-- [ ] Code signing (certificat EV pour éviter SmartScreen) — voir `docs/`.
-
-**macOS DMG** : nécessite un runner macOS (impossible depuis Windows). À déléguer à GitHub Actions.
-
-### 3. Smoke test fonctionnel de l'app
-
-```powershell
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Scénarios à valider manuellement :
@@ -73,29 +43,21 @@ Scénarios à valider manuellement :
 - [ ] **Établissement** : créer un établissement, uploader un PDF K-Bis, le rouvrir.
 - [ ] **Travailleurs** : créer 1 travailleur, remplir les 2 onglets (Données / Habilitation), valider 9/9 compétences sur un appareil.
 - [ ] **Appareils** : créer 1 appareil, ajouter une vérification annuelle interne, créer un CQ externe → vérifier que les 3 CQ internes apparaissent à J+90 / J+180 / J+270.
+- [ ] **Compétences** : ouvrir `/competences`, ajouter une compétence, éditer son libellé, supprimer → vérifier que la liste se met à jour.
 - [ ] **Actions** : tous les filtres (Tout / En retard / À venir / Formation / Contrôle / Visite med) renvoient des résultats cohérents.
 - [ ] **Dashboard** : alertes par catégorie + statuts couleur (vert/orange/rouge).
+
+### 2. Tester l'installation sur une machine propre
+
+- [ ] Installer `PCR Manager_0.1.0_x64-setup.exe` sur une VM / machine sans les outils dev.
+- [ ] Vérifier UAC, désinstallation propre via Paramètres Windows.
+- [ ] Code signing (certificat EV pour éviter SmartScreen) — voir `docs/build-deploy.md`.
 
 ---
 
 ## 🟡 Important
 
-### 4. Définir les 9 compétences réelles
-
-La migration `V1__initial.sql` seed `competence_ref` avec :
-1. Mise sous tension de l'appareil
-2. Mise en marche de l'appareil
-3. Enregistrement patient (vérification identité)
-4. Détection patients à risque
-5. Compétence 5 *(générique)*
-6. Compétence 6 *(générique)*
-7. Compétence 7 *(générique)*
-8. Compétence 8 *(générique)*
-9. Compétence 9 *(générique)*
-
-**À faire** : remplacer les 5 derniers libellés par les vraies compétences définies avec le métier (cf. cahier des charges §5.5). Soit via une **migration V2** dédiée, soit en éditant directement la V1 si aucun déploiement n'a encore eu lieu.
-
-### 5. Confirmer la gestion de la clé SQLCipher
+### 3. Confirmer la gestion de la clé SQLCipher
 
 Le code généré (`src-tauri/src/db.rs`) doit :
 - Générer une clé maître au premier lancement (`uuid::Uuid::new_v4()` ou `rand`).
@@ -104,46 +66,49 @@ Le code généré (`src-tauri/src/db.rs`) doit :
 
 **À vérifier** : ouvrir `src-tauri/src/db.rs` et confirmer que la clé n'est PAS stockée dans un fichier en clair. Si ce n'est pas le cas, ajouter `tauri-plugin-stronghold` ou implémenter DPAPI via `windows` crate.
 
-### 6. Couverture des tests + audit qualité
+### 4. Audit npm + couverture tests
 
 ```powershell
-npx vitest run --coverage     # rapport v8, ouvre coverage/index.html
-npm run lint                  # 0 warning (max-warnings 0 dans le script)
+npm audit         # 10 vulnérabilités (4 moderate, 6 high)
+npm audit fix     # fix non-breaking d'abord
+npx vitest run --coverage     # rapport v8 → coverage/index.html
+npm run lint                  # 0 warning (max-warnings 0)
 ```
 
 **À traquer** :
-- Statements coverage par fichier `src/modules/**` (probablement < 70% pour les modules complexes).
-- Lignes non testées dans `src/lib/api.ts` (227 lignes, seulement quelques méthodes testées).
+- Statements coverage < 70% pour les modules complexes (`src/modules/**`).
+- Lignes non testées dans `src/lib/api.ts` (maintenant ~240 lignes avec les nouvelles méthodes compétences).
 
-### 7. Audit npm
+### 5. Définir les 9 compétences réelles
 
-```powershell
-npm audit       # 10 vulnérabilités signalées (4 moderate, 6 high)
-npm audit fix   # fix non-breaking
-```
-
-À évaluer cas par cas : les hauts probablement dans la chaîne ESLint 8 (déprécié) ou des transitive deps. Migration ESLint 9 envisageable.
+La migration `V1__initial.sql` seed `competence_ref` avec 5 libellés génériques ("Compétence 5..9").
+**La page `/competences` permet maintenant de les modifier directement dans l'app** sans migration SQL.
+Alternativement, créer une **migration V2** si un déploiement a déjà eu lieu.
 
 ---
 
 ## 🟢 Améliorations
 
-### 8. CI GitHub Actions
+### 6. Quick wins restants (< 30 min chacun)
 
-Workflow `.github/workflows/ci.yml` avec :
-- Matrice `windows-latest` + `macos-latest`.
-- Steps : `npm ci`, `npm run typecheck`, `npm run lint`, `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`.
-- Job de release sur tag `v*` : `npm run tauri build` + upload des installeurs en artifact.
+- [ ] `npm audit fix` (non-breaking).
+- [ ] Ajouter un `LICENSE` badge dans `README.md` (le fichier `LICENSE` existe déjà).
+- [ ] Configurer Husky + lint-staged pour bloquer les commits avec erreurs TS/lint.
 
-### 9. Audit React : recherche du pattern `{int && JSX}` ailleurs
+### 7. Tests E2E (Playwright + Tauri)
 
-Le bug corrigé dans `AppareilsList.tsx` (`{a.utilisation_partagee && <Badge>}` rendait `0`) peut exister ailleurs. Commande :
-```bash
-grep -rn '{[a-z_]\+ && <' src/modules src/components
-```
-Pour chaque match, vérifier que le LHS est bien un booléen (sinon : `Boolean(x) && ...` ou `x ? <X/> : null`).
+Vitest+RTL teste les composants en isolation. Pour valider les flows complets (passkey + DB + UI), envisager **Playwright** avec [`tauri-driver`](https://tauri.app/develop/tests/webdriver/). 2-3 scénarios suffisent :
+- Login passkey → dashboard.
+- Créer travailleur + habilitation.
+- Ajouter CQ externe → vérifier génération des 3 CQ internes.
 
-### 10. Phase 2 du cahier des charges
+### 8. Module Actions — validation des filtres par catégorie
+
+Les filtres "Formation" / "Contrôle" / "Visite méd." sont déclarés dans le `PillFilter` mais leur logique de filtrage n'a pas été testée intégrativement avec un jeu de données mixte. À valider :
+- Avec des actions de chaque catégorie en DB, chaque filtre n'affiche que les bonnes.
+- Le compteur dans la sidebar (badge avec nombre d'alertes) est cohérent.
+
+### 9. Phase 2 du cahier des charges
 
 Liste explicite (cf. `cahier_des_charges_radioprotection_v2.md` §10) :
 - [ ] Export PDF des fiches et rapports
@@ -157,29 +122,13 @@ Liste explicite (cf. `cahier_des_charges_radioprotection_v2.md` §10) :
 - [ ] Rapports régulateurs (ASN, etc.)
 - [ ] Import / synchronisation entre postes (chiffré)
 
-### 11. Module Actions — validation des filtres par catégorie
-
-Les filtres "Formation" / "Contrôle" / "Visite méd." sont déclarés dans le `PillFilter` mais leur logique de filtrage n'a pas été testée intégrativement avec un jeu de données mixte. À valider :
-- Avec des actions de chaque catégorie en DB, chaque filtre n'affiche que les bonnes.
-- Le compteur dans la sidebar (badge avec nombre d'alertes) est cohérent.
-
-### 12. Internationalisation (i18n) — optionnel
+### 10. Internationalisation (i18n) — optionnel
 
 Tout est en français hardcodé. Si une version anglophone est envisagée, intégrer `react-i18next` avant que le volume de chaînes ne devienne trop important.
 
-### 13. Tests E2E (Playwright + Tauri)
+### 11. macOS DMG
 
-Vitest+RTL teste les composants en isolation. Pour valider les flows complets (passkey + DB + UI), envisager **Playwright** avec [`tauri-driver`](https://tauri.app/develop/tests/webdriver/). 2-3 scénarios suffisent (login, créer travailleur+habilitation, ajouter CQ).
-
----
-
-## Quick wins (< 30 min chacun)
-
-- `npm audit fix` (non-breaking).
-- Ajouter `.editorconfig` (LF, UTF-8, 2 espaces).
-- Configurer `.gitattributes` avec `* text=auto eol=lf` pour éliminer les warnings CRLF sur Windows.
-- Ajouter un `LICENSE` + badge dans `README.md` (le fichier `LICENSE` existe déjà, le référencer).
-- Configurer Husky + lint-staged pour bloquer les commits avec erreurs TS/lint.
+Nécessite un runner macOS (impossible depuis Windows). À déléguer à GitHub Actions (le job `build-windows` dans `.github/workflows/ci.yml` est le modèle — dupliquer avec `macos-latest`).
 
 ---
 
@@ -190,11 +139,11 @@ Vitest+RTL teste les composants en isolation. Pour valider les flows complets (p
 | `npm install` | Installe les deps frontend |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest watch mode |
-| `npm run test:run` | Vitest single run |
+| `npm run test:run` | Vitest single run (258 tests) |
 | `npm run test:coverage` | Vitest + coverage v8 |
 | `npm run lint` | ESLint (0 warning toléré) |
 | `npm run dev` | `tauri dev` (app desktop en dev) |
-| `npm run build` | `tauri build` (installeurs) |
+| `npm run tauri:build` | Tauri build (installeurs) — nécessite Strawberry Perl dans PATH |
 | `npx vite build` | Build frontend seul (vers `dist/`) |
 | `cargo check --manifest-path src-tauri/Cargo.toml` | Type-check Rust |
-| `cargo test --manifest-path src-tauri/Cargo.toml` | Tests Rust |
+| `cargo test --manifest-path src-tauri/Cargo.toml --lib` | 9 tests Rust (nécessite Strawberry Perl dans PATH) |
