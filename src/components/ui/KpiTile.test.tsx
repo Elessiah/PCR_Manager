@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { KpiTile } from './KpiTile';
+import { Badge } from './Badge';
 
 describe('KpiTile', () => {
   it('renders without tone or chip', () => {
@@ -42,13 +43,13 @@ describe('KpiTile', () => {
     expect(valueElement).toHaveStyle({ color: 'var(--ok)' });
   });
 
-  it('renders chip badge with tone=warn', () => {
+  it('renders a Badge chip with tone=warn', () => {
     render(
       <KpiTile
         label="Expiry"
         value={90}
         tone="warn"
-        chip="90 jours"
+        chip={<Badge variant="warn">90 jours</Badge>}
       />
     );
 
@@ -57,13 +58,13 @@ describe('KpiTile', () => {
     expect(badge).toHaveClass('text-warn');
   });
 
-  it('renders chip badge with tone=danger', () => {
+  it('renders a Badge chip with tone=danger', () => {
     render(
       <KpiTile
         label="Critical"
         value={10}
         tone="danger"
-        chip="5 days"
+        chip={<Badge variant="danger">5 days</Badge>}
       />
     );
 
@@ -72,18 +73,23 @@ describe('KpiTile', () => {
     expect(badge).toHaveClass('text-danger');
   });
 
-  it('renders chip without tone (neutral variant)', () => {
-    render(
+  it('renders a chip without nesting it inside another Badge', () => {
+    // Regression test : KpiTile ne doit PAS wrapper son chip dans un Badge
+    // (sinon on obtient une double bordure / double padding).
+    const { container } = render(
       <KpiTile
         label="Info"
         value={50}
-        chip="Some info"
+        chip={<Badge variant="neutral">Some info</Badge>}
       />
     );
 
-    const badge = screen.getByText('Some info');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveClass('text-textMuted');
+    // Une seule occurrence du contenu (pas de Badge imbriqué qui rerend le children).
+    expect(screen.getAllByText('Some info')).toHaveLength(1);
+
+    // Exactement un seul span.badge-like (border + rounded-full) autour du texte.
+    const badges = container.querySelectorAll('span.rounded-full');
+    expect(badges.length).toBe(1);
   });
 
   it('does not render chip when chip is undefined', () => {

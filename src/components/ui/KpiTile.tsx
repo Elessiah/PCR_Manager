@@ -1,12 +1,16 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
-import { Badge } from './Badge';
 
 interface KpiTileProps extends React.HTMLAttributes<HTMLDivElement> {
   label: string;
   value: string | number;
   footer?: React.ReactNode;
   tone?: 'danger' | 'warn' | 'ok';
+  /**
+   * Élément rendu en haut à droite (typiquement un `<Badge variant="...">`).
+   * Le composant est rendu tel quel — ne pas le wrapper dans un Badge ici sinon
+   * on obtient un Badge imbriqué (double border, double padding).
+   */
   chip?: React.ReactNode;
 }
 
@@ -33,7 +37,7 @@ export const KpiTile = React.forwardRef<HTMLDivElement, KpiTileProps>(
           <div className="text-xs font-semibold text-textMuted uppercase tracking-[0.04em]">
             {label}
           </div>
-          {chip && <Badge variant={tone || 'neutral'}>{chip}</Badge>}
+          {chip}
         </div>
         <div
           className="text-[32px] font-bold leading-none tracking-tight tabular-nums font-mono mb-2.5"
