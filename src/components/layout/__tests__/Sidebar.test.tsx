@@ -80,6 +80,24 @@ describe('Sidebar', () => {
     });
   });
 
+  it('should render brand subtitle "Suivi radioprotection"', async () => {
+    renderWithProviders(<Sidebar />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Suivi radioprotection')).toBeInTheDocument();
+    });
+  });
+
+  it('should render navigation label "Navigation"', async () => {
+    renderWithProviders(<Sidebar />, { route: '/' });
+
+    await waitFor(() => {
+      const navLabel = screen.getByText('Navigation');
+      expect(navLabel).toBeInTheDocument();
+      expect(navLabel).toHaveClass('uppercase');
+    });
+  });
+
   it('should render all navigation links', () => {
     renderWithProviders(<Sidebar />, { route: '/' });
 
@@ -97,7 +115,7 @@ describe('Sidebar', () => {
       // denomination appears in both the etablissement section and footer
       expect(screen.getAllByText('Centre Hospitalier Universitaire').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('Paris')).toBeInTheDocument();
-      expect(screen.getByText('12345678900012')).toBeInTheDocument();
+      expect(screen.getByText(/SIRET 12345678900012/)).toBeInTheDocument();
     });
   });
 
@@ -232,6 +250,87 @@ describe('Sidebar', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Gestionnaire PCR')).toBeInTheDocument();
+    });
+  });
+
+  it('should render etablissement label "Établissement" with proper styling', async () => {
+    renderWithProviders(<Sidebar />, { route: '/' });
+
+    await waitFor(() => {
+      // "Établissement" appears twice: in nav link and in section label — target the section label div
+      const labels = screen.getAllByText('Établissement');
+      const sectionLabel = labels.find(el => el.tagName === 'DIV');
+      expect(sectionLabel).toBeInTheDocument();
+      expect(sectionLabel).toHaveClass('text-xs');
+      expect(sectionLabel).toHaveClass('font-semibold');
+      expect(sectionLabel).toHaveClass('text-textSoft');
+      expect(sectionLabel).toHaveClass('uppercase');
+      expect(sectionLabel).toHaveClass('tracking-widest');
+    });
+  });
+
+  it('should render etablissement section with box containing denomination, ville, and SIRET', async () => {
+    renderWithProviders(<Sidebar />, { route: '/' });
+
+    await waitFor(() => {
+      // "Centre Hospitalier Universitaire" appears twice (box + footer), target the one inside .bg-surface2
+      const allDenominations = screen.getAllByText('Centre Hospitalier Universitaire');
+      const box = allDenominations.map(el => el.closest('.bg-surface2')).find(Boolean);
+      expect(box).toBeInTheDocument();
+      expect(box).toHaveClass('bg-surface2');
+      expect(box).toHaveClass('rounded');
+      expect(box).toHaveClass('p-3');
+      expect(box).toHaveClass('border');
+      expect(box).toHaveClass('border-border');
+
+      expect(screen.getAllByText('Centre Hospitalier Universitaire').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Paris')).toBeInTheDocument();
+      expect(screen.getByText(/SIRET 12345678900012/)).toBeInTheDocument();
+    });
+  });
+
+  it('should render fallback dashes when etablissement fields are missing', async () => {
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'etablissement_get') {
+        return Promise.resolve({
+          id: 1,
+          denomination: null,
+          ville: null,
+          siret: null,
+          statut_juridique: null,
+          adresse: null,
+          code_postal: null,
+          telephone: null,
+          email: null,
+          site_internet: null,
+          kbis_chemin: null,
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        });
+      }
+      if (command === 'travailleur_list') {
+        return Promise.resolve([]);
+      }
+      if (command === 'appareil_list') {
+        return Promise.resolve([]);
+      }
+      if (command === 'verification_list') {
+        return Promise.resolve([]);
+      }
+      if (command === 'controle_qualite_list') {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve({});
+    });
+
+    renderWithProviders(<Sidebar />, { route: '/' });
+
+    await waitFor(() => {
+      const box = document.querySelector('.bg-surface2');
+      expect(box).toBeInTheDocument();
+      const dashes = box?.querySelectorAll('div');
+      const textContent = box?.textContent || '';
+      expect(textContent).toContain('—');
     });
   });
 });

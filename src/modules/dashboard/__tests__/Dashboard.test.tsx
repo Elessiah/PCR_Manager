@@ -153,7 +153,7 @@ describe('Dashboard', () => {
 
     // "À prévoir" appears in KPI tile and possibly in Parc d'appareils legend
     expect(screen.getAllByText('À prévoir').length).toBeGreaterThan(0);
-    expect(screen.getByText('À jour')).toBeInTheDocument();
+    expect(screen.getAllByText('À jour').length).toBeGreaterThan(0);
   });
 
   it('should display Écheances prioritaires card with table', async () => {
@@ -201,7 +201,7 @@ describe('Dashboard', () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
-      expect(screen.getByText('À jour')).toBeInTheDocument();
+      expect(screen.getAllByText('À jour').length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText('Aucune action.')).toBeInTheDocument();
