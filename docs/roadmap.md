@@ -1,6 +1,13 @@
 # Roadmap — Reste à faire
 
-État au 2026-05-15. Le projet est scaffolé à 100% (frontend + backend + DB + auth + tests + docs). Cette liste est la suite logique : validation locale, livraison, durcissement, puis Phase 2 du cahier des charges.
+État au 2026-05-16. Le projet est scaffolé à 100% (frontend + backend + DB + auth + tests + docs) **et l'installer NSIS Windows est généré**. Reste : smoke test fonctionnel, durcissement, Phase 2.
+
+> Mise à jour 2026-05-16 :
+> - ✅ Rust toolchain MSVC + Strawberry Perl 5.42 opérationnels.
+> - ✅ `cargo test --lib` : 9/9 Rust passent ; `vitest run` : 192/192 TS passent.
+> - ✅ Smart App Control désactivé (irréversible — accepté par l'utilisateur).
+> - ✅ Boucle infinie `npm run build` ↔ `tauri.beforeBuildCommand` corrigée : `beforeBuildCommand: "vite build"` + scripts npm explicites (`tauri:build`, `tauri:dev`).
+> - ✅ **Installer NSIS produit** : `src-tauri/target/release/bundle/nsis/PCR Manager_0.1.0_x64-setup.exe` (4.45 MB, build release 10m40).
 
 ## État actuel (rappel)
 
@@ -38,15 +45,19 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 **Risque** : la feature `bundled-sqlcipher-vendored-openssl` de `rusqlite` requiert un compilateur C local (MSVC sur Windows). Si la build échoue, installer **Visual Studio Build Tools** avec le workload "Desktop development with C++".
 
-### 2. Build Tauri complet (installeurs)
+### 2. Build Tauri complet (installeurs) — ✅ FAIT (Windows)
 
 ```powershell
-npm run tauri build       # produit target/release/bundle/nsis/*.exe sur Windows
+# PATH doit contenir Strawberry Perl AVANT Git Bash pour compiler openssl-sys :
+$env:PATH = "C:\Strawberry\perl\bin;C:\Strawberry\c\bin;$env:PATH"
+npm run tauri:build       # produit target/release/bundle/nsis/*.exe
 ```
 
-**Critères de succès** :
-- Génère `target/release/bundle/nsis/PCR Manager_0.1.0_x64-setup.exe`.
-- L'installeur s'installe sans erreur et lance l'app.
+Résultat 2026-05-16 : `PCR Manager_0.1.0_x64-setup.exe` (4.45 MB) — non signé.
+
+Reste :
+- [ ] Tester l'installation de l'`.exe` sur une machine propre (UAC, désinstallation propre).
+- [ ] Code signing (certificat EV pour éviter SmartScreen) — voir `docs/`.
 
 **macOS DMG** : nécessite un runner macOS (impossible depuis Windows). À déléguer à GitHub Actions.
 
