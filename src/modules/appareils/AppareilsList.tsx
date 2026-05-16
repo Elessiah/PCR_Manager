@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
 import { Plus, Search, ChevronRight } from 'lucide-react';
@@ -80,45 +81,58 @@ export default function AppareilsList() {
     return statusFromDate(next);
   };
 
-  const handleRowClick = (id: number) => {
-    navigate(`/appareils/${id}`);
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case 'valide':
+        return 'À jour';
+      case 'a_prevoir':
+        return 'À prévoir';
+      case 'en_retard':
+        return 'Invalide';
+      case 'non_applicable':
+        return 'N/A';
+      default:
+        return status;
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Appareils</h1>
-        <p className="text-sm text-textMuted">{appareils.length} appareils radiologiques sous contrôle réglementaire</p>
-      </div>
+    <div className="space-y-4">
+      <PageHead
+        title="Appareils"
+        sub={`${appareils.length} appareils radiologiques sous contrôle réglementaire`}
+        actions={
+          <Button variant="primary" className="inline-flex items-center gap-2">
+            <Plus size={14} />
+            Ajouter un appareil
+          </Button>
+        }
+      />
 
-      <div className="flex items-center gap-4">
-        <Button variant="primary" className="inline-flex items-center gap-2">
-          <Plus size={16} />
-          Nouvel appareil
-        </Button>
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textMuted" size={16} />
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1.5 w-[340px]">
+          <Search size={14} className="text-textSoft" />
           <input
-            type="text"
-            placeholder="Rechercher un appareil"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded border border-border bg-surface text-sm focus:outline-none focus:border-accent"
+            placeholder="Rechercher un appareil"
+            className="bg-transparent border-0 outline-0 flex-1 text-[13px] placeholder:text-textSoft"
           />
         </div>
-        <span className="text-xs text-textMuted">{filtered.length} résultats</span>
+        <div className="flex-1" />
+        <span className="text-textSoft font-mono text-[12.5px]">{filtered.length} résultats</span>
       </div>
 
-      <Card>
+      <Card className="p-0 overflow-hidden">
         <Table>
           <THead>
             <TR>
               <TH>Désignation</TH>
               <TH>Numéro de série</TH>
-              <TH>Lieu d'utilisation</TH>
+              <TH>Lieu</TH>
               <TH>Vérification technique</TH>
               <TH>Contrôle qualité</TH>
-              <TH style={{ width: 50, textAlign: 'right' }}></TH>
+              <TH className="w-12" />
             </TR>
           </THead>
           <TBody>
@@ -127,42 +141,48 @@ export default function AppareilsList() {
               const cqStatus = getControleQualiteStatus(a.id);
               const verifVariant = statusToBadgeVariant[verifStatus];
               const cqVariant = statusToBadgeVariant[cqStatus];
+              const nextVerifDate = getNextVerificationDue(a.id, 'annuelle_interne') || getNextVerificationDue(a.id, 'triennale_externe');
+              const nextCqDate = getNextControleQualite(a.id);
 
               return (
                 <TR
                   key={a.id}
                   className="cursor-pointer"
-                  onClick={() => handleRowClick(a.id)}
+                  onClick={() => navigate(`/appareils/${a.id}`)}
                 >
                   <TD>
-                    <div className="font-medium">{a.designation}</div>
-                    <div className="text-xs text-textMuted mt-1">{a.marque} · {a.modele}</div>
+                    <div className="font-semibold">{a.designation}</div>
+                    <div className="text-textSoft text-[12px] mt-px">
+                      {a.marque} · {a.modele}
+                    </div>
                   </TD>
-                  <TD className="font-mono text-sm">{a.numero_serie || '-'}</TD>
+                  <TD>
+                    <span className="font-mono tabular-nums text-[12.5px] text-textMuted">
+                      {a.numero_serie ?? '—'}
+                    </span>
+                  </TD>
                   <TD className="text-textMuted">
-                    {a.lieu_utilisation}
-                    {Boolean(a.utilisation_partagee) && (
-                      <Badge variant="neutral" className="ml-2">partagé</Badge>
+                    <span>{a.lieu_utilisation}</span>
+                    {a.utilisation_partagee && (
+                      <Badge variant="neutral" icon={null} className="ml-1.5">
+                        partagé
+                      </Badge>
                     )}
                   </TD>
                   <TD>
-                    <Badge variant={verifVariant}>
-                      {verifStatus === 'valide' && 'Valide'}
-                      {verifStatus === 'a_prevoir' && 'À prévoir'}
-                      {verifStatus === 'en_retard' && 'En retard'}
-                      {verifStatus === 'non_applicable' && 'N/A'}
-                    </Badge>
+                    <Badge variant={verifVariant}>{statusLabel(verifStatus)}</Badge>
+                    <div className="text-textSoft font-mono text-[11.5px] mt-1">
+                      Échéance {nextVerifDate ?? '—'}
+                    </div>
                   </TD>
                   <TD>
-                    <Badge variant={cqVariant}>
-                      {cqStatus === 'valide' && 'Valide'}
-                      {cqStatus === 'a_prevoir' && 'À prévoir'}
-                      {cqStatus === 'en_retard' && 'En retard'}
-                      {cqStatus === 'non_applicable' && 'N/A'}
-                    </Badge>
+                    <Badge variant={cqVariant}>{statusLabel(cqStatus)}</Badge>
+                    <div className="text-textSoft font-mono text-[11.5px] mt-1">
+                      Prochain {nextCqDate ?? '—'}
+                    </div>
                   </TD>
-                  <TD style={{ textAlign: 'right' }}>
-                    <ChevronRight size={16} className="text-textMuted" />
+                  <TD className="text-right">
+                    <ChevronRight size={14} className="text-textSoft" />
                   </TD>
                 </TR>
               );
