@@ -10,11 +10,11 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ variant = 'neutral', icon, className, children, ...props }, ref) => {
     const variantClasses = {
-      ok: 'bg-okBg border border-okBorder text-ok',
-      warn: 'bg-warnBg border border-warnBorder text-warn',
-      danger: 'bg-dangerBg border border-dangerBorder text-danger',
-      neutral: 'bg-neutralBg border border-neutralBorder text-textMuted',
-      accent: 'bg-accentSoft border border-accentSoftBorder text-accent',
+      ok: 'bg-okBg border-okBorder text-ok',
+      warn: 'bg-warnBg border-warnBorder text-warn',
+      danger: 'bg-dangerBg border-dangerBorder text-danger',
+      neutral: 'bg-neutralBg border-neutralBorder text-textMuted',
+      accent: 'bg-accentSoft border-accentSoftBorder text-accent',
     };
 
     const iconMap = {
@@ -31,7 +31,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
+          'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap',
           variantClasses[variant],
           className
         )}
