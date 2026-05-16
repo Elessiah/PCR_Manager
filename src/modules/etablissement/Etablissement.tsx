@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Edit, Save } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { PageHead } from '../../components/ui/PageHead';
 import { Field, Label, Input, Select } from '../../components/ui/FormField';
 import { api } from '../../lib/api';
-import KbisSection from './KbisSection';
 
 const STATUTS_JURIDIQUES = [
   'SAS',
@@ -18,6 +20,7 @@ const STATUTS_JURIDIQUES = [
 
 export default function Etablissement() {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     denomination: '',
@@ -98,6 +101,15 @@ export default function Etablissement() {
     updateMutation.mutate();
   };
 
+  const validateSiret = (value: string): boolean => {
+    if (!value) return false;
+    if (value.length !== 14) return false;
+    if (!/^\d+$/.test(value)) return false;
+    return true;
+  };
+
+  const siretValid = validateSiret(formData.siret || '');
+
   if (isLoading) {
     return (
       <div className="p-8 text-textMuted text-sm">
@@ -115,17 +127,12 @@ export default function Etablissement() {
   }
 
   return (
-    <div className="space-y-6 p-8">
-      {/* Header avec actions */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-text">Établissement</h1>
-          <p className="text-sm text-textMuted mt-1">
-            Informations administratives et documents réglementaires
-          </p>
-        </div>
-        <div className="flex gap-3">
-          {isEditing ? (
+    <div className="space-y-4 p-8">
+      <PageHead
+        title="Établissement"
+        sub="Informations administratives et documents réglementaires"
+        actions={
+          isEditing ? (
             <>
               <Button
                 variant="ghost"
@@ -138,33 +145,38 @@ export default function Etablissement() {
                 variant="primary"
                 onClick={handleSave}
                 disabled={updateMutation.isPending}
+                className="inline-flex gap-2"
               >
+                <Save size={14} />
                 {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </>
           ) : (
-            <Button variant="primary" onClick={() => setIsEditing(true)}>
+            <Button
+              variant="default"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex gap-2"
+            >
+              <Edit size={14} />
               Modifier
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      {/* Grid de cards */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Identification Card */}
+      <div className="grid grid-cols-2 gap-3.5">
+        {/* Identification */}
         <Card>
           <CardHead>
             <CardTitle>Identification</CardTitle>
           </CardHead>
-          <CardBody className="space-y-4">
-            <Field>
+          <CardBody className="grid grid-cols-2 gap-y-3.5 gap-x-5">
+            <Field className="col-span-2">
               <Label>Dénomination / raison sociale</Label>
               {isEditing ? (
                 <Input
                   value={formData.denomination}
                   onChange={e => handleChange('denomination', e.target.value)}
-                  placeholder="Nom de l'établissement"
                 />
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
@@ -179,10 +191,7 @@ export default function Etablissement() {
                 <Select
                   value={formData.statut_juridique || ''}
                   onChange={e =>
-                    handleChange(
-                      'statut_juridique',
-                      e.target.value || null
-                    )
+                    handleChange('statut_juridique', e.target.value || null)
                   }
                 >
                   <option value="">Sélectionner...</option>
@@ -205,13 +214,9 @@ export default function Etablissement() {
                 <Input
                   value={formData.siret || ''}
                   onChange={e =>
-                    handleChange(
-                      'siret',
-                      e.target.value.replace(/\D/g, '') || null
-                    )
+                    handleChange('siret', e.target.value.replace(/\D/g, '') || null)
                   }
                   maxLength={14}
-                  placeholder="14 chiffres"
                   className="font-mono"
                 />
               ) : (
@@ -223,22 +228,19 @@ export default function Etablissement() {
           </CardBody>
         </Card>
 
-        {/* Coordonnées Card */}
+        {/* Coordonnées */}
         <Card>
           <CardHead>
             <CardTitle>Coordonnées</CardTitle>
           </CardHead>
-          <CardBody className="space-y-4">
+          <CardBody className="grid grid-cols-2 gap-y-3.5 gap-x-5">
             <Field>
               <Label>Téléphone</Label>
               {isEditing ? (
                 <Input
                   value={formData.telephone || ''}
-                  onChange={e =>
-                    handleChange('telephone', e.target.value || null)
-                  }
+                  onChange={e => handleChange('telephone', e.target.value || null)}
                   type="tel"
-                  placeholder="Numéro de téléphone"
                 />
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
@@ -248,15 +250,12 @@ export default function Etablissement() {
             </Field>
 
             <Field>
-              <Label>Adresse mail</Label>
+              <Label>Email</Label>
               {isEditing ? (
                 <Input
                   value={formData.email || ''}
-                  onChange={e =>
-                    handleChange('email', e.target.value || null)
-                  }
+                  onChange={e => handleChange('email', e.target.value || null)}
                   type="email"
-                  placeholder="Adresse email"
                 />
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
@@ -265,7 +264,7 @@ export default function Etablissement() {
               )}
             </Field>
 
-            <Field>
+            <Field className="col-span-2">
               <Label>Site internet</Label>
               {isEditing ? (
                 <Input
@@ -274,7 +273,6 @@ export default function Etablissement() {
                     handleChange('site_internet', e.target.value || null)
                   }
                   type="url"
-                  placeholder="https://..."
                 />
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
@@ -285,21 +283,18 @@ export default function Etablissement() {
           </CardBody>
         </Card>
 
-        {/* Adresse Card - full width */}
+        {/* Adresse */}
         <Card className="col-span-2">
           <CardHead>
             <CardTitle>Adresse</CardTitle>
           </CardHead>
-          <CardBody className="space-y-4">
-            <Field>
+          <CardBody className="grid grid-cols-2 gap-y-3.5 gap-x-5">
+            <Field className="col-span-2">
               <Label>Adresse</Label>
               {isEditing ? (
                 <Input
                   value={formData.adresse || ''}
-                  onChange={e =>
-                    handleChange('adresse', e.target.value || null)
-                  }
-                  placeholder="Rue, numéro..."
+                  onChange={e => handleChange('adresse', e.target.value || null)}
                 />
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
@@ -308,49 +303,99 @@ export default function Etablissement() {
               )}
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field>
-                <Label>Code postal</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.code_postal || ''}
-                    onChange={e =>
-                      handleChange('code_postal', e.target.value || null)
-                    }
-                    maxLength={5}
-                    placeholder="75000"
-                    className="font-mono"
-                  />
-                ) : (
-                  <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text font-mono">
-                    {formData.code_postal || '—'}
-                  </div>
-                )}
-              </Field>
+            <Field>
+              <Label>Code postal</Label>
+              {isEditing ? (
+                <Input
+                  value={formData.code_postal || ''}
+                  onChange={e =>
+                    handleChange('code_postal', e.target.value || null)
+                  }
+                  maxLength={5}
+                  className="font-mono"
+                />
+              ) : (
+                <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text font-mono">
+                  {formData.code_postal || '—'}
+                </div>
+              )}
+            </Field>
 
-              <Field>
-                <Label>Ville</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.ville || ''}
-                    onChange={e =>
-                      handleChange('ville', e.target.value || null)
-                    }
-                    placeholder="Ville"
-                  />
-                ) : (
-                  <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
-                    {formData.ville || '—'}
+            <Field>
+              <Label>Ville</Label>
+              {isEditing ? (
+                <Input
+                  value={formData.ville || ''}
+                  onChange={e => handleChange('ville', e.target.value || null)}
+                />
+              ) : (
+                <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
+                  {formData.ville || '—'}
+                </div>
+              )}
+            </Field>
+          </CardBody>
+        </Card>
+
+        {/* K-Bis */}
+        <Card className="col-span-2">
+          <CardHead>
+            <CardTitle>Document K-Bis</CardTitle>
+          </CardHead>
+          <CardBody className="space-y-3.5">
+            {/* SIRET row */}
+            <div className="flex items-center gap-3.5 px-3.5 py-3 bg-surface2 border border-border rounded-lg">
+              <div className="text-[12px] font-semibold text-textMuted uppercase tracking-[0.05em] min-w-[60px]">
+                SIRET
+              </div>
+              <input
+                value={formData.siret || ''}
+                onChange={e =>
+                  handleChange('siret', e.target.value.replace(/\D/g, '') || null)
+                }
+                maxLength={14}
+                className="flex-1 bg-white border border-borderStrong rounded px-3 py-2 font-mono text-base tracking-[0.08em] font-medium outline-0"
+                disabled={!isEditing}
+              />
+              {siretValid && <Badge variant="ok">SIRET valide</Badge>}
+            </div>
+
+            {/* K-Bis file row */}
+            <div className="flex items-center gap-3 px-3.5 py-3 bg-surface2 border border-border rounded-lg">
+              <div className="w-9 h-11 rounded bg-white border border-borderStrong grid place-items-center text-danger text-[10px] font-bold tracking-wider">
+                PDF
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-[13.5px]">
+                  {etablissement.kbis_chemin ? 'K-Bis.pdf' : 'Aucun document'}
+                </div>
+                {etablissement.kbis_chemin && (
+                  <div className="text-textSoft text-[12px] mt-px">
+                    Mis à jour le {new Date(etablissement.updated_at).toLocaleDateString('fr-FR')}
                   </div>
                 )}
-              </Field>
+              </div>
+              {isEditing && (
+                <>
+                  <Button size="sm" variant="default">
+                    Remplacer
+                  </Button>
+                  <Button size="sm" variant="primary">
+                    Ouvrir
+                  </Button>
+                </>
+              )}
             </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+            />
           </CardBody>
         </Card>
       </div>
-
-      {/* K-Bis Section */}
-      {etablissement && <KbisSection etablissement={etablissement} isEditing={isEditing} />}
     </div>
   );
 }

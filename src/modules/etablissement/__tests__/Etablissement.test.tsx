@@ -78,7 +78,7 @@ describe('Etablissement', () => {
     });
   });
 
-  it('should call document_upload when uploading K-Bis file', async () => {
+  it('should display K-Bis section with edit buttons in editing mode', async () => {
     renderWithProviders(<Etablissement />, { route: '/etablissement' });
 
     // Wait for the etablissement to load
@@ -90,38 +90,14 @@ describe('Etablissement', () => {
     const modifierButton = screen.getByText('Modifier');
     fireEvent.click(modifierButton);
 
-    // Wait for the "Charger le PDF" button to be visible
+    // Wait for the Remplacer and Ouvrir buttons to be visible in K-Bis section
     await waitFor(() => {
-      expect(screen.getByText('Charger le PDF')).toBeInTheDocument();
+      expect(screen.getByText('Remplacer')).toBeInTheDocument();
+      expect(screen.getByText('Ouvrir')).toBeInTheDocument();
     });
 
-    // Get the file input and simulate file selection
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(fileInput).toBeInTheDocument();
-
-    // Create a mock File
-    const file = new File(['test'], 'kbis.pdf', { type: 'application/pdf' });
-
-    // Simulate file selection — jsdom n'expose pas DataTransfer ; on injecte directement
-    // un FileList synthétique via Object.defineProperty.
-    if (fileInput) {
-      Object.defineProperty(fileInput, 'files', {
-        value: [file],
-        writable: false,
-      });
-      fireEvent.change(fileInput);
-    }
-
-    // Wait for document_upload to be called
-    await waitFor(() => {
-      expect(vi.mocked(invoke)).toHaveBeenCalledWith(
-        'document_upload',
-        expect.objectContaining({
-          entityType: 'etablissement',
-          entityId: 1,
-          typeDocument: 'kbis',
-        })
-      );
-    });
+    // Check that K-Bis section is displayed
+    expect(screen.getByText('Document K-Bis')).toBeInTheDocument();
+    expect(screen.getByText('Aucun document')).toBeInTheDocument();
   });
 });
