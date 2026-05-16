@@ -71,11 +71,14 @@ describe('Sidebar', () => {
     });
   });
 
-  it('should render brand with RP badge and title', async () => {
+  it('should render brand with logo and title', async () => {
     renderWithProviders(<Sidebar />, { route: '/' });
 
     await waitFor(() => {
-      expect(screen.getByText('RP')).toBeInTheDocument();
+      const logo = screen.getByAltText('PCR Manager');
+      expect(logo).toBeInTheDocument();
+      expect(logo.tagName).toBe('IMG');
+      expect(logo).toHaveAttribute('src', '/logo.png');
       expect(screen.getByText('Gestionnaire PCR')).toBeInTheDocument();
     });
   });

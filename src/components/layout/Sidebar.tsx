@@ -85,9 +85,11 @@ export default function Sidebar() {
     <aside className="sticky top-0 h-screen w-60 bg-surface border-r border-border flex flex-col">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-3.5 border-b border-border">
-        <div className="w-7 h-7 bg-text text-white rounded flex items-center justify-center font-bold text-[13px] tracking-tight font-mono">
-          RP
-        </div>
+        <img
+          src="/logo.png"
+          alt="PCR Manager"
+          className="w-8 h-8 flex-shrink-0 rounded"
+        />
         <div>
           <div className="font-bold text-sm tracking-tight">Gestionnaire PCR</div>
           <div className="text-[11px] text-textSoft mt-px">Suivi radioprotection</div>
