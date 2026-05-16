@@ -163,7 +163,7 @@ export default function AppareilsList() {
                   </TD>
                   <TD className="text-textMuted">
                     <span>{a.lieu_utilisation}</span>
-                    {a.utilisation_partagee && (
+                    {Boolean(a.utilisation_partagee) && (
                       <Badge variant="neutral" icon={null} className="ml-1.5">
                         partagé
                       </Badge>

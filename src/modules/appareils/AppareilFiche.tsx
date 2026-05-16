@@ -10,17 +10,13 @@ import { PageHead } from '../../components/ui/PageHead';
 import { ReadField } from '../../components/ui/ReadField';
 import { Field, Label, Input } from '../../components/ui/FormField';
 import { ChevronLeft, Edit, Plus, Calendar, X } from 'lucide-react';
+import type { StatusColor } from '../../lib/status';
 
-type VerifRowProps = {
-  label: string;
-  sub: string;
-  last: boolean;
-  dateLast: string | null | undefined;
-  dateDeadline: string | null | undefined;
-  status: 'valide' | 'a_prevoir' | 'en_retard' | 'non_applicable';
-};
-
-function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: VerifRowProps) {
+function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
+  label: string; sub: string; last: boolean;
+  dateLast: string | null | undefined; dateDeadline: string | null | undefined;
+  status: StatusColor;
+}) {
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '–';
     return new Date(dateStr).toLocaleDateString('fr-FR');
@@ -50,14 +46,10 @@ function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: VerifRow
   );
 }
 
-type CycleRowProps = {
-  label: string;
-  sub: string;
-  dateDeadline: string | null | undefined;
-  status: 'valide' | 'a_prevoir' | 'en_retard' | 'non_applicable';
-};
-
-function CycleRow({ label, sub, dateDeadline, status }: CycleRowProps) {
+function CycleRow({ label, sub, dateDeadline, status }: {
+  label: string; sub: string;
+  dateDeadline: string | null | undefined; status: StatusColor;
+}) {
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '–';
     return new Date(dateStr).toLocaleDateString('fr-FR');
