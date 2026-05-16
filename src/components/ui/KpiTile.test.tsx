@@ -12,9 +12,7 @@ describe('KpiTile', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
 
     const valueElement = screen.getByText('42');
-    expect(valueElement).not.toHaveClass('text-danger');
-    expect(valueElement).not.toHaveClass('text-warn');
-    expect(valueElement).not.toHaveClass('text-ok');
+    expect(valueElement).toHaveStyle({ color: 'var(--text)' });
   });
 
   it('renders with footer', () => {
@@ -27,21 +25,21 @@ describe('KpiTile', () => {
     render(<KpiTile label="Critical" value={5} tone="danger" />);
 
     const valueElement = screen.getByText('5');
-    expect(valueElement).toHaveClass('text-danger');
+    expect(valueElement).toHaveStyle({ color: 'var(--danger)' });
   });
 
   it('applies warn tone to value', () => {
     render(<KpiTile label="Warning" value={15} tone="warn" />);
 
     const valueElement = screen.getByText('15');
-    expect(valueElement).toHaveClass('text-warn');
+    expect(valueElement).toHaveStyle({ color: 'var(--warn)' });
   });
 
   it('applies ok tone to value', () => {
     render(<KpiTile label="Good" value={95} tone="ok" />);
 
     const valueElement = screen.getByText('95');
-    expect(valueElement).toHaveClass('text-ok');
+    expect(valueElement).toHaveStyle({ color: 'var(--ok)' });
   });
 
   it('renders chip badge with tone=warn', () => {

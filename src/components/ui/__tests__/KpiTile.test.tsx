@@ -49,20 +49,20 @@ describe('KpiTile', () => {
     expect(tile).toHaveClass('bg-surface');
     expect(tile).toHaveClass('border');
     expect(tile).toHaveClass('rounded-lg');
-    expect(tile).toHaveClass('p-5');
+    expect(tile).toHaveClass('p-4');
+    expect(tile).toHaveClass('px-5');
   });
 
   it('renders label with uppercase styling', () => {
     render(<KpiTile label="METRIC" value={99} data-testid="label" />);
     const label = screen.getByText('METRIC');
     expect(label).toHaveClass('text-xs');
-    expect(label).toHaveClass('font-medium');
+    expect(label).toHaveClass('font-semibold');
   });
 
   it('renders value with bold styling', () => {
     render(<KpiTile label="Amount" value={1234} data-testid="value" />);
     const value = screen.getByText('1234');
-    expect(value).toHaveClass('text-3xl');
     expect(value).toHaveClass('font-bold');
   });
 

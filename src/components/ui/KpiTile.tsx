@@ -12,34 +12,37 @@ interface KpiTileProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const KpiTile = React.forwardRef<HTMLDivElement, KpiTileProps>(
   ({ label, value, footer, tone, chip, className, ...props }, ref) => {
-    const toneClassMap = {
-      danger: 'text-danger',
-      warn: 'text-warn',
-      ok: 'text-ok',
+    const toneColorMap = {
+      danger: 'var(--danger)',
+      warn: 'var(--warn)',
+      ok: 'var(--ok)',
     };
 
-    const valueClass = tone ? toneClassMap[tone] : undefined;
+    const valueColor = tone ? toneColorMap[tone] : 'var(--text)';
 
     return (
       <div
         ref={ref}
         className={cn(
-          'bg-surface border border-border rounded-lg shadow-sm p-5',
+          'bg-surface border border-border rounded-lg shadow-md p-4 px-5',
           className
         )}
         {...props}
       >
-        <div className="flex justify-between items-start mb-2">
-          <div className="text-xs font-medium text-textSoft uppercase tracking-wider">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="text-xs font-semibold text-textMuted uppercase tracking-[0.04em]">
             {label}
           </div>
           {chip && <Badge variant={tone || 'neutral'}>{chip}</Badge>}
         </div>
-        <div className={cn('text-3xl font-bold mono', valueClass)}>
+        <div
+          className="text-[32px] font-bold leading-none tracking-tight tabular-nums font-mono mb-2.5"
+          style={{ color: valueColor }}
+        >
           {value}
         </div>
         {footer && (
-          <div className="text-xs text-textMuted mt-2">
+          <div className="text-xs text-textSoft">
             {footer}
           </div>
         )}

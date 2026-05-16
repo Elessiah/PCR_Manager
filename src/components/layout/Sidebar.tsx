@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { statusFromDate } from '../../lib/status';
-import { Badge } from '../ui/Badge';
 import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite } from '../../types/domain';
 
 interface NavItem {
@@ -75,85 +74,93 @@ export default function Sidebar() {
   };
 
   const navItems: NavItem[] = [
-    { to: '/', icon: <LayoutDashboard size={16} />, label: 'Dashboard' },
-    { to: '/etablissement', icon: <Building2 size={16} />, label: 'Établissement' },
-    { to: '/travailleurs', icon: <Users size={16} />, label: 'Travailleurs', count: travailleurs.length, countVariant: 'accent' },
-    { to: '/appareils', icon: <Wrench size={16} />, label: 'Appareils', count: appareils.length, countVariant: 'accent' },
-    { to: '/actions', icon: <ListChecks size={16} />, label: 'Actions', count: countRetardActions(), countVariant: 'danger' },
+    { to: '/', icon: <LayoutDashboard size={16} strokeWidth={1.75} />, label: 'Dashboard' },
+    { to: '/etablissement', icon: <Building2 size={16} strokeWidth={1.75} />, label: 'Établissement' },
+    { to: '/travailleurs', icon: <Users size={16} strokeWidth={1.75} />, label: 'Travailleurs', count: travailleurs.length, countVariant: 'accent' },
+    { to: '/appareils', icon: <Wrench size={16} strokeWidth={1.75} />, label: 'Appareils', count: appareils.length, countVariant: 'accent' },
+    { to: '/actions', icon: <ListChecks size={16} strokeWidth={1.75} />, label: 'Actions', count: countRetardActions(), countVariant: 'danger' },
   ];
 
   return (
-    <aside className="sticky top-0 h-screen w-60 bg-surface border-r border-border flex flex-col p-4">
-      {/* Brand Header */}
-      <div className="pb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center text-xs font-mono font-bold">
-            RP
-          </div>
-          <h1 className="text-lg font-semibold text-text">Gestionnaire PCR</h1>
+    <aside className="sticky top-0 h-screen w-60 bg-surface border-r border-border flex flex-col">
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3.5 border-b border-border">
+        <div className="w-7 h-7 bg-text text-white rounded flex items-center justify-center font-bold text-[13px] tracking-tight font-mono">
+          RP
         </div>
-        <p className="text-xs text-textMuted mt-1">Suivi radioprotection</p>
+        <div>
+          <div className="font-bold text-sm tracking-tight">Gestionnaire PCR</div>
+          <div className="text-[11px] text-textSoft mt-px">Suivi radioprotection</div>
+        </div>
       </div>
 
-      {/* Navigation Label */}
-      <div className="text-xs font-semibold text-textSoft uppercase tracking-widest mb-2 px-2.5">Navigation</div>
-
       {/* Navigation */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex flex-col gap-px flex-1 px-2.5 pt-3">
+        <div className="text-[11px] font-semibold text-textSoft uppercase tracking-[0.06em] px-2.5 pt-3.5 pb-1.5">
+          Navigation
+        </div>
+
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 px-2.5 py-1.5 rounded text-sm text-textMuted hover:bg-surfaceHover transition-colors ${
-                isActive
-                  ? 'bg-accentSoft text-accent border border-accentSoftBorder'
-                  : ''
-              }`
-            }
+            className={({ isActive }) => `flex items-center gap-2.5 px-2.5 py-[7px] rounded text-[13.5px] font-medium ${
+              isActive
+                ? 'bg-accentSoft text-accent'
+                : 'text-textMuted hover:bg-surfaceHover hover:text-text'
+            }`}
           >
-            {item.icon}
+            <span className="flex-shrink-0">{item.icon}</span>
             <span className="flex-1">{item.label}</span>
             {item.count !== undefined && (
-              <Badge variant={item.countVariant || 'accent'}>
+              <span
+                className={`text-[11px] font-semibold px-[6px] py-px rounded-full border tabular-nums ${
+                  item.countVariant === 'danger'
+                    ? 'bg-dangerBg border-dangerBorder text-danger'
+                    : isActive
+                    ? 'bg-white border-accentSoftBorder text-accent'
+                    : 'bg-neutralBg border-neutralBorder text-textMuted'
+                }`}
+              >
                 {item.count}
-              </Badge>
+              </span>
             )}
           </NavLink>
         ))}
+
+        {/* Établissement Section */}
+        <div className="pt-3.5 mt-1.5">
+          <div className="text-[11px] font-semibold text-textSoft uppercase tracking-[0.06em] px-2.5 pt-3.5 pb-1.5">
+            Établissement
+          </div>
+          <div className="bg-surface2 border border-border rounded px-3 py-2.5 mx-1.5 my-1">
+            <div className="text-[12.5px] font-semibold leading-tight">
+              {etablissement?.denomination ?? '—'}
+            </div>
+            <div className="text-[11px] text-textSoft mt-1">
+              {etablissement?.ville ?? '—'}
+            </div>
+            <div className="text-[10.5px] font-mono text-textSoft mt-1">
+              {etablissement?.siret ? `SIRET ${etablissement.siret}` : '—'}
+            </div>
+          </div>
+        </div>
       </nav>
 
-      {/* Établissement Section */}
-      <div className="py-3 border-t border-border">
-        <div className="text-xs font-semibold text-textSoft uppercase tracking-widest mb-2 px-0.5">
-          Établissement
-        </div>
-        <div className="bg-surface2 rounded p-3 border border-border">
-          <div className="text-sm font-medium text-text leading-snug">
-            {etablissement?.denomination || '—'}
-          </div>
-          <div className="text-xs text-textMuted mt-1">
-            {etablissement?.ville || '—'}
-          </div>
-          <div className="text-xs font-mono text-textMuted mt-1">
-            SIRET {etablissement?.siret || '—'}
-          </div>
-        </div>
-      </div>
-
       {/* Footer */}
-      <div className="pt-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-accentSoft text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
-            {etablissement ? getInitials(etablissement.denomination) : '—'}
+      <div className="flex items-center gap-2.5 px-3 py-3 border-t border-border">
+        <div
+          className="w-[30px] h-[30px] rounded-full grid place-items-center font-bold text-xs text-accent flex-shrink-0"
+          style={{ background: 'oklch(0.85 0.04 245)' }}
+        >
+          {etablissement ? getInitials(etablissement.denomination) : '—'}
+        </div>
+        <div>
+          <div className="text-[13px] font-semibold leading-tight">
+            {etablissement?.denomination ?? '—'}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-text truncate">
-              {etablissement?.denomination || '—'}
-            </div>
-            <div className="text-xs text-textMuted truncate">
-              PCR · Administrateur
-            </div>
+          <div className="text-[11px] text-textSoft">
+            PCR · Administrateur
           </div>
         </div>
       </div>

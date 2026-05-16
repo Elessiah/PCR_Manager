@@ -135,7 +135,6 @@ describe('Sidebar', () => {
     const travailleurLink = screen.getByRole('link', { name: /travailleurs/i });
     expect(travailleurLink).toHaveClass('bg-accentSoft');
     expect(travailleurLink).toHaveClass('text-accent');
-    expect(travailleurLink).toHaveClass('border');
   });
 
   it('should not highlight non-active links', () => {
@@ -261,11 +260,9 @@ describe('Sidebar', () => {
       const labels = screen.getAllByText('Établissement');
       const sectionLabel = labels.find(el => el.tagName === 'DIV');
       expect(sectionLabel).toBeInTheDocument();
-      expect(sectionLabel).toHaveClass('text-xs');
       expect(sectionLabel).toHaveClass('font-semibold');
       expect(sectionLabel).toHaveClass('text-textSoft');
       expect(sectionLabel).toHaveClass('uppercase');
-      expect(sectionLabel).toHaveClass('tracking-widest');
     });
   });
 
@@ -279,7 +276,6 @@ describe('Sidebar', () => {
       expect(box).toBeInTheDocument();
       expect(box).toHaveClass('bg-surface2');
       expect(box).toHaveClass('rounded');
-      expect(box).toHaveClass('p-3');
       expect(box).toHaveClass('border');
       expect(box).toHaveClass('border-border');
 

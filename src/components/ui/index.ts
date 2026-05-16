@@ -7,6 +7,8 @@ export { Badge } from './Badge';
 
 export { Dot } from './Dot';
 
+export { PageHead } from './PageHead';
+
 export { Table, THead, TBody, TR, TH, TD } from './Table';
 
 export { KpiTile } from './KpiTile';
