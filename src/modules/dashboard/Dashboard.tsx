@@ -7,7 +7,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import type { Appareil, VerificationTechnique, ControleQualite, HabilitationStatus } from '../../types/domain';
-import { AlertCircle, CheckCircle, Clock, Zap, FileCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Zap, FileCheck, AlertTriangle } from 'lucide-react';
 
 interface Action {
   id: string;
@@ -233,16 +233,22 @@ export default function Dashboard() {
           label="En retard"
           value={kpiInRetard}
           footer="Actions invalides/dépassées"
+          tone="danger"
+          chip={<><AlertTriangle size={12} /> {kpiInRetard} action(s)</>}
         />
         <KpiTile
           label="À prévoir"
           value={kpiAPrevoir}
           footer="Échéances < 90 jours"
+          tone="warn"
+          chip={<><Clock size={12} /> 90 jours</>}
         />
         <KpiTile
           label="À jour"
-          value={`${travailleurs.length}/${travailleurs.length}`}
+          value={`${habilitationsStats.validee + habilitationsStats.partielle}/${travailleurs.length}`}
           footer="Travailleurs"
+          tone="ok"
+          chip={<><CheckCircle size={12} /> Conforme</>}
         />
       </div>
 
@@ -269,11 +275,12 @@ export default function Dashboard() {
                     const status = statusFromDate(action.deadline, 1);
                     return (
                       <TR key={action.id}>
-                        <TD>{action.cible.label}</TD>
                         <TD>
-                          <Badge variant="neutral">
-                            {action.categorie === 'verification' ? 'Vérification' : 'Contrôle'}
-                          </Badge>
+                          <div className="font-medium text-sm">{action.cible.label}</div>
+                          <div className="text-xs text-textMuted mt-0.5">{action.libelle}</div>
+                        </TD>
+                        <TD className="text-accent text-sm font-medium">
+                          {action.categorie === 'verification' ? 'Vérification' : 'Contrôle'}
                         </TD>
                         <TD>
                           <div className="text-sm">
@@ -282,8 +289,15 @@ export default function Dashboard() {
                           </div>
                         </TD>
                         <TD>
-                          <Badge variant={statusToBadgeVariant[status]}>
-                            {status === 'en_retard' ? 'En retard' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
+                          <Badge
+                            variant={statusToBadgeVariant[status]}
+                            icon={
+                              status === 'en_retard' ? <AlertTriangle size={12} /> :
+                              status === 'a_prevoir' ? <Clock size={12} /> :
+                              <CheckCircle size={12} />
+                            }
+                          >
+                            {status === 'en_retard' ? 'Invalide' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
                           </Badge>
                         </TD>
                       </TR>
@@ -309,15 +323,22 @@ export default function Dashboard() {
                 { label: 'Dosimétrie', icon: Zap, ...alertCategories.dosimetrie },
               ].map((cat, idx) => {
                 const IconComponent = cat.icon;
+                const allZero = cat.danger === 0 && cat.warn === 0 && cat.ok === 0;
                 return (
                   <div key={idx} className="flex items-center gap-3">
                     <IconComponent size={30} className="text-textMuted flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-text">{cat.label}</div>
                       <div className="flex gap-2 mt-1 flex-wrap">
-                        <Badge variant="danger">{cat.danger}</Badge>
-                        <Badge variant="warn">{cat.warn}</Badge>
-                        <Badge variant="ok">{cat.ok}</Badge>
+                        {allZero ? (
+                          <Badge variant="ok" icon={<CheckCircle size={12} />}>À jour</Badge>
+                        ) : (
+                          <>
+                            {cat.danger > 0 && <Badge variant="danger">{cat.danger}</Badge>}
+                            {cat.warn > 0 && <Badge variant="warn">{cat.warn}</Badge>}
+                            {cat.ok > 0 && <Badge variant="ok">{cat.ok}</Badge>}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

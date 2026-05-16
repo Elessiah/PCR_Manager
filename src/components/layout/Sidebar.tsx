@@ -85,12 +85,18 @@ export default function Sidebar() {
   return (
     <aside className="sticky top-0 h-screen w-60 bg-surface border-r border-border flex flex-col p-4">
       {/* Brand Header */}
-      <div className="flex items-center gap-3 pb-6">
-        <div className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center text-xs font-mono font-bold">
-          RP
+      <div className="pb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center text-xs font-mono font-bold">
+            RP
+          </div>
+          <h1 className="text-lg font-semibold text-text">Gestionnaire PCR</h1>
         </div>
-        <h1 className="text-lg font-semibold text-text">Gestionnaire PCR</h1>
+        <p className="text-xs text-textMuted mt-1">Suivi radioprotection</p>
       </div>
+
+      {/* Navigation Label */}
+      <div className="text-xs font-semibold text-textSoft uppercase tracking-widest mb-2 px-2.5">Navigation</div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1">
@@ -118,15 +124,20 @@ export default function Sidebar() {
       </nav>
 
       {/* Établissement Section */}
-      <div className="py-4 border-t border-border">
-        <div className="text-sm font-semibold text-text">
-          {etablissement?.denomination || '—'}
+      <div className="py-3 border-t border-border">
+        <div className="text-xs font-semibold text-textSoft uppercase tracking-widest mb-2 px-0.5">
+          Établissement
         </div>
-        <div className="text-xs text-textMuted mt-1">
-          {etablissement?.ville || '—'}
-        </div>
-        <div className="text-xs text-textMuted font-mono mt-2">
-          {etablissement?.siret || '—'}
+        <div className="bg-surface2 rounded p-3 border border-border">
+          <div className="text-sm font-medium text-text leading-snug">
+            {etablissement?.denomination || '—'}
+          </div>
+          <div className="text-xs text-textMuted mt-1">
+            {etablissement?.ville || '—'}
+          </div>
+          <div className="text-xs font-mono text-textMuted mt-1">
+            SIRET {etablissement?.siret || '—'}
+          </div>
         </div>
       </div>
 
