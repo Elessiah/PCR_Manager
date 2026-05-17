@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderWithProviders, screen, waitFor } from '../../../test/test-utils'
 import { invoke } from '@tauri-apps/api/core'
 import userEvent from '@testing-library/user-event'

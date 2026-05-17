@@ -77,16 +77,19 @@ const mockCompetenceRefs: CompetenceRef[] = [
     id: 1,
     libelle: 'Compétence sur fluoroscopie',
     ordre: 1,
+    description: null,
   },
   {
     id: 2,
     libelle: 'Compétence sur radiographie',
     ordre: 2,
+    description: null,
   },
   {
     id: 3,
     libelle: 'Compétence sur scanner',
     ordre: 3,
+    description: null,
   },
 ]
 
