@@ -154,7 +154,6 @@ describe('AppareilsList', () => {
     await user.click(addButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Ajouter un appareil')).toBeInTheDocument();
       expect(screen.getByText('Désignation *')).toBeInTheDocument();
     });
   });

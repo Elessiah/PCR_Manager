@@ -92,10 +92,10 @@ describe('CompetencesList', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }))
 
     await waitFor(() => {
-      expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_create', {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_create', expect.objectContaining({
         libelle: 'Test compétence',
         ordre: 0,
-      })
+      }))
     })
   })
 

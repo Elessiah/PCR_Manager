@@ -568,7 +568,7 @@ function CompetencesRequises({ appareilId }: { appareilId: number }) {
     else addMut.mutate(competenceRefId);
   };
 
-  if (allCompetences.length === 0) return null;
+  if (!allCompetences || allCompetences.length === 0) return null;
 
   return (
     <Card>
