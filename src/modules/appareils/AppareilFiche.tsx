@@ -46,46 +46,6 @@ function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
   );
 }
 
-function CycleRow({ label, sub, dateDeadline, status }: {
-  label: string; sub: string;
-  dateDeadline: string | null | undefined; status: StatusColor;
-}) {
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '–';
-    return new Date(dateStr).toLocaleDateString('fr-FR');
-  };
-
-  const relDay = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '';
-    const today = new Date();
-    const date = new Date(dateStr);
-    const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return `${Math.abs(diff)} jour(s) passé(s)`;
-    if (diff === 0) return 'Aujourd\'hui';
-    if (diff === 1) return 'Demain';
-    return `${diff} jour(s)`;
-  };
-
-  return (
-    <div className="grid items-center gap-6 py-3" style={{ gridTemplateColumns: '1fr auto auto', borderBottom: '1px solid var(--border)' }}>
-      <div>
-        <div className="font-semibold text-[13.5px]">{label}</div>
-        <div className="text-textSoft text-[12px] mt-px">{sub}</div>
-      </div>
-      <div>
-        <div className="font-mono text-[13px]">{formatDate(dateDeadline)}</div>
-        <div className="text-textSoft text-[11px] mt-px">{relDay(dateDeadline)}</div>
-      </div>
-      <Badge variant={statusToBadgeVariant[status]}>
-        {status === 'valide' && 'Valide'}
-        {status === 'a_prevoir' && 'À prévoir'}
-        {status === 'en_retard' && 'En retard'}
-        {status === 'non_applicable' && 'N/A'}
-      </Badge>
-    </div>
-  );
-}
-
 export default function AppareilFiche() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

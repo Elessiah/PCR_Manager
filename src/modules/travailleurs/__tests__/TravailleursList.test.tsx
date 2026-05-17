@@ -8,7 +8,7 @@ vi.mock('@tauri-apps/api/core')
 
 describe('TravailleursList - Add Modal', () => {
   beforeEach(() => {
-    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       if (cmd === 'travailleur_list') {
         return []
       }

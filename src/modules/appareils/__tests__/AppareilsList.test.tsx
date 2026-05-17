@@ -87,7 +87,7 @@ describe('AppareilsList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const invoiceMock = vi.mocked(invoke);
-    invoiceMock.mockImplementation((command: string, _args?: any) => {
+    invoiceMock.mockImplementation((command: string) => {
       switch (command) {
         case 'appareil_list':
           return Promise.resolve(mockAppareils);
@@ -162,7 +162,7 @@ describe('AppareilsList', () => {
     const user = userEvent.setup();
     const invoiceMock = vi.mocked(invoke);
 
-    invoiceMock.mockImplementation((command: string, args?: any) => {
+    invoiceMock.mockImplementation((command: string) => {
       if (command === 'appareil_list') return Promise.resolve(mockAppareils);
       if (command === 'verification_list') return Promise.resolve(mockVerifications);
       if (command === 'controle_qualite_list') return Promise.resolve(mockControles);

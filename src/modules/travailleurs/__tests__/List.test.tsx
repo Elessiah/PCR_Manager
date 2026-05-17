@@ -71,17 +71,19 @@ const mockTravailleurs: Travailleur[] = [
   },
 ]
 
-vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) => {
+vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
   switch (cmd) {
     case 'travailleur_list':
       return mockTravailleurs
-    case 'habilitation_compute':
+    case 'habilitation_compute': {
       const habilitationMap: Record<number, string> = {
         1: 'validee',
         2: 'partielle',
         3: 'non_validee',
       }
-      return { statut: habilitationMap[args?.travailleurId] || 'non_validee', details: {} }
+      const travailleurId = (args as { travailleurId?: number } | undefined)?.travailleurId
+      return { statut: habilitationMap[travailleurId ?? 0] || 'non_validee', details: {} }
+    }
     default:
       return null
   }

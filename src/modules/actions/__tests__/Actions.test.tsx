@@ -72,14 +72,16 @@ const mockHabilitation2: Habilitation = {
   updated_at: '2025-01-01T00:00:00Z',
 };
 
-vi.mocked(invoke).mockImplementation(async (cmd, args?: any) => {
+vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
   switch (cmd) {
     case 'travailleur_list':
       return [mockTravailleur1, mockTravailleur2];
-    case 'habilitation_get_for_travailleur':
-      if (args?.travailleurId === 1) return mockHabilitation1;
-      if (args?.travailleurId === 2) return mockHabilitation2;
+    case 'habilitation_get_for_travailleur': {
+      const a = args as { travailleurId?: number } | undefined;
+      if (a?.travailleurId === 1) return mockHabilitation1;
+      if (a?.travailleurId === 2) return mockHabilitation2;
       return null;
+    }
     case 'appareil_list':
       return [
         {

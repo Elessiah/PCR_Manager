@@ -112,7 +112,7 @@ const mockAppareils: Appareil[] = [
   },
 ]
 
-vi.mocked(invoke).mockImplementation(async (cmd: string, args?: any) => {
+vi.mocked(invoke).mockImplementation(async (cmd: string) => {
   switch (cmd) {
     case 'travailleur_get':
       return mockTravailleur

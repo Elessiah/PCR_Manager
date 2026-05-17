@@ -85,8 +85,6 @@ export default function Topbar() {
     return 'PCR Manager';
   };
 
-  const hasNotifications = countRetardActions() > 0;
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {

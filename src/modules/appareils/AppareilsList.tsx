@@ -191,12 +191,6 @@ export default function AppareilsList() {
     return statusFromDate(earliest);
   };
 
-  const getLatestControleExterne = (appareilId: number) => {
-    return controles
-      .filter(c => c.appareil_id === appareilId && c.type_ === 'externe')
-      .sort((a, b) => new Date(b.date_realisation || '').getTime() - new Date(a.date_realisation || '').getTime())[0];
-  };
-
   const getNextControleQualite = (appareilId: number) => {
     const internes = controles.filter(c => c.appareil_id === appareilId && c.type_ !== 'externe');
     const pending = internes.filter(c => new Date(c.date_echeance) >= new Date());

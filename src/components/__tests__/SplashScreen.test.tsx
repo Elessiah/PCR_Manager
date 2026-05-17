@@ -12,7 +12,7 @@ describe('SplashScreen', () => {
   })
 
   it('renders with full opacity by default', () => {
-    const { container } = render(<SplashScreen />)
+    render(<SplashScreen />)
     const splashDiv = screen.getByTestId('splash-screen')
 
     expect(splashDiv).toHaveClass('opacity-100')
@@ -20,7 +20,7 @@ describe('SplashScreen', () => {
   })
 
   it('applies opacity-0 class when fadingOut is true', () => {
-    const { container } = render(<SplashScreen fadingOut={true} />)
+    render(<SplashScreen fadingOut={true} />)
     const splashDiv = screen.getByTestId('splash-screen')
 
     expect(splashDiv).toHaveClass('opacity-0')
