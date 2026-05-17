@@ -1,4 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import AppShell from './components/layout/AppShell';
 import Dashboard from './modules/dashboard/Dashboard';
 import Etablissement from './modules/etablissement/Etablissement';
@@ -8,11 +9,25 @@ import AppareilsList from './modules/appareils/AppareilsList';
 import AppareilFiche from './modules/appareils/AppareilFiche';
 import Actions from './modules/actions/Actions';
 import CompetencesList from './modules/competences/CompetencesList';
+import LoginPage from './modules/auth/LoginPage';
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Dashboard />} />
         <Route path="etablissement" element={<Etablissement />} />
         <Route path="travailleurs" element={<TravailleursList />} />

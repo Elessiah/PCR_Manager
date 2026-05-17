@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import SplashScreen from './components/SplashScreen'
+import { AuthProvider } from './context/AuthContext'
 import './index.css'
 
 const queryClient = new QueryClient()
@@ -25,7 +26,9 @@ function Root() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        {splashVisible ? <SplashScreen fadingOut={fadingOut} /> : <App />}
+        <AuthProvider>
+          {splashVisible ? <SplashScreen fadingOut={fadingOut} /> : <App />}
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   )

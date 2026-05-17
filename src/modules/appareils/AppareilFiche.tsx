@@ -376,6 +376,10 @@ export default function AppareilFiche() {
             )}
           </CardBody>
         </Card>
+
+        <div className="col-span-2">
+          <CompetencesRequises appareilId={appareil.id} />
+        </div>
       </div>
 
       {showVerifModal && (
@@ -523,5 +527,80 @@ export default function AppareilFiche() {
         </div>
       )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sous-composant : compétences requises par appareil
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompetencesRequises({ appareilId }: { appareilId: number }) {
+  const qc = useQueryClient();
+
+  const { data: allCompetences = [] } = useQuery({
+    queryKey: ['competences'],
+    queryFn: () => api.competence.list(),
+    staleTime: 60_000,
+  });
+
+  const { data: linkedIds = [] } = useQuery({
+    queryKey: ['appareil_competences', appareilId],
+    queryFn: () => api.appareil.competenceList(appareilId),
+    staleTime: 0,
+  });
+
+  const linkedSet = new Set(linkedIds);
+
+  const addMut = useMutation({
+    mutationFn: (competenceRefId: number) =>
+      api.appareil.competenceAdd(appareilId, competenceRefId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (competenceRefId: number) =>
+      api.appareil.competenceRemove(appareilId, competenceRefId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+  });
+
+  const toggle = (competenceRefId: number, isLinked: boolean) => {
+    if (isLinked) removeMut.mutate(competenceRefId);
+    else addMut.mutate(competenceRefId);
+  };
+
+  if (allCompetences.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHead>
+        <CardTitle>Compétences requises</CardTitle>
+      </CardHead>
+      <CardBody>
+        <p className="text-textSoft text-[12.5px] mb-3">
+          Sélectionnez les compétences de la bibliothèque applicables à cet appareil.
+        </p>
+        <ul className="space-y-2">
+          {allCompetences.map(c => {
+            const linked = linkedSet.has(c.id);
+            return (
+              <li key={c.id} className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={linked}
+                  onChange={() => toggle(c.id, linked)}
+                  className="mt-0.5 accent-accent"
+                />
+                <div>
+                  <span className="text-[13px] font-medium">{c.libelle}</span>
+                  {c.description && (
+                    <p className="text-textSoft text-[11.5px] mt-0.5">{c.description}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </CardBody>
+    </Card>
   );
 }

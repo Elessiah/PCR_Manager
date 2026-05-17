@@ -148,6 +148,12 @@ export const api = {
       intensiteMaximaleMa?: number | null;
     }) => invoke<void>('appareil_update', input),
     delete: (id: number) => invoke<void>('appareil_delete', { id }),
+    competenceAdd: (appareilId: number, competenceRefId: number) =>
+      invoke<void>('appareil_competence_add', { appareilId, competenceRefId }),
+    competenceRemove: (appareilId: number, competenceRefId: number) =>
+      invoke<void>('appareil_competence_remove', { appareilId, competenceRefId }),
+    competenceList: (appareilId: number) =>
+      invoke<number[]>('appareil_competence_list', { appareilId }),
   },
 
   verification: {
@@ -229,5 +235,17 @@ export const api = {
       authId: string;
       response: Record<string, unknown>;
     }) => invoke<Record<string, unknown>>('passkey_auth_finish', input),
+  },
+
+  auth: {
+    isRegistered: () => invoke<boolean>('local_auth_is_registered'),
+    register: (pin: string) => invoke<void>('local_auth_register', { pin }),
+    verify: (pin: string) => invoke<boolean>('local_auth_verify', { pin }),
+  },
+
+  data: {
+    export: () => invoke<string>('data_export'),
+    import: (jsonStr: string) =>
+      invoke<{ travailleurs_added: number; appareils_added: number }>('data_import', { jsonStr }),
   },
 };

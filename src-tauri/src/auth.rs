@@ -4,6 +4,11 @@ use std::sync::Arc;
 use std::time::Instant;
 use webauthn_rs::prelude::*;
 use parking_lot::Mutex;
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
+use rusqlite::OptionalExtension;
 use uuid::Uuid;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crate::db::DbState;
@@ -214,6 +219,74 @@ pub async fn passkey_auth_finish(
 
     *session.authenticated.lock() = true;
     Ok(serde_json::json!({"authenticated": true}))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Authentification locale par PIN (argon2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Retourne true si un PIN a déjà été enregistré.
+#[tauri::command]
+pub async fn local_auth_is_registered(
+    db: tauri::State<'_, crate::db::DbState>,
+) -> Result<bool, String> {
+    let conn = db.conn.lock();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM local_credential", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    Ok(count > 0)
+}
+
+/// Enregistre un nouveau PIN (hash argon2). Erreur si déjà enregistré.
+#[tauri::command]
+pub async fn local_auth_register(
+    db: tauri::State<'_, crate::db::DbState>,
+    pin: String,
+) -> Result<(), String> {
+    if pin.len() < 4 {
+        return Err("Le PIN doit contenir au moins 4 caractères.".to_string());
+    }
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let hash = argon2
+        .hash_password(pin.as_bytes(), &salt)
+        .map_err(|e| e.to_string())?
+        .to_string();
+
+    let conn = db.conn.lock();
+    conn.execute(
+        "INSERT OR IGNORE INTO local_credential (id, pin_hash) VALUES (1, ?1)",
+        rusqlite::params![hash],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Vérifie le PIN. Retourne true si correct, false sinon.
+#[tauri::command]
+pub async fn local_auth_verify(
+    db: tauri::State<'_, crate::db::DbState>,
+    pin: String,
+) -> Result<bool, String> {
+    let conn = db.conn.lock();
+    let stored_hash: Option<String> = conn
+        .query_row(
+            "SELECT pin_hash FROM local_credential WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    let stored_hash = match stored_hash {
+        Some(h) => h,
+        None => return Ok(false),
+    };
+
+    let parsed_hash = PasswordHash::new(&stored_hash).map_err(|e| e.to_string())?;
+    Ok(Argon2::default()
+        .verify_password(pin.as_bytes(), &parsed_hash)
+        .is_ok())
 }
 
 #[cfg(test)]

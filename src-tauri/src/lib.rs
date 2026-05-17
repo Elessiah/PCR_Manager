@@ -69,6 +69,9 @@ pub fn run() {
             auth::passkey_auth_finish,
             auth::session_check,
             auth::passkey_logout,
+            auth::local_auth_is_registered,
+            auth::local_auth_register,
+            auth::local_auth_verify,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,
@@ -104,7 +107,12 @@ pub fn run() {
             commands::document::document_list,
             commands::document::document_get,
             commands::document::document_upload,
-            commands::document::document_delete
+            commands::document::document_delete,
+            commands::export_import::data_export,
+            commands::export_import::data_import,
+            commands::competence::appareil_competence_add,
+            commands::competence::appareil_competence_remove,
+            commands::competence::appareil_competence_list
         ])
         .run(tauri::generate_context!())
         .expect("erreur Tauri");

@@ -52,6 +52,8 @@ const MIGRATIONS: &[(i32, &str, &str)] = &[
     (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
     (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
     (3, "V3__competence_description", include_str!("../migrations/V3__competence_description.sql")),
+    (4, "V4__appareil_competences",   include_str!("../migrations/V4__appareil_competences.sql")),
+    (5, "V5__local_auth",             include_str!("../migrations/V5__local_auth.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
