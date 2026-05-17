@@ -19,18 +19,19 @@ function CompetenceModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const initial = mode.type === 'edit' ? mode.competence : { libelle: '', ordre: 0 };
+  const initial = mode.type === 'edit' ? mode.competence : { libelle: '', ordre: 0, description: null };
   const [libelle, setLibelle] = useState(initial.libelle);
   const [ordre, setOrdre] = useState(String(initial.ordre));
+  const [description, setDescription] = useState(initial.description ?? '');
 
   const createMut = useMutation({
-    mutationFn: () => api.competence.refCreate({ libelle, ordre: Number(ordre) }),
+    mutationFn: () => api.competence.refCreate({ libelle, ordre: Number(ordre), description: description || null }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['competences'] }); onClose(); },
   });
   const updateMut = useMutation({
     mutationFn: () => {
       if (mode.type !== 'edit') return Promise.resolve();
-      return api.competence.refUpdate({ id: mode.competence.id, libelle, ordre: Number(ordre) });
+      return api.competence.refUpdate({ id: mode.competence.id, libelle, ordre: Number(ordre), description: description || null });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['competences'] }); onClose(); },
   });
@@ -72,6 +73,17 @@ function CompetenceModal({
               value={ordre}
               onChange={e => setOrdre(e.target.value)}
               min={0}
+            />
+          </Field>
+          <Field>
+            <Label htmlFor="description">Description (facultative)</Label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Détails ou notes additionnelles…"
+              className="border border-border rounded px-3 py-2 w-full text-sm resize-none"
+              rows={3}
             />
           </Field>
           <div className="flex gap-2 justify-end pt-2">
@@ -174,7 +186,12 @@ export default function CompetencesList() {
                       <span className="font-mono text-[13px] text-textSoft">{c.ordre}</span>
                     </TD>
                     <TD>
-                      <span className="font-semibold text-[14px]">{c.libelle}</span>
+                      <div>
+                        <span className="font-semibold text-[14px]">{c.libelle}</span>
+                        {c.description && (
+                          <div className="text-textSoft text-xs mt-0.5">{c.description}</div>
+                        )}
+                      </div>
                     </TD>
                     <TD className="text-right">
                       <div className="flex gap-2 justify-end">

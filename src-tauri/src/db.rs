@@ -51,6 +51,7 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
 const MIGRATIONS: &[(i32, &str, &str)] = &[
     (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
     (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
+    (3, "V3__competence_description", include_str!("../migrations/V3__competence_description.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {

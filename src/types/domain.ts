@@ -65,6 +65,7 @@ export interface CompetenceRef {
   id: number;
   libelle: string;
   ordre: number;
+  description: string | null;
 }
 
 export interface CompetenceTravailleur {
