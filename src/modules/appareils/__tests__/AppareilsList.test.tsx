@@ -145,4 +145,59 @@ describe('AppareilsList', () => {
     expect(screen.queryByText('Appareil Radiographique X100')).not.toBeInTheDocument();
     expect(screen.getByText('Panoramique Digital')).toBeInTheDocument();
   });
+
+  it('should open add modal when button is clicked', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AppareilsList />, { route: '/appareils' });
+
+    const addButton = await screen.findByText('Ajouter un appareil');
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ajouter un appareil')).toBeInTheDocument();
+      expect(screen.getByText('Désignation *')).toBeInTheDocument();
+    });
+  });
+
+  it('should submit form with designation and call api.appareil.create', async () => {
+    const user = userEvent.setup();
+    const invoiceMock = vi.mocked(invoke);
+
+    invoiceMock.mockImplementation((command: string, args?: any) => {
+      if (command === 'appareil_list') return Promise.resolve(mockAppareils);
+      if (command === 'verification_list') return Promise.resolve(mockVerifications);
+      if (command === 'controle_qualite_list') return Promise.resolve(mockControles);
+      if (command === 'appareil_create') return Promise.resolve(3);
+      return Promise.resolve(null);
+    });
+
+    renderWithProviders(<AppareilsList />, { route: '/appareils' });
+
+    const addButton = await screen.findByText('Ajouter un appareil');
+    await user.click(addButton);
+
+    const designationInput = await screen.findByPlaceholderText('Ex : Tube radiogène');
+    await user.type(designationInput, 'Nouveau tube X');
+
+    const submitButton = screen.getByRole('button', { name: /^Ajouter$/ });
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(invoiceMock).toHaveBeenCalledWith('appareil_create', expect.objectContaining({
+        etablissementId: 1,
+        designation: 'Nouveau tube X',
+      }));
+    });
+  });
+
+  it('should disable submit button when designation is empty', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AppareilsList />, { route: '/appareils' });
+
+    const addButton = await screen.findByText('Ajouter un appareil');
+    await user.click(addButton);
+
+    const submitButton = await screen.findByRole('button', { name: /^Ajouter$/ });
+    expect(submitButton).toBeDisabled();
+  });
 });
