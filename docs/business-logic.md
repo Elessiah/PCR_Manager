@@ -81,7 +81,7 @@ let statut = if formation_rp_ok && dosimetries_ok && competences_ok && visite_me
 | Vérification annuelle interne | 1 an |
 | Vérification triennale externe | 3 ans |
 
-Ces durées sont codifiées dans `src-tauri/src/commands/habilitation.rs` (durations de validation) et `schema.sql` (calculs de dates pour les vérifications techniques).
+Ces durées sont codifiées dans `src-tauri/src/commands/habilitation.rs` (durations de validation) et `db/schema.sql` (calculs de dates pour les vérifications techniques).
 
 ## Contrôles qualité — génération automatique
 

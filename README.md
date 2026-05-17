@@ -37,8 +37,8 @@ PCR Manager est une **application desktop locale** pour centraliser la gestion r
 
 ```
 PCR Manager/
-├── cahier_des_charges_radioprotection_v2.md   # Spécifications fonctionnelles
-├── schema.sql                                    # Modèle de données
+├── db/schema.sql                                 # Modèle de données
+├── docs/cahier_des_charges_radioprotection_v2.md # Spécifications fonctionnelles
 ├── .gitignore                                    # Exclusions Git
 ├── README.md                                     # Ce fichier
 └── src-tauri/                                    # (À créer) Application Tauri
@@ -97,7 +97,7 @@ npm run tauri build
 Consulter le **cahier des charges** pour les détails:
 - Spécifications fonctionnelles complètes
 - Architecture détaillée
-- Modèle de données (schema.sql)
+- Modèle de données (`db/schema.sql`)
 - Fonctionnalités futures (Phase 2+)
 
 ---

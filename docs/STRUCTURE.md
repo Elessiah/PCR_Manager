@@ -16,9 +16,12 @@ PCR Manager/
 ├── tailwind.config.js             # Configuration Tailwind CSS
 ├── postcss.config.js              # Configuration PostCSS
 ├── README.md                      # Documentation générale
-├── STRUCTURE.md                   # Ce fichier
-├── cahier_des_charges_radioprotection_v2.md  # Spécifications
-├── schema.sql                     # Modèle de données SQLite
+├── db/
+│   └── schema.sql                 # Modèle de données SQLite
+├── docs/
+│   ├── STRUCTURE.md               # Ce fichier
+│   ├── cahier_des_charges_radioprotection_v2.md  # Spécifications
+│   └── design-mockup/             # Maquettes UI de référence
 │
 ├── src/                           # Code source React (Frontend)
 │   ├── main.tsx                   # Entrypoint React (ReactDOM.render)
