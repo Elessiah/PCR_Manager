@@ -46,46 +46,6 @@ function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
   );
 }
 
-function CycleRow({ label, sub, dateDeadline, status }: {
-  label: string; sub: string;
-  dateDeadline: string | null | undefined; status: StatusColor;
-}) {
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '–';
-    return new Date(dateStr).toLocaleDateString('fr-FR');
-  };
-
-  const relDay = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '';
-    const today = new Date();
-    const date = new Date(dateStr);
-    const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return `${Math.abs(diff)} jour(s) passé(s)`;
-    if (diff === 0) return 'Aujourd\'hui';
-    if (diff === 1) return 'Demain';
-    return `${diff} jour(s)`;
-  };
-
-  return (
-    <div className="grid items-center gap-6 py-3" style={{ gridTemplateColumns: '1fr auto auto', borderBottom: '1px solid var(--border)' }}>
-      <div>
-        <div className="font-semibold text-[13.5px]">{label}</div>
-        <div className="text-textSoft text-[12px] mt-px">{sub}</div>
-      </div>
-      <div>
-        <div className="font-mono text-[13px]">{formatDate(dateDeadline)}</div>
-        <div className="text-textSoft text-[11px] mt-px">{relDay(dateDeadline)}</div>
-      </div>
-      <Badge variant={statusToBadgeVariant[status]}>
-        {status === 'valide' && 'Valide'}
-        {status === 'a_prevoir' && 'À prévoir'}
-        {status === 'en_retard' && 'En retard'}
-        {status === 'non_applicable' && 'N/A'}
-      </Badge>
-    </div>
-  );
-}
-
 export default function AppareilFiche() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -376,6 +336,10 @@ export default function AppareilFiche() {
             )}
           </CardBody>
         </Card>
+
+        <div className="col-span-2">
+          <CompetencesRequises appareilId={appareil.id} />
+        </div>
       </div>
 
       {showVerifModal && (
@@ -523,5 +487,80 @@ export default function AppareilFiche() {
         </div>
       )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sous-composant : compétences requises par appareil
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompetencesRequises({ appareilId }: { appareilId: number }) {
+  const qc = useQueryClient();
+
+  const { data: allCompetences = [] } = useQuery({
+    queryKey: ['competences'],
+    queryFn: () => api.competence.list(),
+    staleTime: 60_000,
+  });
+
+  const { data: linkedIds = [] } = useQuery({
+    queryKey: ['appareil_competences', appareilId],
+    queryFn: () => api.appareil.competenceList(appareilId),
+    staleTime: 0,
+  });
+
+  const linkedSet = new Set(linkedIds);
+
+  const addMut = useMutation({
+    mutationFn: (competenceRefId: number) =>
+      api.appareil.competenceAdd(appareilId, competenceRefId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (competenceRefId: number) =>
+      api.appareil.competenceRemove(appareilId, competenceRefId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+  });
+
+  const toggle = (competenceRefId: number, isLinked: boolean) => {
+    if (isLinked) removeMut.mutate(competenceRefId);
+    else addMut.mutate(competenceRefId);
+  };
+
+  if (!allCompetences || allCompetences.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHead>
+        <CardTitle>Compétences requises</CardTitle>
+      </CardHead>
+      <CardBody>
+        <p className="text-textSoft text-[12.5px] mb-3">
+          Sélectionnez les compétences de la bibliothèque applicables à cet appareil.
+        </p>
+        <ul className="space-y-2">
+          {allCompetences.map(c => {
+            const linked = linkedSet.has(c.id);
+            return (
+              <li key={c.id} className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={linked}
+                  onChange={() => toggle(c.id, linked)}
+                  className="mt-0.5 accent-accent"
+                />
+                <div>
+                  <span className="text-[13px] font-medium">{c.libelle}</span>
+                  {c.description && (
+                    <p className="text-textSoft text-[11.5px] mt-0.5">{c.description}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </CardBody>
+    </Card>
   );
 }

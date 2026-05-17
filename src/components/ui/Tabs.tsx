@@ -37,7 +37,8 @@ export const Tab = React.forwardRef<HTMLButtonElement, TabProps>(
         'px-4 py-2.5 text-sm border-b-2 border-transparent',
         active
           ? 'text-accent border-accent'
-          : 'text-textMuted hover:text-text'
+          : 'text-textMuted hover:text-text',
+        className
       )}
       {...props}
     />

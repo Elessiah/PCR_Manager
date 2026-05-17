@@ -19,7 +19,7 @@ const mockEtablissement = {
   updated_at: '2024-01-01',
 };
 
-vi.mocked(invoke).mockImplementation(async (cmd, payload) => {
+vi.mocked(invoke).mockImplementation(async (cmd) => {
   switch (cmd) {
     case 'etablissement_get':
       return mockEtablissement;

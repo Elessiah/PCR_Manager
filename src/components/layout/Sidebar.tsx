@@ -1,6 +1,7 @@
-import { LayoutDashboard, Building2, Users, Wrench, ListChecks, BookOpen } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Building2, Users, Wrench, ListChecks, BookOpen, LogOut } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { statusFromDate } from '../../lib/status';
 import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite } from '../../types/domain';
@@ -23,6 +24,14 @@ function getInitials(denomination: string): string {
 }
 
 export default function Sidebar() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   const { data: etablissement } = useQuery<Etablissement>({
     queryKey: ['etablissement', 1],
     queryFn: () => api.etablissement.get(1),
@@ -171,6 +180,13 @@ export default function Sidebar() {
             PCR · Administrateur
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          title="Se déconnecter"
+          className="ml-auto w-7 h-7 rounded grid place-items-center text-textSoft hover:bg-surface2 hover:text-danger transition-colors"
+        >
+          <LogOut size={14} />
+        </button>
       </div>
     </aside>
   );

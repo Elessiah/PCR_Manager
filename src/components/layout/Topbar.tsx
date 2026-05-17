@@ -1,5 +1,6 @@
+import { useRef, useEffect } from 'react';
 import { Search, Bell } from 'lucide-react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { statusFromDate } from '../../lib/status';
@@ -8,6 +9,8 @@ import type { Etablissement, Travailleur, Appareil, VerificationTechnique, Contr
 export default function Topbar() {
   const location = useLocation();
   const params = useParams();
+  const navigate = useNavigate();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: etablissement } = useQuery<Etablissement>({
     queryKey: ['etablissement', 1],
@@ -62,6 +65,8 @@ export default function Topbar() {
     return count;
   };
 
+  const count = countRetardActions();
+
   const getPageLabel = (): string => {
     const pathname = location.pathname;
 
@@ -80,7 +85,16 @@ export default function Topbar() {
     return 'PCR Manager';
   };
 
-  const hasNotifications = countRetardActions() > 0;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <header className="sticky top-0 z-10 h-14 bg-surface border-b border-border flex items-center gap-4 px-6">
@@ -98,18 +112,24 @@ export default function Topbar() {
       <div className="flex items-center gap-2 bg-surface2 border border-border rounded px-2.5 py-1.5 w-[280px] text-textSoft">
         <Search size={14} />
         <input
+          ref={searchInputRef}
           type="text"
           placeholder="Rechercher travailleur, appareil, document…"
           className="bg-transparent border-0 outline-0 flex-1 text-[13px] placeholder:text-textSoft"
         />
-        <kbd className="font-mono text-[10.5px] bg-white border border-border px-[5px] py-px rounded-sm text-textSoft">⌘K</kbd>
+        <kbd className="font-mono text-[10.5px] bg-white border border-border px-[5px] py-px rounded-sm text-textSoft">Ctrl+F</kbd>
       </div>
 
       {/* Notification bell */}
-      <button className="relative w-9 h-9 rounded grid place-items-center text-textSoft hover:bg-surface2 hover:text-text transition-colors">
+      <button
+        onClick={() => navigate('/')}
+        className="relative w-9 h-9 rounded grid place-items-center text-textSoft hover:bg-surface2 hover:text-text transition-colors"
+      >
         <Bell size={16} />
-        {hasNotifications && (
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger border-2 border-white" />
+        {count > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-danger text-white text-[9px] flex items-center justify-center px-1 border-2 border-white">
+            {count}
+          </span>
         )}
       </button>
     </header>

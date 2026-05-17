@@ -108,10 +108,10 @@ describe('AppareilFiche', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const invoiceMock = vi.mocked(invoke);
-    invoiceMock.mockImplementation((command: string, args?: any) => {
+    invoiceMock.mockImplementation((command: string, args?: unknown) => {
       switch (command) {
         case 'appareil_get':
-          if (args?.id === 1) {
+          if ((args as { id?: number })?.id === 1) {
             return Promise.resolve(mockAppareil);
           }
           return Promise.reject(new Error('Not found'));

@@ -9,7 +9,7 @@ import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
-import type { Appareil, VerificationTechnique, ControleQualite, HabilitationStatus } from '../../types/domain';
+import type { ControleQualite, HabilitationStatus } from '../../types/domain';
 import { Download, RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap } from 'lucide-react';
 
 interface Action {

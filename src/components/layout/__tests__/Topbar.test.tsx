@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, waitFor } from '../../../test/test-utils';
+import userEvent from '@testing-library/user-event';
 import Topbar from '../Topbar';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -71,11 +72,11 @@ describe('Topbar', () => {
     });
   });
 
-  it('should render search with ⌘K shortcut', async () => {
+  it('should render search with Ctrl+F shortcut', async () => {
     renderWithProviders(<Topbar />);
 
     await waitFor(() => {
-      const kbd = screen.getByText('⌘K');
+      const kbd = screen.getByText('Ctrl+F');
       expect(kbd).toBeInTheDocument();
       expect(kbd.tagName).toBe('KBD');
     });
@@ -151,6 +152,131 @@ describe('Topbar', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Appareil X-Ray')).toBeInTheDocument();
+    });
+  });
+
+  it('should focus search input when Ctrl+F is pressed', async () => {
+    renderWithProviders(<Topbar />);
+
+    await waitFor(() => {
+      const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i);
+      expect(searchInput).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i) as HTMLInputElement;
+    const event = new KeyboardEvent('keydown', {
+      key: 'f',
+      ctrlKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(searchInput);
+    });
+  });
+
+  it('should not focus search input when Ctrl+G is pressed', async () => {
+    renderWithProviders(<Topbar />);
+
+    await waitFor(() => {
+      const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i);
+      expect(searchInput).toBeInTheDocument();
+    });
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'g',
+      ctrlKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i) as HTMLInputElement;
+    await waitFor(() => {
+      expect(document.activeElement).not.toBe(searchInput);
+    });
+  });
+
+  it('should navigate to dashboard when bell button is clicked', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Topbar />, { route: '/appareils' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Appareils')).toBeInTheDocument();
+    });
+
+    const buttons = screen.getAllByRole('button');
+    const bellButton = buttons[buttons.length - 1];
+    await user.click(bellButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
+    });
+  });
+
+  it('should not display alert badge when count is 0', async () => {
+    renderWithProviders(<Topbar />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Centre Hospitalier Universitaire')).toBeInTheDocument();
+    });
+
+    const badges = screen.queryAllByText(/^\d+$/);
+    expect(badges).toHaveLength(0);
+  });
+
+  it('should display alert badge with count when alerts exist', async () => {
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'etablissement_get') {
+        return Promise.resolve({
+          id: 1,
+          denomination: 'Centre Hospitalier Universitaire',
+          ville: 'Paris',
+          siret: '12345678900012',
+          statut_juridique: null,
+          adresse: null,
+          code_postal: null,
+          telephone: null,
+          email: null,
+          site_internet: null,
+          kbis_chemin: null,
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        });
+      }
+      if (command === 'verification_list') {
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - 400);
+        return Promise.resolve([
+          { id: 1, appareil_id: 1, type_: 'annuelle_interne', date_realisation: pastDate.toISOString().split('T')[0] },
+        ]);
+      }
+      if (command === 'controle_qualite_list') {
+        return Promise.resolve([]);
+      }
+      if (command === 'travailleur_get') {
+        return Promise.resolve({
+          id: 1,
+          nom: 'Dupont',
+          prenom: 'Jean',
+          etablissement_id: 1,
+        });
+      }
+      if (command === 'appareil_get') {
+        return Promise.resolve({
+          id: 1,
+          designation: 'Appareil X-Ray',
+          etablissement_id: 1,
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    renderWithProviders(<Topbar />);
+
+    await waitFor(() => {
+      const badge = screen.queryByText('1');
+      expect(badge).toBeInTheDocument();
     });
   });
 });

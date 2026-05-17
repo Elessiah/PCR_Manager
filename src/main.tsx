@@ -1,18 +1,41 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
+import SplashScreen from './components/SplashScreen'
+import { AuthProvider } from './context/AuthContext'
 import './index.css'
 
 const queryClient = new QueryClient()
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+function Root() {
+  const [splashVisible, setSplashVisible] = useState(true)
+  const [fadingOut, setFadingOut] = useState(false)
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setFadingOut(true), 1200)
+    const removeTimer = setTimeout(() => setSplashVisible(false), 1500)
+
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
+  }, [])
+
+  return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <AuthProvider>
+          {splashVisible ? <SplashScreen fadingOut={fadingOut} /> : <App />}
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
+  )
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <Root />
   </React.StrictMode>,
 )

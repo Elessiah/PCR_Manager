@@ -6,18 +6,19 @@ use crate::auth;
 pub async fn competence_ref_create(
     libelle: String,
     ordre: i64,
+    description: Option<String>,
     session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
-        "INSERT INTO competence_ref (libelle, ordre) VALUES (?1, ?2)",
-        rusqlite::params![libelle, ordre],
+        "INSERT INTO competence_ref (libelle, ordre, description) VALUES (?1, ?2, ?3)",
+        rusqlite::params![libelle, ordre, description],
     )
     .map_err(|e| e.to_string())?;
     let id = conn.last_insert_rowid();
-    Ok(CompetenceRef { id, libelle, ordre })
+    Ok(CompetenceRef { id, libelle, ordre, description })
 }
 
 #[tauri::command]
@@ -25,14 +26,15 @@ pub async fn competence_ref_update(
     id: i64,
     libelle: String,
     ordre: i64,
+    description: Option<String>,
     session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
-        "UPDATE competence_ref SET libelle = ?1, ordre = ?2 WHERE id = ?3",
-        rusqlite::params![libelle, ordre, id],
+        "UPDATE competence_ref SET libelle = ?1, ordre = ?2, description = ?3 WHERE id = ?4",
+        rusqlite::params![libelle, ordre, description, id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -56,7 +58,7 @@ pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, stat
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
-        .prepare("SELECT id, libelle, ordre FROM competence_ref ORDER BY ordre")
+        .prepare("SELECT id, libelle, ordre, description FROM competence_ref ORDER BY ordre")
         .map_err(|e| e.to_string())?;
 
     let competences = stmt
@@ -65,6 +67,7 @@ pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, stat
                 id: row.get(0)?,
                 libelle: row.get(1)?,
                 ordre: row.get(2)?,
+                description: row.get(3)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -128,6 +131,62 @@ pub async fn competence_get_for_travailleur(
         .map_err(|e| e.to_string())?;
 
     Ok(competences)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compétences requises par appareil (table appareil_competence_ref, V4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn appareil_competence_add(
+    appareil_id: i64,
+    competence_ref_id: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let conn = state.conn.lock();
+    conn.execute(
+        "INSERT OR IGNORE INTO appareil_competence_ref (appareil_id, competence_ref_id) VALUES (?1, ?2)",
+        rusqlite::params![appareil_id, competence_ref_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn appareil_competence_remove(
+    appareil_id: i64,
+    competence_ref_id: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    let conn = state.conn.lock();
+    conn.execute(
+        "DELETE FROM appareil_competence_ref WHERE appareil_id = ?1 AND competence_ref_id = ?2",
+        rusqlite::params![appareil_id, competence_ref_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn appareil_competence_list(
+    appareil_id: i64,
+    state: tauri::State<'_, DbState>,
+) -> Result<Vec<i64>, String> {
+    let conn = state.conn.lock();
+    let mut stmt = conn
+        .prepare(
+            "SELECT competence_ref_id FROM appareil_competence_ref \
+             WHERE appareil_id = ?1 ORDER BY competence_ref_id",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let ids = stmt
+        .query_map([appareil_id], |row| row.get::<_, i64>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(ids)
 }
 
 fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {

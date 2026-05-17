@@ -6,3 +6,4 @@ pub mod appareil;
 pub mod verification;
 pub mod controle_qualite;
 pub mod document;
+pub mod export_import;

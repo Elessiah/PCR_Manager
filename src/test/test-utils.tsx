@@ -2,6 +2,7 @@ import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { render, RenderOptions } from '@testing-library/react'
+import { AuthProvider } from '../context/AuthContext'
 
 const createTestQueryClient = () =>
   new QueryClient({
@@ -37,11 +38,13 @@ const renderWithProviders = (
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={testQueryClient}>
-      <MemoryRouter initialEntries={[route]}>
-        <Routes>
-          <Route path={resolvedPath} element={children} />
-        </Routes>
-      </MemoryRouter>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[route]}>
+          <Routes>
+            <Route path={resolvedPath} element={children} />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>
     </QueryClientProvider>
   )
 

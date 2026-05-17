@@ -327,7 +327,6 @@ describe('Sidebar', () => {
     await waitFor(() => {
       const box = document.querySelector('.bg-surface2');
       expect(box).toBeInTheDocument();
-      const dashes = box?.querySelectorAll('div');
       const textContent = box?.textContent || '';
       expect(textContent).toContain('—');
     });

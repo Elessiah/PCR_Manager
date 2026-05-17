@@ -7,9 +7,9 @@ import CompetencesList from '../CompetencesList'
 import type { CompetenceRef } from '../../../types/domain'
 
 const mockCompetences: CompetenceRef[] = [
-  { id: 1, libelle: 'Mise sous tension de l\'appareil', ordre: 1 },
-  { id: 2, libelle: 'Mise en marche de l\'appareil', ordre: 2 },
-  { id: 3, libelle: 'Enregistrement patient', ordre: 0 },
+  { id: 1, libelle: 'Mise sous tension de l\'appareil', ordre: 1, description: 'Procédure sécurisée' },
+  { id: 2, libelle: 'Mise en marche de l\'appareil', ordre: 2, description: null },
+  { id: 3, libelle: 'Enregistrement patient', ordre: 0, description: null },
 ]
 
 vi.mocked(invoke).mockImplementation(async (cmd: string) => {
@@ -17,7 +17,7 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
     case 'competence_list':
       return mockCompetences
     case 'competence_ref_create':
-      return { id: 99, libelle: 'Nouvelle compétence', ordre: 10 }
+      return { id: 99, libelle: 'Nouvelle compétence', ordre: 10, description: null }
     case 'competence_ref_update':
       return undefined
     case 'competence_ref_delete':
@@ -35,7 +35,7 @@ describe('CompetencesList', () => {
         case 'competence_list':
           return mockCompetences
         case 'competence_ref_create':
-          return { id: 99, libelle: 'Nouvelle compétence', ordre: 10 }
+          return { id: 99, libelle: 'Nouvelle compétence', ordre: 10, description: null }
         case 'competence_ref_update':
           return undefined
         case 'competence_ref_delete':
@@ -92,10 +92,10 @@ describe('CompetencesList', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }))
 
     await waitFor(() => {
-      expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_create', {
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_create', expect.objectContaining({
         libelle: 'Test compétence',
         ordre: 0,
-      })
+      }))
     })
   })
 

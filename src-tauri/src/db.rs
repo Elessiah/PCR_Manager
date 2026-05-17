@@ -51,6 +51,9 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
 const MIGRATIONS: &[(i32, &str, &str)] = &[
     (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
     (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
+    (3, "V3__competence_description", include_str!("../migrations/V3__competence_description.sql")),
+    (4, "V4__appareil_competences",   include_str!("../migrations/V4__appareil_competences.sql")),
+    (5, "V5__local_auth",             include_str!("../migrations/V5__local_auth.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
@@ -94,17 +97,19 @@ mod tests {
 
     // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
 
-    fn create_test_db() -> Result<Connection> {
+    // Retourne (Connection, TempDir) : le TempDir doit rester en vie pendant
+    // tout le test pour que SQLCipher puisse accéder aux fichiers WAL/shm.
+    fn create_test_db() -> Result<(Connection, tempfile::TempDir)> {
         let dir = tempfile::tempdir()?;
         let db_path = dir.path().join("test.db");
         let conn = Connection::open(&db_path)?;
         conn.execute_batch("PRAGMA key = 'test-key';")?;
-        Ok(conn)
+        Ok((conn, dir))
     }
 
     #[test]
     fn test_migrations_create_expected_tables() {
-        let mut conn = create_test_db().expect("Failed to create test DB");
+        let (mut conn, _dir) = create_test_db().expect("Failed to create test DB");
         run_migrations(&mut conn).expect("Failed to run migrations");
 
         let mut stmt = conn
@@ -124,12 +129,14 @@ mod tests {
         let expected_tables = vec![
             "__migrations",
             "appareil",
+            "appareil_competence_ref",
             "competence_ref",
             "competence_travailleur",
             "controle_qualite",
             "document",
             "etablissement",
             "habilitation",
+            "local_credential",
             "passkey",
             "travailleur",
             "verification_technique",
@@ -140,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_competence_ref_seed_has_9_rows() {
-        let mut conn = create_test_db().expect("Failed to create test DB");
+        let (mut conn, _dir) = create_test_db().expect("Failed to create test DB");
         run_migrations(&mut conn).expect("Failed to run migrations");
 
         let mut stmt = conn
@@ -156,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_view_v_prochaine_verification_exists() {
-        let mut conn = create_test_db().expect("Failed to create test DB");
+        let (mut conn, _dir) = create_test_db().expect("Failed to create test DB");
         run_migrations(&mut conn).expect("Failed to run migrations");
 
         let mut stmt = conn
@@ -170,9 +177,5 @@ mod tests {
         assert!(exists, "View v_prochaine_verification should exist");
     }
 
-    // NOTE: Les tests test_open_db_with_test_key et test_test_branch_does_not_call_keyring
-    // ont été supprimés : create_test_db() supprime le TempDir avant que SQLCipher puisse
-    // créer les fichiers WAL/shm, provoquant des échecs sur Windows.
-    // La validité de create_test_db() est déjà couverte par test_migrations_create_expected_tables.
     // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
 }

@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/ui/Badge';
 import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Field, Label, Input, Select } from '../../components/ui/FormField';
 import { Plus, Search, ChevronRight } from 'lucide-react';
 
 type HabilitationFilter = 'tous' | 'validee' | 'partielle' | 'non_validee';
@@ -26,6 +28,7 @@ export default function TravailleursList() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<HabilitationFilter>('tous');
+  const [showAdd, setShowAdd] = useState(false);
   const { data: travailleurs = [] } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
@@ -68,7 +71,7 @@ export default function TravailleursList() {
       <PageHead
         title="Travailleurs"
         sub={`${travailleurs.length} personnes suivies`}
-        actions={<button onClick={() => {}} className="btn-primary"><Plus size={14}/> Ajouter un travailleur</button>}
+        actions={<Button variant="primary" onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2"><Plus size={14}/> Ajouter un travailleur</Button>}
       />
 
       <div className="flex items-center gap-2.5">
@@ -127,6 +130,159 @@ export default function TravailleursList() {
           </TBody>
         </Table>
       </Card>
+
+      {showAdd && <AddTravailleurModal onClose={() => setShowAdd(false)} />}
+    </div>
+  );
+}
+
+function AddTravailleurModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
+  const [sexe, setSexe] = useState('');
+  const [fonction, setFonction] = useState('');
+  const [categorieReglementaire, setCategorieReglementaire] = useState('');
+  const [email, setEmail] = useState('');
+  const [telephone, setTelephone] = useState('');
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: (input: {
+      nom: string;
+      prenom: string;
+      sexe?: string | null;
+      fonction?: string | null;
+      categorieReglementaire?: string | null;
+      email?: string | null;
+      telephone?: string | null;
+    }) => api.travailleur.create({ etablissementId: 1, ...input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['travailleurs'] });
+      onClose();
+    },
+  });
+
+  const canSubmit = nom.trim() && prenom.trim();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    mutate({
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      sexe: sexe || null,
+      fonction: fonction || null,
+      categorieReglementaire: categorieReglementaire || null,
+      email: email || null,
+      telephone: telephone || null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-surface border border-border rounded-lg shadow-lg w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold mb-4">Ajouter un travailleur</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field>
+            <Label htmlFor="nom">Nom *</Label>
+            <Input
+              id="nom"
+              type="text"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Dupont"
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="prenom">Prénom *</Label>
+            <Input
+              id="prenom"
+              type="text"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="Jean"
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="sexe">Sexe</Label>
+            <Select
+              id="sexe"
+              value={sexe}
+              onChange={(e) => setSexe(e.target.value)}
+            >
+              <option value="">— Sélectionner —</option>
+              <option value="M">Masculin</option>
+              <option value="F">Féminin</option>
+              <option value="Autre">Autre</option>
+            </Select>
+          </Field>
+
+          <Field>
+            <Label htmlFor="fonction">Fonction</Label>
+            <Input
+              id="fonction"
+              type="text"
+              value={fonction}
+              onChange={(e) => setFonction(e.target.value)}
+              placeholder="Technicien"
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="categorie">Catégorie réglementaire</Label>
+            <Select
+              id="categorie"
+              value={categorieReglementaire}
+              onChange={(e) => setCategorieReglementaire(e.target.value)}
+            >
+              <option value="">— Sélectionner —</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+            </Select>
+          </Field>
+
+          <Field>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="jean.dupont@example.com"
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="telephone">Téléphone</Label>
+            <Input
+              id="telephone"
+              type="tel"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              placeholder="+33 6 12 34 56 78"
+            />
+          </Field>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button variant="ghost" type="button" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={!canSubmit || isPending}
+            >
+              {isPending ? 'Création...' : 'Ajouter'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

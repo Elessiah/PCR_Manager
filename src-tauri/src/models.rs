@@ -62,6 +62,7 @@ pub struct CompetenceRef {
     pub id: i64,
     pub libelle: String,
     pub ordre: i64,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
