@@ -11,7 +11,16 @@ import { ReadField } from '../../components/ui/ReadField';
 import { Field, Label, Input } from '../../components/ui/FormField';
 import { ChevronLeft, Edit, Plus, Calendar, X } from 'lucide-react';
 
-function VerifRow({ label, sub, last, dateLast, dateDeadline, status }) {
+type VerifRowProps = {
+  label: string;
+  sub: string;
+  last: boolean;
+  dateLast: string | null | undefined;
+  dateDeadline: string | null | undefined;
+  status: 'valide' | 'a_prevoir' | 'en_retard' | 'non_applicable';
+};
+
+function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: VerifRowProps) {
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '–';
     return new Date(dateStr).toLocaleDateString('fr-FR');
@@ -41,7 +50,14 @@ function VerifRow({ label, sub, last, dateLast, dateDeadline, status }) {
   );
 }
 
-function CycleRow({ label, sub, dateDeadline, status }) {
+type CycleRowProps = {
+  label: string;
+  sub: string;
+  dateDeadline: string | null | undefined;
+  status: 'valide' | 'a_prevoir' | 'en_retard' | 'non_applicable';
+};
+
+function CycleRow({ label, sub, dateDeadline, status }: CycleRowProps) {
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '–';
     return new Date(dateStr).toLocaleDateString('fr-FR');
@@ -296,7 +312,7 @@ export default function AppareilFiche() {
                 <div className="flex-1">
                   <div className="font-semibold text-[14px]">Contrôle qualité externe — point de départ du cycle</div>
                   <div className="text-textSoft text-[12.5px] mt-px">
-                    Dernier contrôle externe : {new Date(externe.date_realisation).toLocaleDateString('fr-FR')} · les contrôles internes sont calculés automatiquement
+                    Dernier contrôle externe : {externe.date_realisation ? new Date(externe.date_realisation).toLocaleDateString('fr-FR') : '–'} · les contrôles internes sont calculés automatiquement
                   </div>
                 </div>
                 <Badge variant="accent" icon={null}>
