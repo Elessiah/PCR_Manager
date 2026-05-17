@@ -1,8 +1,10 @@
 use crate::db::DbState;
 use crate::models::Appareil;
+use crate::auth;
 
 #[tauri::command]
-pub async fn appareil_list(state: tauri::State<'_, DbState>) -> Result<Vec<Appareil>, String> {
+pub async fn appareil_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Appareil>, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma, created_at, updated_at FROM appareil ORDER BY id")
@@ -35,7 +37,8 @@ pub async fn appareil_list(state: tauri::State<'_, DbState>) -> Result<Vec<Appar
 }
 
 #[tauri::command]
-pub async fn appareil_get(id: i64, state: tauri::State<'_, DbState>) -> Result<Appareil, String> {
+pub async fn appareil_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Appareil, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma, created_at, updated_at FROM appareil WHERE id = ?1")
@@ -78,8 +81,10 @@ pub async fn appareil_create(
     utilisation_partagee: i64,
     tension_nominale_kv: Option<f64>,
     intensite_maximale_ma: Option<f64>,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
         "INSERT INTO appareil (etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma)
@@ -117,8 +122,10 @@ pub async fn appareil_update(
     utilisation_partagee: i64,
     tension_nominale_kv: Option<f64>,
     intensite_maximale_ma: Option<f64>,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
         "UPDATE appareil SET etablissement_id = ?1, designation = ?2, marque = ?3, modele = ?4, numero_serie = ?5, type = ?6, annee_mise_en_service = ?7, lieu_utilisation = ?8, utilisation_partagee = ?9, tension_nominale_kv = ?10, intensite_maximale_ma = ?11 WHERE id = ?12",
@@ -143,15 +150,25 @@ pub async fn appareil_update(
 }
 
 #[tauri::command]
-pub async fn appareil_delete(id: i64, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn appareil_delete(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+    eprintln!("[AUDIT] appareil_delete id={}", id);
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute("DELETE FROM appareil WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
+fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use rusqlite::Connection;
 
     fn init_test_db() -> Connection {
@@ -160,6 +177,19 @@ mod tests {
         conn.execute_batch(migration_sql)
             .expect("Failed to execute migration");
         conn
+    }
+
+    #[test]
+    fn test_ensure_authenticated_when_false_returns_err() {
+        let session = auth::SessionState::new();
+        assert!(ensure_authenticated(&session).is_err());
+    }
+
+    #[test]
+    fn test_ensure_authenticated_when_true_returns_ok() {
+        let session = auth::SessionState::new();
+        *session.authenticated.lock() = true;
+        assert!(ensure_authenticated(&session).is_ok());
     }
 
     #[test]

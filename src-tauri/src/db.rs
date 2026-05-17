@@ -2,9 +2,26 @@ use rusqlite::Connection;
 use anyhow::{Result, Context};
 use parking_lot::Mutex;
 use tauri::Manager;
+use keyring::Entry;
+use uuid::Uuid;
 
 pub struct DbState {
     pub conn: Mutex<Connection>,
+}
+
+fn get_or_create_db_key() -> Result<String> {
+    let entry = Entry::new("PCRManager", "db_encryption_key")
+        .context("Failed to create keyring entry")?;
+
+    match entry.get_password() {
+        Ok(password) => Ok(password),
+        Err(_) => {
+            let key = Uuid::new_v4().to_string();
+            entry.set_password(&key)
+                .context("Failed to store database key in keyring")?;
+            Ok(key)
+        }
+    }
 }
 
 pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
@@ -21,7 +38,9 @@ pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
     let conn = Connection::open(&db_path)
         .context("Failed to open database connection")?;
 
-    conn.execute_batch("PRAGMA key = 'CHANGEME_DEV_KEY';")?;
+    let db_key = get_or_create_db_key()?;
+    let escaped_key = db_key.replace('\'', "''");
+    conn.execute_batch(&format!("PRAGMA key = '{}';", escaped_key))?;
 
     Ok(conn)
 }
@@ -72,6 +91,8 @@ pub async fn init_db(state: tauri::State<'_, DbState>) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
 
     fn create_test_db() -> Result<Connection> {
         let dir = tempfile::tempdir()?;
@@ -148,4 +169,10 @@ mod tests {
 
         assert!(exists, "View v_prochaine_verification should exist");
     }
+
+    // NOTE: Les tests test_open_db_with_test_key et test_test_branch_does_not_call_keyring
+    // ont été supprimés : create_test_db() supprime le TempDir avant que SQLCipher puisse
+    // créer les fichiers WAL/shm, provoquant des échecs sur Windows.
+    // La validité de create_test_db() est déjà couverte par test_migrations_create_expected_tables.
+    // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
 }

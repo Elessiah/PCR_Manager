@@ -30,6 +30,7 @@ webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"]
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.22"
 url = "2"
+keyring = "2"
 
 [dev-dependencies]
 tempfile = "3"

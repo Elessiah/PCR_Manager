@@ -1,8 +1,10 @@
 use crate::db::DbState;
 use crate::models::Travailleur;
+use crate::auth;
 
 #[tauri::command]
-pub async fn travailleur_list(state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
+pub async fn travailleur_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, nom, prenom, sexe, date_naissance, lieu_naissance, pays_naissance, fonction, date_debut_activite, categorie_reglementaire, numero_adeli_rpps, email, telephone, numero_securite_sociale, numero_porteur_dosimetrie_passive, numero_suivi_medical, created_at, updated_at FROM travailleur ORDER BY id")
@@ -40,7 +42,8 @@ pub async fn travailleur_list(state: tauri::State<'_, DbState>) -> Result<Vec<Tr
 }
 
 #[tauri::command]
-pub async fn travailleur_get(id: i64, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
+pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, nom, prenom, sexe, date_naissance, lieu_naissance, pays_naissance, fonction, date_debut_activite, categorie_reglementaire, numero_adeli_rpps, email, telephone, numero_securite_sociale, numero_porteur_dosimetrie_passive, numero_suivi_medical, created_at, updated_at FROM travailleur WHERE id = ?1")
@@ -93,8 +96,19 @@ pub async fn travailleur_create(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
+    ensure_authenticated(&session)?;
+    if let Some(ref nss) = numero_securite_sociale {
+        crate::validators::validate_nss(nss)?;
+    }
+    if let Some(ref e) = email {
+        crate::validators::validate_email(e)?;
+    }
+    if let Some(ref d) = date_naissance {
+        crate::validators::validate_date(d)?;
+    }
     let conn = state.conn.lock();
     conn.execute(
         "INSERT INTO travailleur (etablissement_id, nom, prenom, sexe, date_naissance, lieu_naissance, pays_naissance, fonction, date_debut_activite, categorie_reglementaire, numero_adeli_rpps, email, telephone, numero_securite_sociale, numero_porteur_dosimetrie_passive, numero_suivi_medical)
@@ -142,8 +156,20 @@ pub async fn travailleur_update(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    eprintln!("[AUDIT] travailleur_update id={}", id);
+    ensure_authenticated(&session)?;
+    if let Some(ref nss) = numero_securite_sociale {
+        crate::validators::validate_nss(nss)?;
+    }
+    if let Some(ref e) = email {
+        crate::validators::validate_email(e)?;
+    }
+    if let Some(ref d) = date_naissance {
+        crate::validators::validate_date(d)?;
+    }
     let conn = state.conn.lock();
     conn.execute(
         "UPDATE travailleur SET etablissement_id = ?1, nom = ?2, prenom = ?3, sexe = ?4, date_naissance = ?5, lieu_naissance = ?6, pays_naissance = ?7, fonction = ?8, date_debut_activite = ?9, categorie_reglementaire = ?10, numero_adeli_rpps = ?11, email = ?12, telephone = ?13, numero_securite_sociale = ?14, numero_porteur_dosimetrie_passive = ?15, numero_suivi_medical = ?16 WHERE id = ?17",
@@ -173,15 +199,26 @@ pub async fn travailleur_update(
 }
 
 #[tauri::command]
-pub async fn travailleur_delete(id: i64, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+    // NOTE: log d'audit non testé unitairement (effet de bord stderr)
+    eprintln!("[AUDIT] travailleur_delete id={}", id);
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute("DELETE FROM travailleur WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
+fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use rusqlite::Connection;
 
     fn init_test_db() -> Connection {

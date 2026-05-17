@@ -2,6 +2,7 @@ mod db;
 mod auth;
 mod models;
 mod commands;
+mod validators;
 
 use tauri::Manager;
 
@@ -55,6 +56,8 @@ pub fn run() {
                 auth_states: parking_lot::Mutex::new(std::collections::HashMap::new()),
             });
 
+            app.manage(auth::SessionState::new());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -64,6 +67,8 @@ pub fn run() {
             auth::passkey_register_finish,
             auth::passkey_auth_start,
             auth::passkey_auth_finish,
+            auth::session_check,
+            auth::passkey_logout,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,

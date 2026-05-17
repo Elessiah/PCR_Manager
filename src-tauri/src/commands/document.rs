@@ -1,12 +1,38 @@
 use crate::db::DbState;
 use crate::models::Document;
-use std::path::Path;
+use crate::auth;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use chrono;
 use tauri::Manager;
 
+fn validate_source_path(p: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(p);
+    let canonical = std::fs::canonicalize(&path)
+        .map_err(|e| { eprintln!("[ERR] canonicalize: {}", e); "Chemin source invalide".to_string() })?;
+    if canonical.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err("Chemin source invalide".to_string());
+    }
+    if !canonical.exists() {
+        return Err("Chemin source invalide".to_string());
+    }
+    Ok(canonical)
+}
+
+fn delete_document_record(tx: &rusqlite::Transaction, id: i64) -> Result<String, String> {
+    let chemin_relatif: String = tx
+        .query_row("SELECT chemin_relatif FROM document WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .map_err(|e| { eprintln!("[ERR] {}", e); "Une erreur est survenue".to_string() })?;
+    tx.execute("DELETE FROM document WHERE id = ?1", [id])
+        .map_err(|e| { eprintln!("[ERR] {}", e); "Une erreur est survenue".to_string() })?;
+    Ok(chemin_relatif)
+}
+
 #[tauri::command]
-pub async fn document_list(state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
+pub async fn document_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document ORDER BY id")
@@ -32,7 +58,8 @@ pub async fn document_list(state: tauri::State<'_, DbState>) -> Result<Vec<Docum
 }
 
 #[tauri::command]
-pub async fn document_get(id: i64, state: tauri::State<'_, DbState>) -> Result<Document, String> {
+pub async fn document_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document WHERE id = ?1")
@@ -63,8 +90,11 @@ pub async fn document_upload(
     type_document: String,
     nom_fichier: String,
     source_path: String,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Document, String> {
+    eprintln!("[AUDIT] document_upload source={}", source_path);
+    ensure_authenticated(&session)?;
     let app_data_dir = app_handle
         .path()
         .app_local_data_dir()
@@ -73,15 +103,15 @@ pub async fn document_upload(
     let docs_dir = app_data_dir.join("documents");
     std::fs::create_dir_all(&docs_dir).map_err(|e| e.to_string())?;
 
-    let source_path = Path::new(&source_path);
-    let ext = source_path
+    let source_path_validated = validate_source_path(&source_path)?;
+    let ext = source_path_validated
         .extension()
         .and_then(|s| s.to_str())
         .unwrap_or("bin");
     let uuid_name = format!("{}.{}", Uuid::new_v4(), ext);
     let dest_path = docs_dir.join(&uuid_name);
 
-    std::fs::copy(&source_path, &dest_path).map_err(|e| e.to_string())?;
+    std::fs::copy(&source_path_validated, &dest_path).map_err(|e| e.to_string())?;
 
     let chemin_relatif = format!("documents/{}", uuid_name);
 
@@ -110,25 +140,21 @@ pub async fn document_upload(
 pub async fn document_delete(
     app_handle: tauri::AppHandle,
     id: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    let conn = state.conn.lock();
+    eprintln!("[AUDIT] document_delete id={}", id);
+    ensure_authenticated(&session)?;
+    let mut conn = state.conn.lock();
 
-    let chemin_relatif: String = conn
-        .query_row("SELECT chemin_relatif FROM document WHERE id = ?1", [id], |row| {
-            row.get(0)
-        })
-        .map_err(|e| e.to_string())?;
-
-    conn.execute("DELETE FROM document WHERE id = ?1", [id])
-        .map_err(|e| e.to_string())?;
+    let tx = conn.transaction()
+        .map_err(|e| { eprintln!("[ERR] {}", e); "Une erreur est survenue".to_string() })?;
+    let chemin_relatif = delete_document_record(&tx, id)?;
+    tx.commit()
+        .map_err(|e| { eprintln!("[ERR] {}", e); "Une erreur est survenue".to_string() })?;
 
     drop(conn);
 
-    // Best-effort : on supprime le fichier physique après le DELETE SQL.
-    // Si la suppression filesystem échoue (fichier déjà absent, ACL, etc.),
-    // on ne fait pas échouer l'opération : la ligne DB est déjà partie,
-    // inutile de remonter une erreur côté UI pour un fichier orphelin.
     let abs_path = app_handle
         .path()
         .app_local_data_dir()
@@ -137,4 +163,97 @@ pub async fn document_delete(
     let _ = std::fs::remove_file(&abs_path);
 
     Ok(())
+}
+
+fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ensure_authenticated_when_false_returns_err() {
+        let session = auth::SessionState::new();
+        assert!(ensure_authenticated(&session).is_err());
+    }
+
+    #[test]
+    fn test_ensure_authenticated_when_true_returns_ok() {
+        let session = auth::SessionState::new();
+        *session.authenticated.lock() = true;
+        assert!(ensure_authenticated(&session).is_ok());
+    }
+
+    #[test]
+    fn test_validate_source_path_nominal() {
+        let temp_file = tempfile::NamedTempFile::new()
+            .expect("Failed to create temp file");
+        let path_str = temp_file.path().to_str().unwrap();
+        let result = validate_source_path(path_str);
+        assert!(result.is_ok());
+        let canonical = result.unwrap();
+        assert!(canonical.exists());
+    }
+
+    #[test]
+    fn test_validate_source_path_rejects_nonexistent() {
+        let result = validate_source_path("/nonexistent/path/to/file.txt");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin source invalide");
+    }
+
+    #[test]
+    fn test_validate_source_path_rejects_dotdot() {
+        let result = validate_source_path("../../../etc/passwd");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin source invalide");
+    }
+
+    #[test]
+    fn test_delete_document_record_returns_chemin() {
+        let mut conn = rusqlite::Connection::open_in_memory()
+            .expect("Failed to open in-memory DB");
+        conn.execute(
+            "CREATE TABLE document(id INTEGER PRIMARY KEY, chemin_relatif TEXT)",
+            [],
+        )
+        .expect("Failed to create table");
+        conn.execute(
+            "INSERT INTO document(id, chemin_relatif) VALUES(1, 'documents/test.txt')",
+            [],
+        )
+        .expect("Failed to insert");
+
+        let tx = conn.transaction().expect("Failed to start transaction");
+        let chemin = delete_document_record(&tx, 1).expect("Failed to delete");
+        tx.commit().expect("Failed to commit");
+
+        assert_eq!(chemin, "documents/test.txt");
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM document WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .expect("Failed to count");
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_delete_document_record_unknown_id() {
+        let mut conn = rusqlite::Connection::open_in_memory()
+            .expect("Failed to open in-memory DB");
+        conn.execute(
+            "CREATE TABLE document(id INTEGER PRIMARY KEY, chemin_relatif TEXT)",
+            [],
+        )
+        .expect("Failed to create table");
+
+        let tx = conn.transaction().expect("Failed to start transaction");
+        let result = delete_document_record(&tx, 999);
+        assert!(result.is_err());
+    }
 }

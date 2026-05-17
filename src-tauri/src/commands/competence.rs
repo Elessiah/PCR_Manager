@@ -1,12 +1,15 @@
 use crate::db::DbState;
 use crate::models::{CompetenceRef, CompetenceTravailleur};
+use crate::auth;
 
 #[tauri::command]
 pub async fn competence_ref_create(
     libelle: String,
     ordre: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
         "INSERT INTO competence_ref (libelle, ordre) VALUES (?1, ?2)",
@@ -22,8 +25,10 @@ pub async fn competence_ref_update(
     id: i64,
     libelle: String,
     ordre: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
         "UPDATE competence_ref SET libelle = ?1, ordre = ?2 WHERE id = ?3",
@@ -36,8 +41,10 @@ pub async fn competence_ref_update(
 #[tauri::command]
 pub async fn competence_ref_delete(
     id: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute("DELETE FROM competence_ref WHERE id = ?1", rusqlite::params![id])
         .map_err(|e| e.to_string())?;
@@ -45,7 +52,8 @@ pub async fn competence_ref_delete(
 }
 
 #[tauri::command]
-pub async fn competence_list(state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
+pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, libelle, ordre FROM competence_ref ORDER BY ordre")
@@ -73,8 +81,11 @@ pub async fn competence_set(
     competence_ref_id: i64,
     date_validation: Option<String>,
     validated: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    eprintln!("[AUDIT] competence_set travailleur_id={} appareil_id={}", travailleur_id, appareil_id);
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
 
     conn.execute(
@@ -92,8 +103,10 @@ pub async fn competence_set(
 #[tauri::command]
 pub async fn competence_get_for_travailleur(
     travailleur_id: i64,
+    session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleur>, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
         .prepare("SELECT id, travailleur_id, appareil_id, competence_ref_id, date_validation, validated FROM competence_travailleur WHERE travailleur_id = ?1 ORDER BY id")
@@ -115,4 +128,29 @@ pub async fn competence_get_for_travailleur(
         .map_err(|e| e.to_string())?;
 
     Ok(competences)
+}
+
+fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ensure_authenticated_when_false_returns_err() {
+        let session = auth::SessionState::new();
+        assert!(ensure_authenticated(&session).is_err());
+    }
+
+    #[test]
+    fn test_ensure_authenticated_when_true_returns_ok() {
+        let session = auth::SessionState::new();
+        *session.authenticated.lock() = true;
+        assert!(ensure_authenticated(&session).is_ok());
+    }
 }

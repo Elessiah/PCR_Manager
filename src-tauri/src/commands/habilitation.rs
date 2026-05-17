@@ -1,9 +1,11 @@
 use crate::db::DbState;
 use crate::models::{HabilitationStatus, HabilitationDetails};
+use crate::auth;
 use chrono::NaiveDate;
 
 #[tauri::command]
-pub async fn habilitation_compute(travailleur_id: i64, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
+pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
+    ensure_authenticated(&session)?;
     let conn = state.conn.lock();
 
     let habilitation: (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>) = conn
@@ -62,6 +64,13 @@ pub async fn habilitation_compute(travailleur_id: i64, state: tauri::State<'_, D
     Ok(HabilitationStatus { statut, details })
 }
 
+fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
 fn check_date_within_years(date_str: &str, years: i32) -> bool {
     if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         let now = chrono::Local::now().naive_local().date();
@@ -69,5 +78,23 @@ fn check_date_within_years(date_str: &str, years: i32) -> bool {
         now <= threshold
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ensure_authenticated_when_false_returns_err() {
+        let session = auth::SessionState::new();
+        assert!(ensure_authenticated(&session).is_err());
+    }
+
+    #[test]
+    fn test_ensure_authenticated_when_true_returns_ok() {
+        let session = auth::SessionState::new();
+        *session.authenticated.lock() = true;
+        assert!(ensure_authenticated(&session).is_ok());
     }
 }
