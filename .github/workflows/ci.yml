@@ -50,6 +50,33 @@ jobs:
             ${{ runner.os }}-cargo-
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
 
+  build-macos:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - run: npm ci
+      - run: npm run tauri:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pcr-manager-macos-installer
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
   build-windows:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: windows-latest
