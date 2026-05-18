@@ -7,7 +7,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Label, Input } from '../../components/ui/FormField';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 
 type ModalMode = { type: 'create' } | { type: 'edit'; competence: CompetenceRef };
 
@@ -253,7 +253,7 @@ export default function CompetencesList() {
         title="Bibliothèque de compétences"
         sub="Gérez les compétences radioprotection de votre établissement"
         actions={
-          <Button variant="primary" onClick={() => setModal({ type: 'create' })}>
+          <Button variant="primary" onClick={() => setModal({ type: 'create' })} className="inline-flex items-center gap-1.5">
             <Plus size={14} />
             Ajouter une compétence
           </Button>
@@ -333,19 +333,21 @@ export default function CompetencesList() {
                         </span>
                       </TD>
                       <TD className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="ghost"
+                        <div className="flex gap-1.5 justify-end">
+                          <button
                             onClick={() => setModal({ type: 'edit', competence: c })}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-surface2 transition-colors"
                           >
+                            <Pencil size={12} />
                             Éditer
-                          </Button>
-                          <Button
-                            variant="dangerGhost"
+                          </button>
+                          <button
                             onClick={() => setDeleteTarget(c)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-dangerBorder text-danger hover:bg-dangerBg transition-colors"
                           >
+                            <Trash2 size={12} />
                             Supprimer
-                          </Button>
+                          </button>
                         </div>
                       </TD>
                     </TR>
