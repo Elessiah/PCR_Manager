@@ -352,6 +352,7 @@ fn format_short_code(code: &str) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn encrypt_payload(payload: &ExportPayload, code: &str) -> Result<(String, String), String> {
     let json_str = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -390,6 +391,7 @@ fn encrypt_payload(payload: &ExportPayload, code: &str) -> Result<(String, Strin
     Ok((file_b64, code_formatted))
 }
 
+#[allow(dead_code)]
 fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> {
     let file_bytes = general_purpose::STANDARD
         .decode(&file_b64)
@@ -578,8 +580,8 @@ pub async fn data_export_encrypted(
     // Vérifications
     let mut stmt = conn
         .prepare(
-            "SELECT id, appareil_id, type_, date_realisation, realise_par, organisme, observations \
-             FROM verification",
+            "SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations \
+             FROM verification_technique",
         )
         .map_err(|e| e.to_string())?;
 
@@ -602,7 +604,7 @@ pub async fn data_export_encrypted(
     // Contrôles qualité
     let mut stmt = conn
         .prepare(
-            "SELECT id, appareil_id, type_, date_realisation, date_echeance, \
+            "SELECT id, appareil_id, type, date_realisation, date_echeance, \
              controle_externe_id, organisme, realise_par, statut, observations \
              FROM controle_qualite",
         )
@@ -954,8 +956,8 @@ pub async fn data_import_encrypted(
     // Vérifications
     for v in &payload.verifications {
         let rows = tx.execute(
-            "INSERT OR IGNORE INTO verification \
-             (id, appareil_id, type_, date_realisation, realise_par, organisme, observations) \
+            "INSERT OR IGNORE INTO verification_technique \
+             (id, appareil_id, type, date_realisation, realise_par, organisme, observations) \
              VALUES (?1,?2,?3,?4,?5,?6,?7)",
             rusqlite::params![
                 v["id"].as_i64(),
@@ -974,7 +976,7 @@ pub async fn data_import_encrypted(
     for cq in &payload.controles_qualite {
         let rows = tx.execute(
             "INSERT OR IGNORE INTO controle_qualite \
-             (id, appareil_id, type_, date_realisation, date_echeance, \
+             (id, appareil_id, type, date_realisation, date_echeance, \
               controle_externe_id, organisme, realise_par, statut, observations) \
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![
