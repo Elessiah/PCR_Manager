@@ -14,9 +14,11 @@ type ModalMode = { type: 'create' } | { type: 'edit'; competence: CompetenceRef 
 function CompetenceModal({
   mode,
   onClose,
+  nextOrdre,
 }: {
   mode: ModalMode;
   onClose: () => void;
+  nextOrdre: number;
 }) {
   const qc = useQueryClient();
   const [libelle, setLibelle] = useState(mode.type === 'edit' ? mode.competence.libelle : '');
@@ -51,7 +53,7 @@ function CompetenceModal({
   const createMut = useMutation({
     mutationFn: () => api.competence.refCreate({
       libelle,
-      ordre: 0,
+      ordre: nextOrdre,
       description: description || null,
       propreAppareil: propreAppareil ? 1 : 0,
       dureeValiditeMois: permanente ? null : Number(dureeMois),
@@ -65,7 +67,7 @@ function CompetenceModal({
       return api.competence.refUpdate({
         id: mode.competence.id,
         libelle,
-        ordre: 0,
+        ordre: mode.competence.ordre,
         description: description || null,
         propreAppareil: propreAppareil ? 1 : 0,
         dureeValiditeMois: permanente ? null : Number(dureeMois),
@@ -225,6 +227,8 @@ export default function CompetencesList() {
     queryFn: () => api.competence.list(),
   });
 
+  const nextOrdre = competences.length > 0 ? Math.max(...competences.map(c => c.ordre)) + 1 : 1;
+
   const normalize = (str: string) =>
     str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
@@ -364,7 +368,7 @@ export default function CompetencesList() {
         </Card>
       </div>
 
-      {modal && <CompetenceModal mode={modal} onClose={() => setModal(null)} />}
+      {modal && <CompetenceModal mode={modal} onClose={() => setModal(null)} nextOrdre={nextOrdre} />}
       {deleteTarget && (
         <DeleteConfirmModal competence={deleteTarget} onClose={() => setDeleteTarget(null)} />
       )}
