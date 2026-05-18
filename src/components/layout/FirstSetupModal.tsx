@@ -128,6 +128,11 @@ export default function FirstSetupModal() {
               value={formData.siret || ''}
               onChange={e => handleSiretChange(e.target.value)}
             />
+            {formData.siret && formData.siret.length !== 14 && (
+              <p className="text-xs text-danger">
+                {formData.siret.length}/14 chiffres
+              </p>
+            )}
           </Field>
 
           <Field>
@@ -197,7 +202,11 @@ export default function FirstSetupModal() {
             type="submit"
             variant="primary"
             className="w-full mt-2"
-            disabled={updateMutation.isPending || !formData.denomination.trim()}
+            disabled={
+            updateMutation.isPending ||
+            !formData.denomination.trim() ||
+            (!!formData.siret && formData.siret.length !== 14)
+          }
           >
             {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer et continuer'}
           </Button>
