@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../lib/api';
+import { useAutoLogout } from '../hooks/useAutoLogout';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -31,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.passkey.logout().catch(console.error);
     setIsAuthenticated(false);
   }, []);
+
+  useAutoLogout(logout, isAuthenticated);
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, confirmAuth, logout }}>
