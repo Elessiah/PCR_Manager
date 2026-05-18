@@ -1,7 +1,7 @@
 use crate::db::DbState;
 use crate::models::Document;
 use crate::auth;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use uuid::Uuid;
 use chrono;
 use tauri::Manager;

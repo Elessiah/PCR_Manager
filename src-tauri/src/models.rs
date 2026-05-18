@@ -151,6 +151,7 @@ pub struct HabilitationDetails {
     pub visite_med_ok: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TravailleurAppareil {
     pub id: i64,
