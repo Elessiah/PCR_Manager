@@ -9,8 +9,8 @@ import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
-import type { ControleQualite, HabilitationStatus } from '../../types/domain';
-import { Download, RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap } from 'lucide-react';
+import type { ControleQualite, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
+import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap } from 'lucide-react';
 
 interface Action {
   id: string;
@@ -45,7 +45,7 @@ export default function Dashboard() {
   const [importCode, setImportCode] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string>('');
-  const [importSuccess, setImportSuccess] = useState<any>(null);
+  const [importSuccess, setImportSuccess] = useState<ImportResultExtended | null>(null);
 
   // Close menu on outside click
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function Dashboard() {
 
     competencesGeneralesQueries.forEach((query) => {
       const competences = query.data || [];
-      competences.forEach((comp: any) => {
+      competences.forEach((comp: CompetenceTravailleurGeneral) => {
         if (comp.validated !== 1 || !comp.date_peremption) return;
 
         const compRef = competenceRefs.find(r => r.id === comp.competence_ref_id);
@@ -304,8 +304,8 @@ export default function Dashboard() {
       const result = await api.data.exportEncrypted();
       setExportCode(result.code);
       setExportFileB64(result.file_b64);
-    } catch (err: any) {
-      setExportError(err?.message || 'Erreur lors de l\'export');
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Erreur lors de l\'export');
     } finally {
       setExportLoading(false);
     }
@@ -333,7 +333,7 @@ export default function Dashboard() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch {
       setExportError('Erreur lors du téléchargement du fichier');
     }
   };
@@ -358,7 +358,11 @@ export default function Dashboard() {
       reader.onload = async () => {
         try {
           const arrayBuffer = reader.result as ArrayBuffer;
-          const binaryString = String.fromCharCode.apply(null, Array.from(new Uint8Array(arrayBuffer)) as any);
+          const bytes = new Uint8Array(arrayBuffer);
+          let binaryString = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binaryString += String.fromCharCode(bytes[i]);
+          }
           const fileB64 = btoa(binaryString);
 
           const result = await api.data.importEncrypted({ fileB64, code: importCode });
@@ -371,14 +375,14 @@ export default function Dashboard() {
           await qc.invalidateQueries({ queryKey: ['appareils'] });
           await qc.invalidateQueries({ queryKey: ['verifications'] });
           await qc.invalidateQueries({ queryKey: ['controles'] });
-        } catch (err: any) {
-          setImportError(err?.message || 'Erreur lors de l\'import');
+        } catch (err) {
+          setImportError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
         } finally {
           setImportLoading(false);
         }
       };
       reader.readAsArrayBuffer(importFile);
-    } catch (err: any) {
+    } catch {
       setImportError('Erreur lors de la lecture du fichier');
       setImportLoading(false);
     }

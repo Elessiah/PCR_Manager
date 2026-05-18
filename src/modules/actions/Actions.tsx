@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { ChevronRight } from 'lucide-react';
@@ -29,7 +29,6 @@ interface Action {
 
 export default function Actions() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [filter, setFilter] = useState<FilterValue>('tout');
 
   const { data: appareils = [] } = useQuery({

@@ -5,7 +5,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
-import { Activity, GraduationCap, Stethoscope, X, Check } from 'lucide-react';
+import { Activity, GraduationCap, X, Check } from 'lucide-react';
+import type { Habilitation } from '../../types/domain';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
 interface HabilitationTabProps {
@@ -410,7 +411,7 @@ interface EditModalProps {
   onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
   isLoading: boolean;
   travailleurId: number;
-  habilitation: any;
+  habilitation: Habilitation;
 }
 
 function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
@@ -488,7 +489,7 @@ function EditModalFormationRp({
 }: {
   isOpen: boolean;
   type: 'travailleur' | 'patient';
-  habilitation: any;
+  habilitation: Habilitation;
   onClose: () => void;
   onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
   isLoading: boolean;
@@ -555,7 +556,7 @@ function VisiteMedicaleModeduree({
   isLoading,
   travailleurId,
 }: {
-  habilitation: any;
+  habilitation: Habilitation;
   onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
   isLoading: boolean;
   travailleurId: number;
@@ -637,7 +638,7 @@ function VisiteMedicaleModeDateDirecte({
   isLoading,
   travailleurId,
 }: {
-  habilitation: any;
+  habilitation: Habilitation;
   onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
   isLoading: boolean;
   travailleurId: number;

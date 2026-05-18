@@ -6,6 +6,7 @@ import type {
   HabilitationStatus,
   CompetenceRef,
   CompetenceTravailleur,
+  CompetenceTravailleurGeneral,
   Appareil,
   VerificationTechnique,
   ControleQualite,
@@ -183,7 +184,7 @@ export const api = {
         validated: input.validated,
       }),
     generalGetForTravailleur: (travailleurId: number) =>
-      invoke<any[]>('competence_general_get_for_travailleur', {
+      invoke<CompetenceTravailleurGeneral[]>('competence_general_get_for_travailleur', {
         travailleur_id: travailleurId,
       }),
   },
