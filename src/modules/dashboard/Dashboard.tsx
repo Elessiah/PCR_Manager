@@ -10,7 +10,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import type { ControleQualite, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
-import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap } from 'lucide-react';
+import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap, X } from 'lucide-react';
 
 interface Action {
   id: string;
@@ -675,13 +675,30 @@ export default function Dashboard() {
       {exportModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-4">Exporter les données</h2>
-
             {!exportCode && (
               <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Exporter les données</h2>
+                  <button
+                    onClick={() => {
+                      setExportModalOpen(false);
+                      setExportCode('');
+                      setExportFileB64('');
+                      setExportError('');
+                    }}
+                    className="text-textMuted hover:text-text"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
                 <p className="text-xs text-textSoft mb-4">
                   Générez un code d'export chiffré avec les données de votre établissement. Vous pourrez utiliser ce code et le fichier généré pour restaurer vos données ailleurs.
                 </p>
+                {exportError && (
+                  <div className="p-3 mb-4 bg-red-100 border border-red-300 rounded-md text-xs text-red-700">
+                    {exportError}
+                  </div>
+                )}
                 <button
                   onClick={handleGenerateExport}
                   disabled={exportLoading}
@@ -694,6 +711,20 @@ export default function Dashboard() {
 
             {exportCode && (
               <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Exporter les données</h2>
+                  <button
+                    onClick={() => {
+                      setExportModalOpen(false);
+                      setExportCode('');
+                      setExportFileB64('');
+                      setExportError('');
+                    }}
+                    className="text-textMuted hover:text-text"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
                 {exportError && (
                   <div className="p-3 bg-red-100 border border-red-300 rounded-md text-xs text-red-700">
                     {exportError}
