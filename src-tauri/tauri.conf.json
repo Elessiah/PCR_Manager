@@ -14,7 +14,8 @@
         "title": "PCR Manager",
         "width": 1280,
         "height": 800,
-        "resizable": true
+        "resizable": true,
+        "maximized": true
       }
     ],
     "security": {
