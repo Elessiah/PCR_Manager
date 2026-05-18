@@ -4,11 +4,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use webauthn_rs::prelude::*;
 use parking_lot::Mutex;
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-    Argon2,
-};
-use rusqlite::OptionalExtension;
 use uuid::Uuid;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crate::db::DbState;
@@ -52,6 +47,28 @@ fn purge_expired_authentications(map: &mut HashMap<String, TimedAuthentication>)
     map.retain(|_, entry| entry.created_at.elapsed().as_secs() <= STATE_TTL_SECS);
 }
 
+/// Réponse de passkey_register_start : challenge WebAuthn + reg_id pour le finish.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterStartResponse {
+    pub reg_id: String,
+    #[serde(flatten)]
+    pub challenge: CreationChallengeResponse,
+}
+
+/// Réponse de passkey_auth_start : challenge WebAuthn + auth_id pour le finish.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthStartResponse {
+    pub auth_id: String,
+    #[serde(flatten)]
+    pub challenge: RequestChallengeResponse,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session
+// ─────────────────────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub fn session_check(session: tauri::State<'_, SessionState>) -> JsonValue {
     serde_json::json!({ "authenticated": *session.authenticated.lock() })
@@ -63,10 +80,24 @@ pub fn passkey_logout(session: tauri::State<'_, SessionState>) -> Result<(), Str
     Ok(())
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Passkey registration
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Retourne true si au moins une passkey est enregistrée.
+#[tauri::command]
+pub async fn passkey_has_credentials(db: tauri::State<'_, DbState>) -> Result<bool, String> {
+    let conn = db.conn.lock();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM passkey", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    Ok(count > 0)
+}
+
 #[tauri::command]
 pub async fn passkey_register_start(
     state: tauri::State<'_, WebauthnState>,
-) -> Result<CreationChallengeResponse, String> {
+) -> Result<RegisterStartResponse, String> {
     let user_id = Uuid::new_v4();
     let user_name = format!("user_{}", Uuid::new_v4());
     let user_display_name = "PCR Manager User";
@@ -88,13 +119,13 @@ pub async fn passkey_register_start(
         if reg_states.len() >= MAX_AUTH_STATES {
             return Err("Trop de sessions en attente".to_string());
         }
-        reg_states.insert(reg_id, TimedRegistration {
+        reg_states.insert(reg_id.clone(), TimedRegistration {
             created_at: Instant::now(),
             state: registration_state,
         });
     }
 
-    Ok(challenge)
+    Ok(RegisterStartResponse { reg_id, challenge })
 }
 
 #[tauri::command]
@@ -121,8 +152,6 @@ pub async fn passkey_register_finish(
     let public_key_json = serde_json::to_vec(&passkey)
         .map_err(|e| e.to_string())?;
 
-    // webauthn-rs 0.5: la Passkey ne stocke pas de counter explicite côté serveur
-    // (l'API gere les replay-attacks differemment). On initialise a 0.
     let initial_sign_count: i32 = 0;
 
     let conn = db.conn.lock();
@@ -141,11 +170,15 @@ pub async fn passkey_register_finish(
     Ok(serde_json::json!({"registered": true}))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Passkey authentication
+// ─────────────────────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn passkey_auth_start(
     state: tauri::State<'_, WebauthnState>,
     db: tauri::State<'_, DbState>,
-) -> Result<RequestChallengeResponse, String> {
+) -> Result<AuthStartResponse, String> {
     let conn = db.conn.lock();
     let mut stmt = conn
         .prepare("SELECT public_key FROM passkey")
@@ -174,13 +207,13 @@ pub async fn passkey_auth_start(
         if auth_states.len() >= MAX_AUTH_STATES {
             return Err("Trop de sessions en attente".to_string());
         }
-        auth_states.insert(auth_id, TimedAuthentication {
+        auth_states.insert(auth_id.clone(), TimedAuthentication {
             created_at: Instant::now(),
             state: auth_state,
         });
     }
 
-    Ok(challenge)
+    Ok(AuthStartResponse { auth_id, challenge })
 }
 
 #[tauri::command]
@@ -221,74 +254,6 @@ pub async fn passkey_auth_finish(
     Ok(serde_json::json!({"authenticated": true}))
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Authentification locale par PIN (argon2)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Retourne true si un PIN a déjà été enregistré.
-#[tauri::command]
-pub async fn local_auth_is_registered(
-    db: tauri::State<'_, crate::db::DbState>,
-) -> Result<bool, String> {
-    let conn = db.conn.lock();
-    let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM local_credential", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
-    Ok(count > 0)
-}
-
-/// Enregistre un nouveau PIN (hash argon2). Erreur si déjà enregistré.
-#[tauri::command]
-pub async fn local_auth_register(
-    db: tauri::State<'_, crate::db::DbState>,
-    pin: String,
-) -> Result<(), String> {
-    if pin.len() < 4 {
-        return Err("Le PIN doit contenir au moins 4 caractères.".to_string());
-    }
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let hash = argon2
-        .hash_password(pin.as_bytes(), &salt)
-        .map_err(|e| e.to_string())?
-        .to_string();
-
-    let conn = db.conn.lock();
-    conn.execute(
-        "INSERT OR IGNORE INTO local_credential (id, pin_hash) VALUES (1, ?1)",
-        rusqlite::params![hash],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-/// Vérifie le PIN. Retourne true si correct, false sinon.
-#[tauri::command]
-pub async fn local_auth_verify(
-    db: tauri::State<'_, crate::db::DbState>,
-    pin: String,
-) -> Result<bool, String> {
-    let conn = db.conn.lock();
-    let stored_hash: Option<String> = conn
-        .query_row(
-            "SELECT pin_hash FROM local_credential WHERE id = 1",
-            [],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(|e| e.to_string())?;
-
-    let stored_hash = match stored_hash {
-        Some(h) => h,
-        None => return Ok(false),
-    };
-
-    let parsed_hash = PasswordHash::new(&stored_hash).map_err(|e| e.to_string())?;
-    Ok(Argon2::default()
-        .verify_password(pin.as_bytes(), &parsed_hash)
-        .is_ok())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,10 +291,7 @@ mod tests {
         assert_eq!(STATE_TTL_SECS, 900);
     }
 
-    // NOTE: test_purge_removes_expired_entries et test_purge_keeps_fresh_entries supprimés :
-    // PasskeyRegistration (webauthn-rs 0.5) n'est pas constructible hors contexte WebAuthn
-    // (pas de Default, pas de builder public). Utiliser unimplemented!() panique à la
-    // construction du struct, avant même l'appel à purge_expired_registrations.
-    // La logique de purge (retain sur created_at.elapsed()) est triviale et couverte
-    // indirectement par les tests constants (TTL=900, MAX=100).
+    // NOTE: tests de purge supprimés — PasskeyRegistration/Authentication ne sont
+    // pas constructibles hors contexte WebAuthn (pas de Default public).
+    // La logique retain() est couverte par les constantes TTL=900 et MAX=100.
 }

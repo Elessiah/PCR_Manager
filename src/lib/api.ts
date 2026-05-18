@@ -223,24 +223,25 @@ export const api = {
   },
 
   passkey: {
+    /** Retourne true si au moins une passkey est enregistrée dans la DB. */
+    hasCredentials: () => invoke<boolean>('passkey_has_credentials'),
+    /** Retourne { authenticated: boolean } depuis la session Rust. */
+    sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
+    /** Démarre l'enregistrement : retourne { regId, publicKey } à passer au navigateur. */
     registerStart: () =>
-      invoke<Record<string, unknown>>('passkey_register_start'),
+      invoke<{ regId: string; publicKey: Record<string, unknown> }>('passkey_register_start'),
     registerFinish: (input: {
       regId: string;
       response: Record<string, unknown>;
-    }) => invoke<Record<string, unknown>>('passkey_register_finish', input),
+    }) => invoke<void>('passkey_register_finish', input),
+    /** Démarre l'authentification : retourne { authId, publicKey } à passer au navigateur. */
     authStart: () =>
-      invoke<Record<string, unknown>>('passkey_auth_start'),
+      invoke<{ authId: string; publicKey: Record<string, unknown> }>('passkey_auth_start'),
     authFinish: (input: {
       authId: string;
       response: Record<string, unknown>;
-    }) => invoke<Record<string, unknown>>('passkey_auth_finish', input),
-  },
-
-  auth: {
-    isRegistered: () => invoke<boolean>('local_auth_is_registered'),
-    register: (pin: string) => invoke<void>('local_auth_register', { pin }),
-    verify: (pin: string) => invoke<boolean>('local_auth_verify', { pin }),
+    }) => invoke<void>('passkey_auth_finish', input),
+    logout: () => invoke<void>('passkey_logout'),
   },
 
   data: {
