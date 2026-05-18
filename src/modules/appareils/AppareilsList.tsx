@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
-import { Field, Label, Input } from '../../components/ui/FormField';
+import { Field, Label, Input, Select } from '../../components/ui/FormField';
 import { Plus, Search, ChevronRight, Users } from 'lucide-react';
 
 function AddAppareilModal({ onClose }: { onClose: () => void }) {
@@ -98,12 +98,11 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
           </Field>
           <Field>
             <Label htmlFor="type">Type</Label>
-            <Input
-              id="type"
-              value={type}
-              onChange={e => setType(e.target.value)}
-              placeholder="Ex : Rayons X"
-            />
+            <Select id="type" value={type} onChange={e => setType(e.target.value)}>
+              <option value="">— Sélectionner —</option>
+              <option value="Fixe">Fixe</option>
+              <option value="Deplacable">Déplaçable</option>
+            </Select>
           </Field>
           <Field>
             <Label htmlFor="lieuUtilisation">Lieu d'utilisation</Label>
