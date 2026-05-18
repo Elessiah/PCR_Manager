@@ -109,7 +109,7 @@ pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, Str
     let mut stmt = conn
         .prepare(
             "SELECT id, etablissement_id, designation, marque, modele, numero_serie, \
-             type_, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
+             type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
              tension_nominale_kv, intensite_maximale_ma FROM appareil",
         )
         .map_err(|e| e.to_string())?;
@@ -263,7 +263,7 @@ pub async fn data_import(
             .execute(
                 "INSERT OR IGNORE INTO appareil \
                  (id, etablissement_id, designation, marque, modele, numero_serie, \
-                  type_, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
+                  type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
                   tension_nominale_kv, intensite_maximale_ma) \
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
                 rusqlite::params![
@@ -508,7 +508,7 @@ pub async fn data_export_encrypted(
     let mut stmt = conn
         .prepare(
             "SELECT id, etablissement_id, designation, marque, modele, numero_serie, \
-             type_, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
+             type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
              tension_nominale_kv, intensite_maximale_ma FROM appareil",
         )
         .map_err(|e| e.to_string())?;
@@ -897,7 +897,7 @@ pub async fn data_import_encrypted(
         let rows = tx.execute(
             "INSERT OR IGNORE INTO appareil \
              (id, etablissement_id, designation, marque, modele, numero_serie, \
-              type_, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
+              type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, \
               tension_nominale_kv, intensite_maximale_ma) \
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
             rusqlite::params![
