@@ -53,6 +53,7 @@ const mockCompetences: CompetenceTravailleur[] = [
     competence_ref_id: 1,
     date_validation: '2024-01-15',
     validated: 1,
+    date_peremption: null,
   },
   {
     id: 2,
@@ -61,6 +62,7 @@ const mockCompetences: CompetenceTravailleur[] = [
     competence_ref_id: 2,
     date_validation: null,
     validated: 0,
+    date_peremption: null,
   },
   {
     id: 3,
@@ -69,6 +71,7 @@ const mockCompetences: CompetenceTravailleur[] = [
     competence_ref_id: 3,
     date_validation: '2024-02-20',
     validated: 1,
+    date_peremption: null,
   },
 ]
 
@@ -78,18 +81,27 @@ const mockCompetenceRefs: CompetenceRef[] = [
     libelle: 'Compétence sur fluoroscopie',
     ordre: 1,
     description: null,
+    propre_appareil: 1,
+    duree_validite_mois: 12,
+    duree_alerte_mois: 3,
   },
   {
     id: 2,
     libelle: 'Compétence sur radiographie',
     ordre: 2,
     description: null,
+    propre_appareil: 1,
+    duree_validite_mois: 24,
+    duree_alerte_mois: 3,
   },
   {
     id: 3,
     libelle: 'Compétence sur scanner',
     ordre: 3,
     description: null,
+    propre_appareil: 0,
+    duree_validite_mois: null,
+    duree_alerte_mois: 3,
   },
 ]
 
@@ -120,12 +132,31 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       return [mockTravailleur]
     case 'habilitation_compute':
       return mockHabilitationStatus
+    case 'habilitation_get_for_travailleur':
+      return {
+        id: 1,
+        travailleur_id: 1,
+        dosimetrie_passive_date: null,
+        dosimetrie_operationnelle_date: null,
+        formation_rp_travailleurs_date: '2024-01-15',
+        formation_rp_patients_date: null,
+        visite_medicale_date: '2024-06-01',
+        visite_medicale_duree_mois: 12,
+        visite_medicale_date_peremption: null,
+        updated_at: '2025-01-01T00:00:00Z',
+      }
     case 'competence_get_for_travailleur':
       return mockCompetences
+    case 'competence_general_get_for_travailleur':
+      return []
     case 'competence_list':
       return mockCompetenceRefs
     case 'appareil_list':
       return mockAppareils
+    case 'travailleur_appareil_list':
+      return [1]
+    case 'appareil_competence_list':
+      return [1, 2]
     default:
       return null
   }
@@ -157,9 +188,9 @@ describe('HabilitationTab and Competences', () => {
     if (habiltationTab) {
       await user.click(habiltationTab)
       await screen.findByText('Items d\'habilitation')
-      expect(screen.getByText('Formation radioprotection')).toBeInTheDocument()
+      expect(screen.getByText('Formation RP travailleurs')).toBeInTheDocument()
       expect(screen.getByText('Dosimétries')).toBeInTheDocument()
-      expect(screen.getByText('Compétences')).toBeInTheDocument()
+      expect(screen.getByText('Formation RP patients')).toBeInTheDocument()
       expect(screen.getByText('Visite médicale')).toBeInTheDocument()
     }
   })
