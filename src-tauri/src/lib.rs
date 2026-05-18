@@ -6,6 +6,12 @@ mod validators;
 
 use tauri::Manager;
 
+/// Port du serveur localhost (production ET dev Vite).
+/// En production, tauri-plugin-localhost sert le frontend depuis http://localhost:1420.
+/// En dev, Vite tourne déjà sur 1420 (le plugin n'est pas utilisé).
+/// → rp_origin WebAuthn est identique dans les deux environnements.
+const LOCALHOST_PORT: u16 = 1420;
+
 #[tauri::command]
 fn ping() -> &'static str {
     "pong"
@@ -13,6 +19,9 @@ fn ping() -> &'static str {
 
 pub fn run() {
     tauri::Builder::default()
+        // Sert le frontend depuis http://localhost:LOCALHOST_PORT en production
+        // (en dev, Tauri utilise directement devUrl = http://localhost:1420)
+        .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .setup(|app| {
             let conn = db::open_db(app.handle())
                 .map_err(|e| tauri::Error::Io(std::io::Error::new(
@@ -31,23 +40,26 @@ pub fn run() {
                 conn: parking_lot::Mutex::new(conn),
             });
 
-            // Initialize WebAuthn state — webauthn-rs 0.5 utilise le pattern WebauthnBuilder.
-            let rp_id = "pcrmanager.local";
-            let rp_origin = url::Url::parse("https://pcrmanager.local")
+            // Origine principale (production) : http://localhost:LOCALHOST_PORT
+            // Origine additionnelle (dev Vite) : http://localhost:1420
+            // rp_id = "localhost" est valide pour toutes les origines localhost.
+            // rp_origin = http://localhost:1420 car :
+            //   - dev  : Vite sert sur :1420 → origin identique
+            //   - prod : tauri-plugin-localhost sert aussi sur :1420
+            let rp_id = "localhost";
+            let rp_origin = url::Url::parse(&format!("http://localhost:{}", LOCALHOST_PORT))
                 .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
+                    std::io::ErrorKind::Other, e.to_string(),
                 )))?;
+
             let webauthn = webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin)
                 .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
+                    std::io::ErrorKind::Other, e.to_string(),
                 )))?
                 .rp_name("PCR Manager")
                 .build()
                 .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
+                    std::io::ErrorKind::Other, e.to_string(),
                 )))?;
 
             app.manage(auth::WebauthnState {
@@ -63,15 +75,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ping,
             db::init_db,
+            auth::passkey_has_credentials,
             auth::passkey_register_start,
             auth::passkey_register_finish,
             auth::passkey_auth_start,
             auth::passkey_auth_finish,
             auth::session_check,
             auth::passkey_logout,
-            auth::local_auth_is_registered,
-            auth::local_auth_register,
-            auth::local_auth_verify,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,

@@ -1,9 +1,10 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { api } from '../lib/api';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
-  login: (pin: string) => Promise<boolean>;
+  /** Interroge la session Rust pour confirmer l'état d'auth (appelé après passkey_auth_finish). */
+  confirmAuth: () => Promise<boolean>;
   logout: () => void;
 }
 
@@ -12,18 +13,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const login = useCallback(async (pin: string): Promise<boolean> => {
-    const ok = await api.auth.verify(pin);
-    if (ok) setIsAuthenticated(true);
-    return ok;
+  // Restaure la session Rust au montage (persiste après rechargement).
+  useEffect(() => {
+    api.passkey.sessionCheck()
+      .then(result => setIsAuthenticated(result?.authenticated ?? false))
+      .catch(() => setIsAuthenticated(false));
+  }, []);
+
+  const confirmAuth = useCallback(async (): Promise<boolean> => {
+    const result = await api.passkey.sessionCheck();
+    const authenticated = result?.authenticated ?? false;
+    setIsAuthenticated(authenticated);
+    return authenticated;
   }, []);
 
   const logout = useCallback(() => {
+    api.passkey.logout().catch(console.error);
     setIsAuthenticated(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, confirmAuth, logout }}>
       {children}
     </AuthContext.Provider>
   );
