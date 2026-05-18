@@ -8,6 +8,14 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(null),
 }))
 
+// Mock Tauri window API : évite les appels IPC dans les tests.
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    onFocusChanged: vi.fn().mockResolvedValue(() => {}),
+    isMinimized: vi.fn().mockResolvedValue(false),
+  }),
+}))
+
 // Cleanup after each test
 afterEach(() => {
   vi.clearAllMocks()
