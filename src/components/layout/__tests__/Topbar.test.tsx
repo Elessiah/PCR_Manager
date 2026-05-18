@@ -197,7 +197,7 @@ describe('Topbar', () => {
     });
   });
 
-  it('should navigate to dashboard when bell button is clicked', async () => {
+  it('should open notification panel when bell button is clicked', async () => {
     const user = userEvent.setup();
     renderWithProviders(<Topbar />, { route: '/appareils' });
 
@@ -210,7 +210,60 @@ describe('Topbar', () => {
     await user.click(bellButton);
 
     await waitFor(() => {
+      expect(screen.getByText('Actions en retard')).toBeInTheDocument();
+    });
+  });
+
+  it('should close panel after clicking an overdue action', async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'etablissement_get') {
+        return Promise.resolve({
+          id: 1,
+          denomination: 'Centre Hospitalier Universitaire',
+          ville: 'Paris',
+          siret: '12345678900012',
+          statut_juridique: null,
+          adresse: null,
+          code_postal: null,
+          telephone: null,
+          email: null,
+          site_internet: null,
+          kbis_chemin: null,
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        });
+      }
+      if (command === 'verification_list') {
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - 400);
+        return Promise.resolve([
+          { id: 1, appareil_id: 42, type_: 'annuelle_interne', date_realisation: pastDate.toISOString().split('T')[0] },
+        ]);
+      }
+      if (command === 'controle_qualite_list') return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+
+    renderWithProviders(<Topbar />, { route: '/' });
+
+    await waitFor(() => {
       expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
+    });
+
+    const buttons = screen.getAllByRole('button');
+    const bellButton = buttons[buttons.length - 1];
+    await user.click(bellButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Vérification/i)).toBeInTheDocument();
+    });
+
+    const actionButton = screen.getByText(/Vérification/i).closest('button')!;
+    await user.click(actionButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Actions en retard')).not.toBeInTheDocument();
     });
   });
 
