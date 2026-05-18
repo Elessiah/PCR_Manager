@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
-import { Activity, GraduationCap, X, Check, Monitor } from 'lucide-react';
+import { Activity, GraduationCap, X, Check, Monitor, Search } from 'lucide-react';
 import type { Habilitation } from '../../types/domain';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
@@ -22,6 +22,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [visiteMedicaleEditMode, setVisiteMedicaleEditMode] = useState<VisiteMedicaleMode>('duree');
   const [selectedAppareilIds, setSelectedAppareilIds] = useState<number[]>([]);
+  const [appareilSearchQuery, setAppareilSearchQuery] = useState('');
 
   const { data: habStatus } = useQuery({
     queryKey: ['habilitation', travailleurId],
@@ -195,7 +196,8 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           {habItems.map((item, i) => (
             <div
               key={item.id}
-              className={`flex items-center gap-3.5 px-4 py-3.5 ${i < habItems.length - 1 ? 'border-b border-border' : ''}`}
+              onClick={() => setEditingModal(item.id as EditModalType)}
+              className={`flex items-center gap-3.5 px-4 py-3.5 cursor-pointer hover:bg-surface2 transition-colors ${i < habItems.length - 1 ? 'border-b border-border' : ''}`}
             >
               <div className="w-8 h-8 flex items-center justify-center">
                 <item.icon className="w-5 h-5 text-textMuted" />
@@ -213,13 +215,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditingModal(item.id as EditModalType)}
-                >
-                  Éditer
-                </Button>
                 <Badge variant={item.ok ? 'ok' : 'neutral'}>
                   {item.ok ? 'Validé' : 'Non validé'}
                 </Badge>
@@ -379,35 +374,64 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           )}
 
           {availableAppareils.length > 0 && (
-            <div className="pt-3 border-t border-border space-y-2">
-              <label className="block text-[13px] font-semibold text-textMuted">
-                Ajouter des appareils
-              </label>
-              <select
-                multiple
-                size={Math.min(4, availableAppareils.length)}
-                value={selectedAppareilIds.map(String)}
-                onChange={e =>
-                  setSelectedAppareilIds(
-                    Array.from(e.currentTarget.selectedOptions).map(o => Number(o.value))
-                  )
-                }
-                className="w-full px-2 py-1.5 bg-bg border border-border rounded text-[13px] text-text"
-              >
-                {availableAppareils.map(appareil => (
-                  <option key={appareil.id} value={appareil.id}>
-                    {appareil.designation}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleAddAppareils}
-                disabled={selectedAppareilIds.length === 0}
-                className="px-3 py-2 bg-accent text-white rounded text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-              >
-                Ajouter
-              </button>
-            </div>
+            <>
+              <div className="border-t border-border" />
+              <div className="space-y-3">
+                <label className="block text-[13px] font-semibold text-textMuted">
+                  Ajouter des appareils
+                </label>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-textMuted pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un appareil..."
+                    value={appareilSearchQuery}
+                    onChange={(e) => setAppareilSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-bg border border-border rounded text-[13px] placeholder:text-textMuted focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto border border-border rounded bg-bg">
+                  {availableAppareils
+                    .filter(a => a.designation.toLowerCase().includes(appareilSearchQuery.toLowerCase()))
+                    .map((appareil, index, filtered) => (
+                      <div key={appareil.id}>
+                        <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedAppareilIds.includes(appareil.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAppareilIds([...selectedAppareilIds, appareil.id]);
+                              } else {
+                                setSelectedAppareilIds(selectedAppareilIds.filter(id => id !== appareil.id));
+                              }
+                            }}
+                            className="w-4 h-4 rounded cursor-pointer accent-accent"
+                          />
+                          <Monitor size={14} className="text-textMuted flex-shrink-0" />
+                          <span className="text-[13px] flex-1 min-w-0">{appareil.designation}</span>
+                        </label>
+                        {index < filtered.length - 1 && <div className="border-b border-border" />}
+                      </div>
+                    ))}
+                  {availableAppareils.filter(a => a.designation.toLowerCase().includes(appareilSearchQuery.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-4 text-center text-[13px] text-textMuted">
+                      Aucun appareil trouvé
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleAddAppareils}
+                  disabled={selectedAppareilIds.length === 0}
+                  className="w-full px-3 py-2 bg-accent text-white rounded text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                >
+                  Ajouter {selectedAppareilIds.length > 0 ? `(${selectedAppareilIds.length} sélectionné${selectedAppareilIds.length > 1 ? 's' : ''})` : ''}
+                </button>
+              </div>
+            </>
           )}
         </CardBody>
       </Card>
