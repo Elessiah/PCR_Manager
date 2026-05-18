@@ -9,7 +9,7 @@ import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { PageHead } from '../../components/ui/PageHead';
 import { ReadField } from '../../components/ui/ReadField';
 import { Field, Label, Input } from '../../components/ui/FormField';
-import { ChevronLeft, Edit, Plus, Calendar, X } from 'lucide-react';
+import { ChevronLeft, Edit, Plus, Calendar, X, Check } from 'lucide-react';
 import type { StatusColor } from '../../lib/status';
 
 function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
@@ -530,36 +530,70 @@ function CompetencesRequises({ appareilId }: { appareilId: number }) {
 
   if (!allCompetences || allCompetences.length === 0) return null;
 
+  const linkedCount = linkedIds.length;
+
   return (
     <Card>
       <CardHead>
         <CardTitle>Compétences requises</CardTitle>
+        {linkedCount > 0 && (
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accentSoft text-accent border border-accentSoftBorder">
+            {linkedCount} sélectionnée{linkedCount > 1 ? 's' : ''}
+          </span>
+        )}
       </CardHead>
-      <CardBody>
-        <p className="text-textSoft text-[12.5px] mb-3">
-          Sélectionnez les compétences de la bibliothèque applicables à cet appareil.
-        </p>
-        <ul className="space-y-2">
+      <CardBody className="p-3">
+        <div className="grid gap-2">
           {allCompetences.map(c => {
             const linked = linkedSet.has(c.id);
+            const isPending =
+              (addMut.isPending && addMut.variables === c.id) ||
+              (removeMut.isPending && removeMut.variables === c.id);
             return (
-              <li key={c.id} className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={linked}
-                  onChange={() => toggle(c.id, linked)}
-                  className="mt-0.5 accent-accent"
-                />
-                <div>
-                  <span className="text-[13px] font-medium">{c.libelle}</span>
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggle(c.id, linked)}
+                disabled={isPending}
+                className={[
+                  'w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left',
+                  'transition-all duration-150 cursor-pointer select-none',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
+                  linked
+                    ? 'bg-accentSoft border-accentSoftBorder'
+                    : 'bg-surface border-border hover:border-accent/40 hover:bg-accent/5',
+                  isPending ? 'opacity-60' : '',
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-150',
+                    linked
+                      ? 'bg-accent border-accent'
+                      : 'border-border bg-transparent',
+                  ].join(' ')}
+                >
+                  {linked && (
+                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className={[
+                    'block text-[13px] font-medium leading-tight',
+                    linked ? 'text-accent' : 'text-text',
+                  ].join(' ')}>
+                    {c.libelle}
+                  </span>
                   {c.description && (
-                    <p className="text-textSoft text-[11.5px] mt-0.5">{c.description}</p>
+                    <span className="block text-[11.5px] text-textSoft mt-0.5 leading-snug">
+                      {c.description}
+                    </span>
                   )}
                 </div>
-              </li>
+              </button>
             );
           })}
-        </ul>
+        </div>
       </CardBody>
     </Card>
   );
