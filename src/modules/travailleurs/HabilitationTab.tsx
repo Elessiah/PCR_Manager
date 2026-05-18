@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
-import { Activity, GraduationCap, X, Check } from 'lucide-react';
+import { Activity, GraduationCap, X, Check, Monitor } from 'lucide-react';
 import type { Habilitation } from '../../types/domain';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
@@ -21,6 +21,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const [editingModal, setEditingModal] = useState<EditModalType>(null);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [visiteMedicaleEditMode, setVisiteMedicaleEditMode] = useState<VisiteMedicaleMode>('duree');
+  const [selectedAppareilIds, setSelectedAppareilIds] = useState<number[]>([]);
 
   const { data: habStatus } = useQuery({
     queryKey: ['habilitation', travailleurId],
@@ -66,11 +67,19 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   }, [habilitation?.visite_medicale_date_peremption]);
 
   if (!habStatus || !travailleur || !habilitation) {
-    return null;
+    return (
+      <div className="flex items-center justify-center py-12 text-textMuted text-sm">
+        Chargement de l'habilitation…
+      </div>
+    );
   }
 
   const details = habStatus.details;
   const appareilsAssignes = appareils.filter(a => travailleurAppareils.includes(a.id));
+  const assignedSet = new Set(travailleurAppareils);
+  const availableAppareils = appareils.filter(
+    a => !assignedSet.has(a.id)
+  );
   const competencesGenerales = competenceRefs.filter(c => c.propre_appareil === 0);
 
   const handleUpdateHabilitation = async (input: Parameters<typeof api.habilitation.update>[0]) => {
@@ -95,6 +104,30 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     });
     queryClient.invalidateQueries({ queryKey: ['competenceGeneral', travailleurId] });
     queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+  };
+
+  const handleRemoveAppareil = async (appareilId: number) => {
+    try {
+      await api.travailleurAppareil.remove(travailleurId, appareilId);
+      queryClient.invalidateQueries({ queryKey: ['travailleurAppareils', travailleurId] });
+      queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+    } catch (error) {
+      console.error('Erreur lors du retrait:', error);
+    }
+  };
+
+  const handleAddAppareils = async () => {
+    if (selectedAppareilIds.length === 0) return;
+    try {
+      for (const appareilId of selectedAppareilIds) {
+        await api.travailleurAppareil.add(travailleurId, appareilId);
+      }
+      queryClient.invalidateQueries({ queryKey: ['travailleurAppareils', travailleurId] });
+      queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+      setSelectedAppareilIds([]);
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout:', error);
+    }
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -317,6 +350,70 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
 
       <Card>
         <CardHead>
+          <CardTitle>Appareils assignés</CardTitle>
+        </CardHead>
+        <CardBody className="space-y-4">
+          {appareilsAssignes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {appareilsAssignes.map(appareil => (
+                <div
+                  key={appareil.id}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-surface2 border border-border rounded-full text-[13px] font-medium"
+                >
+                  <Monitor size={13} className="text-textMuted flex-shrink-0" />
+                  <span>{appareil.designation}</span>
+                  <button
+                    onClick={() => handleRemoveAppareil(appareil.id)}
+                    className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-textMuted hover:text-danger hover:bg-dangerBg transition-colors"
+                    title="Retirer cet appareil"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[13px] text-textMuted italic">
+              Aucun appareil assigné — les compétences propres ne pourront pas être validées.
+            </div>
+          )}
+
+          {availableAppareils.length > 0 && (
+            <div className="pt-3 border-t border-border space-y-2">
+              <label className="block text-[13px] font-semibold text-textMuted">
+                Ajouter des appareils
+              </label>
+              <select
+                multiple
+                size={Math.min(4, availableAppareils.length)}
+                value={selectedAppareilIds.map(String)}
+                onChange={e =>
+                  setSelectedAppareilIds(
+                    Array.from(e.currentTarget.selectedOptions).map(o => Number(o.value))
+                  )
+                }
+                className="w-full px-2 py-1.5 bg-bg border border-border rounded text-[13px] text-text"
+              >
+                {availableAppareils.map(appareil => (
+                  <option key={appareil.id} value={appareil.id}>
+                    {appareil.designation}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleAddAppareils}
+                disabled={selectedAppareilIds.length === 0}
+                className="px-3 py-2 bg-accent text-white rounded text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                Ajouter
+              </button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHead>
           <CardTitle>Compétences générales</CardTitle>
         </CardHead>
         <CardBody className="space-y-4">
@@ -389,7 +486,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
         </CardHead>
         <CardBody className="space-y-4">
           {appareilsAssignes.length === 0 ? (
-            <div className="text-sm text-textMuted">Aucun appareil assigné — assignation depuis l'onglet Données personnelles.</div>
+            <div className="text-sm text-textMuted">Aucun appareil assigné — assignez-en via la section « Appareils assignés ».</div>
           ) : (
             appareilsAssignes.map((appareil) => (
               <CompetencesAppareilSubsheet
