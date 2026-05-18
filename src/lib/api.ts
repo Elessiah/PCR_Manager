@@ -242,6 +242,8 @@ export const api = {
       response: Record<string, unknown>;
     }) => invoke<void>('passkey_auth_finish', input),
     logout: () => invoke<void>('passkey_logout'),
+    /** Dev-only : bypass passkey, retourne une erreur en release build. */
+    devAuthBypass: () => invoke<void>('dev_auth_bypass'),
   },
 
   data: {

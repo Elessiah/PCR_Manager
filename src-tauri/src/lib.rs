@@ -82,6 +82,7 @@ pub fn run() {
             auth::passkey_auth_finish,
             auth::session_check,
             auth::passkey_logout,
+            auth::dev_auth_bypass,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,

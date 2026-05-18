@@ -254,6 +254,18 @@ pub async fn passkey_auth_finish(
     Ok(serde_json::json!({"authenticated": true}))
 }
 
+/// Bypass d'authentification réservé au mode développement (debug_assertions).
+/// En release build, cfg!(debug_assertions) == false → retourne Err sans toucher la session.
+#[tauri::command]
+pub fn dev_auth_bypass(session: tauri::State<'_, SessionState>) -> Result<(), String> {
+    if cfg!(debug_assertions) {
+        *session.authenticated.lock() = true;
+        Ok(())
+    } else {
+        Err("Non disponible en production".to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

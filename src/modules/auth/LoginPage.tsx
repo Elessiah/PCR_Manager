@@ -16,6 +16,8 @@ type PKCStatic = typeof PublicKeyCredential & {
 type PKCWithJSON = PublicKeyCredential & { toJSON: () => Record<string, unknown> };
 // ─────────────────────────────────────────────────────────────────────────────
 
+const isDev = import.meta.env.DEV;
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { confirmAuth } = useAuth();
@@ -58,6 +60,20 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await performLogin();
+    } catch (e) {
+      setError(friendlyError(e));
+      setLoading(false);
+    }
+  };
+
+  // ── Bypass dev (debug only) ────────────────────────────────────────────────
+  const handleDevBypass = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await api.passkey.devAuthBypass();
+      const ok = await confirmAuth();
+      if (ok) navigate('/', { replace: true });
     } catch (e) {
       setError(friendlyError(e));
       setLoading(false);
@@ -140,6 +156,19 @@ export default function LoginPage() {
               ) : (
                 <>🔑 Créer ma passkey</>
               )}
+            </button>
+          </div>
+        )}
+
+        {/* ── Bouton dev bypass ── */}
+        {isDev && (
+          <div className="pt-2 border-t border-border">
+            <button
+              onClick={handleDevBypass}
+              disabled={loading}
+              className="w-full py-2 rounded-lg border border-yellow-500 text-yellow-500 text-xs font-medium hover:bg-yellow-500/10 disabled:opacity-50 transition-colors"
+            >
+              ⚠️ Connexion développeur (DEV uniquement)
             </button>
           </div>
         )}
