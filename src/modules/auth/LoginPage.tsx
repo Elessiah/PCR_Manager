@@ -7,8 +7,12 @@ import { useAuth } from '../../context/AuthContext';
 // PublicKeyCredential.parseCreationOptionsFromJSON et .parseRequestOptionsFromJSON
 // et PublicKeyCredential.prototype.toJSON sont des API récentes non encore dans
 // @types/web. On les déclare ici localement.
-type ParseCreationFn = (opts: { publicKey: Record<string, unknown> }) => CredentialCreationOptions;
-type ParseRequestFn  = (opts: { publicKey: Record<string, unknown> }) => CredentialRequestOptions;
+// parseCreationOptionsFromJSON / parseRequestOptionsFromJSON prennent directement
+// le JSON des options (PublicKeyCredentialCreationOptionsJSON), avec "challenge" à
+// la racine — PAS wrappé dans { publicKey }. La fonction retourne elle-même
+// CredentialCreationOptions / CredentialRequestOptions (avec le wrapper publicKey).
+type ParseCreationFn = (opts: Record<string, unknown>) => CredentialCreationOptions;
+type ParseRequestFn  = (opts: Record<string, unknown>) => CredentialRequestOptions;
 type PKCStatic = typeof PublicKeyCredential & {
   parseCreationOptionsFromJSON: ParseCreationFn;
   parseRequestOptionsFromJSON:  ParseRequestFn;
@@ -40,7 +44,7 @@ export default function LoginPage() {
       const { regId, publicKey } = await api.passkey.registerStart();
 
       const PKC = PublicKeyCredential as unknown as PKCStatic;
-      const creationOpts = PKC.parseCreationOptionsFromJSON({ publicKey });
+      const creationOpts = PKC.parseCreationOptionsFromJSON(publicKey);
       const credential   = await navigator.credentials.create(creationOpts) as PKCWithJSON;
 
       await api.passkey.registerFinish({ regId, response: credential.toJSON() });
@@ -84,7 +88,7 @@ export default function LoginPage() {
     const { authId, publicKey } = await api.passkey.authStart();
 
     const PKC = PublicKeyCredential as unknown as PKCStatic;
-    const requestOpts = PKC.parseRequestOptionsFromJSON({ publicKey });
+    const requestOpts = PKC.parseRequestOptionsFromJSON(publicKey);
     const credential  = await navigator.credentials.get(requestOpts) as PKCWithJSON;
 
     await api.passkey.authFinish({ authId, response: credential.toJSON() });
