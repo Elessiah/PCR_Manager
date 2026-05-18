@@ -15,7 +15,8 @@ export default function SplashScreen({ fadingOut = false }: SplashScreenProps) {
       <img
         src="/logo.png"
         alt="PCR Manager Logo"
-        className="h-32 w-32 object-contain mb-4"
+        className="h-32 w-32 object-contain mb-4 drop-shadow-2xl"
+        style={{ imageRendering: 'auto' }}
         data-testid="splash-logo"
       />
       <h1 className="text-2xl font-bold text-white">PCR Manager</h1>
