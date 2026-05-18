@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   Etablissement,
   Travailleur,
+  Habilitation,
   HabilitationStatus,
   CompetenceRef,
   CompetenceTravailleur,
@@ -9,6 +10,8 @@ import type {
   VerificationTechnique,
   ControleQualite,
   Document,
+  ExportEncryptedResult,
+  ImportResultExtended,
 } from '../types/domain';
 
 export const api = {
@@ -95,14 +98,66 @@ export const api = {
   habilitation: {
     compute: (travailleurId: number) =>
       invoke<HabilitationStatus>('habilitation_compute', { travailleurId }),
+    update: (input: {
+      travailleurId: number;
+      dosimetriePassiveDate?: string | null;
+      dosimetrieOperationnelleDate?: string | null;
+      formationRpTravailleursDate?: string | null;
+      formationRpPatientsDate?: string | null;
+      visiteMedicaleDate?: string | null;
+      visiteMedicaleDureeMois?: number | null;
+      visiteMedicaleDatePeremption?: string | null;
+    }) =>
+      invoke<void>('habilitation_update', {
+        travailleur_id: input.travailleurId,
+        dosimetrie_passive_date: input.dosimetriePassiveDate,
+        dosimetrie_operationnelle_date: input.dosimetrieOperationnelleDate,
+        formation_rp_travailleurs_date: input.formationRpTravailleursDate,
+        formation_rp_patients_date: input.formationRpPatientsDate,
+        visite_medicale_date: input.visiteMedicaleDate,
+        visite_medicale_duree_mois: input.visiteMedicaleDureeMois,
+        visite_medicale_date_peremption: input.visiteMedicaleDatePeremption,
+      }),
+    getForTravailleur: (travailleurId: number) =>
+      invoke<Habilitation>('habilitation_get_for_travailleur', { travailleur_id: travailleurId }),
   },
 
   competence: {
     list: () => invoke<CompetenceRef[]>('competence_list'),
-    refCreate: (input: { libelle: string; ordre: number; description?: string | null }) =>
-      invoke<CompetenceRef>('competence_ref_create', input),
-    refUpdate: (input: { id: number; libelle: string; ordre: number; description?: string | null }) =>
-      invoke<void>('competence_ref_update', input),
+    refCreate: (input: {
+      libelle: string;
+      ordre: number;
+      description?: string | null;
+      propreAppareil: number;
+      dureeValiditeMois?: number | null;
+      dureeAlerteMois: number;
+    }) =>
+      invoke<CompetenceRef>('competence_ref_create', {
+        libelle: input.libelle,
+        ordre: input.ordre,
+        description: input.description,
+        propre_appareil: input.propreAppareil,
+        duree_validite_mois: input.dureeValiditeMois,
+        duree_alerte_mois: input.dureeAlerteMois,
+      }),
+    refUpdate: (input: {
+      id: number;
+      libelle: string;
+      ordre: number;
+      description?: string | null;
+      propreAppareil: number;
+      dureeValiditeMois?: number | null;
+      dureeAlerteMois: number;
+    }) =>
+      invoke<void>('competence_ref_update', {
+        id: input.id,
+        libelle: input.libelle,
+        ordre: input.ordre,
+        description: input.description,
+        propre_appareil: input.propreAppareil,
+        duree_validite_mois: input.dureeValiditeMois,
+        duree_alerte_mois: input.dureeAlerteMois,
+      }),
     refDelete: (id: number) => invoke<void>('competence_ref_delete', { id }),
     set: (input: {
       travailleurId: number;
@@ -114,6 +169,22 @@ export const api = {
     getForTravailleur: (travailleurId: number) =>
       invoke<CompetenceTravailleur[]>('competence_get_for_travailleur', {
         travailleurId,
+      }),
+    generalSet: (input: {
+      travailleurId: number;
+      competenceRefId: number;
+      dateValidation?: string | null;
+      validated: number;
+    }) =>
+      invoke<void>('competence_general_set', {
+        travailleur_id: input.travailleurId,
+        competence_ref_id: input.competenceRefId,
+        date_validation: input.dateValidation,
+        validated: input.validated,
+      }),
+    generalGetForTravailleur: (travailleurId: number) =>
+      invoke<any[]>('competence_general_get_for_travailleur', {
+        travailleur_id: travailleurId,
       }),
   },
 
@@ -250,5 +321,21 @@ export const api = {
     export: () => invoke<string>('data_export'),
     import: (jsonStr: string) =>
       invoke<{ travailleurs_added: number; appareils_added: number }>('data_import', { jsonStr }),
+    exportEncrypted: () =>
+      invoke<ExportEncryptedResult>('data_export_encrypted'),
+    importEncrypted: (input: { fileB64: string; code: string }) =>
+      invoke<ImportResultExtended>('data_import_encrypted', {
+        file_b64: input.fileB64,
+        code: input.code,
+      }),
+  },
+
+  travailleurAppareil: {
+    list: (travailleurId: number) =>
+      invoke<number[]>('travailleur_appareil_list', { travailleur_id: travailleurId }),
+    add: (travailleurId: number, appareilId: number) =>
+      invoke<void>('travailleur_appareil_add', { travailleur_id: travailleurId, appareil_id: appareilId }),
+    remove: (travailleurId: number, appareilId: number) =>
+      invoke<void>('travailleur_appareil_remove', { travailleur_id: travailleurId, appareil_id: appareilId }),
   },
 };
