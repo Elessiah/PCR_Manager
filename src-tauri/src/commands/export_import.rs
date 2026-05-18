@@ -6,11 +6,13 @@ use aes_gcm::{Aes256Gcm, Key, Nonce};
 use aes_gcm::aead::{Aead, KeyInit};
 use argon2::Argon2;
 use base64::{engine::general_purpose, Engine};
+use directories::UserDirs;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use rand::RngCore;
 use rand::rngs::OsRng;
+use std::fs;
 use std::io::{Read, Write};
 
 const MAGIC: &[u8] = b"PCREXP01";
@@ -1071,6 +1073,16 @@ pub async fn data_import_encrypted(
         verifications_added,
         controles_added,
     })
+}
+
+#[tauri::command]
+pub async fn save_export_file(file_b64: String, filename: String) -> Result<String, String> {
+    let user_dirs = UserDirs::new().ok_or_else(|| "Cannot locate user directories".to_string())?;
+    let downloads = user_dirs.download_dir().ok_or_else(|| "Cannot locate Downloads folder".to_string())?;
+    let path = downloads.join(&filename);
+    let bytes = general_purpose::STANDARD.decode(&file_b64).map_err(|e| e.to_string())?;
+    fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]

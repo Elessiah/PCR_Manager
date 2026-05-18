@@ -316,25 +316,15 @@ export default function Dashboard() {
     navigator.clipboard.writeText(codeWithoutDashes);
   };
 
-  const handleDownloadExportFile = () => {
+  const handleDownloadExportFile = async () => {
     try {
-      const binaryString = atob(exportFileB64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      link.href = url;
-      link.download = `pcr-export-${today}.pcrexp`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      setExportError('Erreur lors du téléchargement du fichier');
+      const filename = `pcr-export-${today}.pcrexp`;
+      const savedPath = await invoke<string>('save_export_file', { fileB64: exportFileB64, filename });
+      setExportError('');
+      alert(`Fichier enregistré dans : ${savedPath}`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde du fichier');
     }
   };
 
