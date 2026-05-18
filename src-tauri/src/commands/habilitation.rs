@@ -20,15 +20,33 @@ pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_,
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
 
-    desactiver_competences_perimees(&conn).map_err(|e| e.to_string())?;
+    if let Err(e) = desactiver_competences_perimees(&conn) {
+        eprintln!("Warning: Failed to deactivate expired competences: {}", e);
+    }
 
-    let habilitation: (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>) = conn
+    let habilitation_result: (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>) = match conn
         .query_row(
             "SELECT dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_date_peremption, visite_medicale_duree_mois FROM habilitation WHERE travailleur_id = ?1",
             [travailleur_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)),
         )
-        .map_err(|e| e.to_string())?;
+    {
+        Ok(hab) => hab,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Ok(HabilitationStatus {
+                statut: "non_validee".to_string(),
+                details: HabilitationDetails {
+                    formation_rp_ok: false,
+                    dosimetries_ok: false,
+                    competences_ok: false,
+                    visite_med_ok: false,
+                },
+            });
+        }
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let habilitation = habilitation_result;
 
     let (dosim_passive, _dosim_op, form_rp_workers, _form_rp_patients, visite_med_date, visite_med_date_peremption, visite_med_duree_mois) = habilitation;
 
@@ -266,6 +284,7 @@ fn check_date_with_months(date_str: &str, months: i64) -> bool {
     }
 }
 
+#[allow(dead_code)]
 fn compute_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> rusqlite::Result<bool> {
     verify_competences_ok(conn, travailleur_id)
 }
