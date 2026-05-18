@@ -20,6 +20,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState('');
   const [lieuUtilisation, setLieuUtilisation] = useState('');
   const [utilisationPartagee, setUtilisationPartagee] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -37,11 +38,15 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ['appareils'] });
       onClose();
     },
+    onError: (err: unknown) => {
+      setMutationError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!designation.trim()) return;
+    setMutationError(null);
     mutation.mutate();
   };
 
@@ -135,6 +140,11 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
             <Users size={14} className="shrink-0" />
             Utilisation partagée
           </button>
+          {mutationError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+              {mutationError}
+            </div>
+          )}
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Annuler

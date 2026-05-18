@@ -145,6 +145,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const [categorieReglementaire, setCategorieReglementaire] = useState('');
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (input: {
@@ -160,6 +161,9 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ['travailleurs'] });
       onClose();
     },
+    onError: (err: unknown) => {
+      setMutationError(err instanceof Error ? err.message : 'Erreur lors de la création');
+    },
   });
 
   const canSubmit = nom.trim() && prenom.trim();
@@ -167,6 +171,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    setMutationError(null);
     mutate({
       nom: nom.trim(),
       prenom: prenom.trim(),
@@ -268,6 +273,12 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               placeholder="+33 6 12 34 56 78"
             />
           </Field>
+
+          {mutationError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+              {mutationError}
+            </div>
+          )}
 
           <div className="flex gap-3 justify-end pt-4">
             <Button variant="ghost" type="button" onClick={onClose}>
