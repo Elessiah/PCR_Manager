@@ -110,17 +110,17 @@ export const api = {
       visiteMedicaleDatePeremption?: string | null;
     }) =>
       invoke<void>('habilitation_update', {
-        travailleur_id: input.travailleurId,
-        dosimetrie_passive_date: input.dosimetriePassiveDate,
-        dosimetrie_operationnelle_date: input.dosimetrieOperationnelleDate,
-        formation_rp_travailleurs_date: input.formationRpTravailleursDate,
-        formation_rp_patients_date: input.formationRpPatientsDate,
-        visite_medicale_date: input.visiteMedicaleDate,
-        visite_medicale_duree_mois: input.visiteMedicaleDureeMois,
-        visite_medicale_date_peremption: input.visiteMedicaleDatePeremption,
+        travailleurId: input.travailleurId,
+        dosimetriePassiveDate: input.dosimetriePassiveDate,
+        dosimetrieOperationnelleDate: input.dosimetrieOperationnelleDate,
+        formationRpTravailleursDate: input.formationRpTravailleursDate,
+        formationRpPatientsDate: input.formationRpPatientsDate,
+        visiteMedicaleDate: input.visiteMedicaleDate,
+        visiteMedicaleDureeMois: input.visiteMedicaleDureeMois,
+        visiteMedicaleDatePeremption: input.visiteMedicaleDatePeremption,
       }),
     getForTravailleur: (travailleurId: number) =>
-      invoke<Habilitation>('habilitation_get_for_travailleur', { travailleur_id: travailleurId }),
+      invoke<Habilitation>('habilitation_get_for_travailleur', { travailleurId }),
   },
 
   competence: {
@@ -178,14 +178,14 @@ export const api = {
       validated: number;
     }) =>
       invoke<void>('competence_general_set', {
-        travailleur_id: input.travailleurId,
-        competence_ref_id: input.competenceRefId,
-        date_validation: input.dateValidation,
+        travailleurId: input.travailleurId,
+        competenceRefId: input.competenceRefId,
+        dateValidation: input.dateValidation,
         validated: input.validated,
       }),
     generalGetForTravailleur: (travailleurId: number) =>
       invoke<CompetenceTravailleurGeneral[]>('competence_general_get_for_travailleur', {
-        travailleur_id: travailleurId,
+        travailleurId,
       }),
   },
 
@@ -326,17 +326,17 @@ export const api = {
       invoke<ExportEncryptedResult>('data_export_encrypted'),
     importEncrypted: (input: { fileB64: string; code: string }) =>
       invoke<ImportResultExtended>('data_import_encrypted', {
-        file_b64: input.fileB64,
+        fileB64: input.fileB64,
         code: input.code,
       }),
   },
 
   travailleurAppareil: {
     list: (travailleurId: number) =>
-      invoke<number[]>('travailleur_appareil_list', { travailleur_id: travailleurId }),
+      invoke<number[]>('travailleur_appareil_list', { travailleurId }),
     add: (travailleurId: number, appareilId: number) =>
-      invoke<void>('travailleur_appareil_add', { travailleur_id: travailleurId, appareil_id: appareilId }),
+      invoke<void>('travailleur_appareil_add', { travailleurId, appareilId }),
     remove: (travailleurId: number, appareilId: number) =>
-      invoke<void>('travailleur_appareil_remove', { travailleur_id: travailleurId, appareil_id: appareilId }),
+      invoke<void>('travailleur_appareil_remove', { travailleurId, appareilId }),
   },
 };
