@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { KpiTile } from '../../components/ui/KpiTile';
 import { Card, CardHead, CardBody, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -10,7 +10,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import type { ControleQualite, HabilitationStatus } from '../../types/domain';
-import { Download, RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap } from 'lucide-react';
+import { Download, RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap } from 'lucide-react';
 
 interface Action {
   id: string;
@@ -26,6 +26,37 @@ interface Action {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const dataMenuRef = useRef<HTMLDivElement>(null);
+
+  // Data menu dropdown
+  const [dataMenuOpen, setDataMenuOpen] = useState(false);
+
+  // Export modal
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportCode, setExportCode] = useState<string>('');
+  const [exportFileB64, setExportFileB64] = useState<string>('');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string>('');
+
+  // Import modal
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importCode, setImportCode] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string>('');
+  const [importSuccess, setImportSuccess] = useState<any>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target as Node)) {
+        setDataMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, []);
 
   const { data: travailleurs = [], isLoading: loadingTrav } = useQuery({
     queryKey: ['travailleurs'],
@@ -54,7 +85,19 @@ export default function Dashboard() {
     })),
   });
 
-  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || habilitationQueries.some(q => q.isPending);
+  const competencesGeneralesQueries = useQueries({
+    queries: travailleurs.map(t => ({
+      queryKey: ['competencesGenerales', t.id],
+      queryFn: () => api.competence.generalGetForTravailleur(t.id),
+    })),
+  });
+
+  const { data: competenceRefs = [], isLoading: loadingCompRefs } = useQuery({
+    queryKey: ['competenceRefs'],
+    queryFn: () => api.competence.list(),
+  });
+
+  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending);
 
   const habitationsData = useMemo(() => {
     return habilitationQueries.map((q, idx) => ({
@@ -148,14 +191,39 @@ export default function Dashboard() {
       return { danger, warn };
     };
 
+    let competencesDanger = 0;
+    let competencesWarn = 0;
+
+    competencesGeneralesQueries.forEach((query) => {
+      const competences = query.data || [];
+      competences.forEach((comp: any) => {
+        if (comp.validated !== 1 || !comp.date_peremption) return;
+
+        const compRef = competenceRefs.find(r => r.id === comp.competence_ref_id);
+        if (!compRef) return;
+
+        const peremptionDate = new Date(comp.date_peremption);
+        const alerteSeuilDate = new Date(peremptionDate);
+        alerteSeuilDate.setMonth(alerteSeuilDate.getMonth() - compRef.duree_alerte_mois);
+
+        const today = new Date();
+        if (today > peremptionDate) {
+          competencesDanger++;
+        } else if (today >= alerteSeuilDate) {
+          competencesWarn++;
+        }
+      });
+    });
+
     return {
       formations: { danger: 0, warn: 0 },
       visites: { danger: 0, warn: 0 },
       verifications: countByStatus(verificationsList),
       controles: countByStatus(controlesList),
       dosimetrie: { danger: 0, warn: 0 },
+      competences: { danger: competencesDanger, warn: competencesWarn },
     };
-  }, [actions]);
+  }, [actions, competencesGeneralesQueries, competenceRefs]);
 
   const habilitationsStats = useMemo(() => {
     const stats = { validee: 0, partielle: 0, non_validee: 0 };
@@ -229,6 +297,93 @@ export default function Dashboard() {
     return `dans ${diff} jours`;
   };
 
+  const handleGenerateExport = async () => {
+    setExportLoading(true);
+    setExportError('');
+    try {
+      const result = await api.data.exportEncrypted();
+      setExportCode(result.code);
+      setExportFileB64(result.file_b64);
+    } catch (err: any) {
+      setExportError(err?.message || 'Erreur lors de l\'export');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleCopyExportCode = () => {
+    const codeWithoutDashes = exportCode.replace(/-/g, '');
+    navigator.clipboard.writeText(codeWithoutDashes);
+  };
+
+  const handleDownloadExportFile = () => {
+    try {
+      const binaryString = atob(exportFileB64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      link.href = url;
+      link.download = `pcr-export-${today}.pcrexp`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setExportError('Erreur lors du téléchargement du fichier');
+    }
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setImportFile(file || null);
+  };
+
+  const handleImport = async () => {
+    if (!importFile || !importCode) {
+      setImportError('Veuillez sélectionner un fichier et entrer le code');
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError('');
+    setImportSuccess(null);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const arrayBuffer = reader.result as ArrayBuffer;
+          const binaryString = String.fromCharCode.apply(null, Array.from(new Uint8Array(arrayBuffer)) as any);
+          const fileB64 = btoa(binaryString);
+
+          const result = await api.data.importEncrypted({ fileB64, code: importCode });
+          setImportSuccess(result);
+          setImportFile(null);
+          setImportCode('');
+
+          // Invalider les requêtes
+          await qc.invalidateQueries({ queryKey: ['travailleurs'] });
+          await qc.invalidateQueries({ queryKey: ['appareils'] });
+          await qc.invalidateQueries({ queryKey: ['verifications'] });
+          await qc.invalidateQueries({ queryKey: ['controles'] });
+        } catch (err: any) {
+          setImportError(err?.message || 'Erreur lors de l\'import');
+        } finally {
+          setImportLoading(false);
+        }
+      };
+      reader.readAsArrayBuffer(importFile);
+    } catch (err: any) {
+      setImportError('Erreur lors de la lecture du fichier');
+      setImportLoading(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="text-textMuted text-sm">Chargement des données...</div>;
   }
@@ -239,6 +394,7 @@ export default function Dashboard() {
   const sources = [
     { key: 'formations', label: 'Formations', icon: FileCheck, danger: alertCategories.formations.danger, warn: alertCategories.formations.warn },
     { key: 'visites', label: 'Visites médicales', icon: CheckCircle, danger: alertCategories.visites.danger, warn: alertCategories.visites.warn },
+    { key: 'competences', label: 'Compétences', icon: GraduationCap, danger: alertCategories.competences.danger, warn: alertCategories.competences.warn },
     { key: 'verifications', label: 'Vérifications', icon: ShieldCheck, danger: alertCategories.verifications.danger, warn: alertCategories.verifications.warn },
     { key: 'controles', label: 'Contrôles qualité', icon: Activity, danger: alertCategories.controles.danger, warn: alertCategories.controles.warn },
     { key: 'dosimetrie', label: 'Dosimétrie', icon: Zap, danger: alertCategories.dosimetrie.danger, warn: alertCategories.dosimetrie.warn },
@@ -250,16 +406,53 @@ export default function Dashboard() {
         title="Tableau de bord"
         sub={`État réglementaire du service au ${todayFormatted}`}
         actions={
-          <>
-            <button className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-textMuted hover:text-text border border-border rounded-md">
-              <Download size={14} />
-              Exporter
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Data dropdown menu */}
+            <div ref={dataMenuRef} className="relative">
+              <button
+                onClick={() => setDataMenuOpen(!dataMenuOpen)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-textMuted hover:text-text border border-border rounded-md"
+              >
+                <Database size={14} />
+                Données
+                <ChevronDown size={12} />
+              </button>
+              {dataMenuOpen && (
+                <div className="absolute top-full right-0 mt-1 bg-surface border border-border rounded-md shadow-lg z-50 min-w-48">
+                  <button
+                    onClick={() => {
+                      setExportModalOpen(true);
+                      setExportCode('');
+                      setExportFileB64('');
+                      setExportError('');
+                      setDataMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-xs hover:bg-surface2 first:rounded-t-md"
+                  >
+                    Exporter (chiffré)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setImportModalOpen(true);
+                      setImportFile(null);
+                      setImportCode('');
+                      setImportError('');
+                      setImportSuccess(null);
+                      setDataMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-xs hover:bg-surface2 last:rounded-b-md border-t border-border"
+                  >
+                    Importer (chiffré)
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accentDark border border-accentBorder rounded-md">
               <RefreshCw size={14} />
               Actualiser
             </button>
-          </>
+          </div>
         }
       />
 
@@ -473,6 +666,186 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Export Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4">Exporter les données</h2>
+
+            {!exportCode && (
+              <div>
+                <p className="text-xs text-textSoft mb-4">
+                  Générez un code d'export chiffré avec les données de votre établissement. Vous pourrez utiliser ce code et le fichier généré pour restaurer vos données ailleurs.
+                </p>
+                <button
+                  onClick={handleGenerateExport}
+                  disabled={exportLoading}
+                  className="w-full px-4 py-2.5 bg-accent hover:bg-accentDark text-white text-xs font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {exportLoading ? 'Génération...' : 'Générer l\'export'}
+                </button>
+              </div>
+            )}
+
+            {exportCode && (
+              <div className="space-y-4">
+                {exportError && (
+                  <div className="p-3 bg-red-100 border border-red-300 rounded-md text-xs text-red-700">
+                    {exportError}
+                  </div>
+                )}
+
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-md text-xs text-orange-800">
+                  <strong>⚠ Important :</strong> Notez ou copiez ce code MAINTENANT. Il ne sera plus jamais affiché.
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-textMuted block mb-2">Code (sans tirets)</label>
+                  <div className="p-3 bg-surface2 border border-border rounded-md font-mono text-lg tracking-widest text-center">
+                    {exportCode.match(/.{1,5}/g)?.join('-') || exportCode}
+                  </div>
+                  <button
+                    onClick={handleCopyExportCode}
+                    title="Copie le code sans tirets dans le presse-papiers"
+                    className="w-full mt-2 px-4 py-2 text-xs font-semibold border border-border rounded-md hover:bg-surface2"
+                  >
+                    Copier le code
+                  </button>
+                </div>
+
+                <div>
+                  <button
+                    onClick={handleDownloadExportFile}
+                    className="w-full px-4 py-2.5 bg-accent hover:bg-accentDark text-white text-xs font-semibold rounded-md"
+                  >
+                    Télécharger le fichier
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setExportModalOpen(false);
+                    setExportCode('');
+                    setExportFileB64('');
+                  }}
+                  className="w-full px-4 py-2 text-xs font-semibold border border-border rounded-md hover:bg-surface2"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg shadow-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4">Importer les données</h2>
+
+            {!importSuccess ? (
+              <div className="space-y-4">
+                {importError && (
+                  <div className="p-3 bg-red-100 border border-red-300 rounded-md text-xs text-red-700">
+                    {importError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-semibold text-textMuted block mb-2">
+                    Fichier d'export (.pcrexp, .bin)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pcrexp,.bin"
+                    onChange={handleImportFile}
+                    className="w-full px-3 py-2 text-xs border border-border rounded-md"
+                  />
+                  {importFile && (
+                    <p className="text-xs text-textSoft mt-1">{importFile.name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-textMuted block mb-2">
+                    Code (10 caractères)
+                  </label>
+                  <input
+                    type="text"
+                    value={importCode}
+                    onChange={(e) => setImportCode(e.target.value.toUpperCase())}
+                    placeholder="XXXXX-XXXXX"
+                    maxLength={11}
+                    className="w-full px-3 py-2 text-xs border border-border rounded-md font-mono"
+                  />
+                </div>
+
+                <button
+                  onClick={handleImport}
+                  disabled={importLoading || !importFile || !importCode}
+                  className="w-full px-4 py-2.5 bg-accent hover:bg-accentDark text-white text-xs font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {importLoading ? 'Import en cours...' : 'Importer'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setImportModalOpen(false);
+                    setImportFile(null);
+                    setImportCode('');
+                    setImportError('');
+                  }}
+                  className="w-full px-4 py-2 text-xs font-semibold border border-border rounded-md hover:bg-surface2"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md text-xs text-green-800">
+                  <strong>✓ Import réussi</strong>
+                </div>
+
+                <div className="text-xs space-y-2">
+                  {importSuccess.etablissements_added > 0 && (
+                    <p>{importSuccess.etablissements_added} établissement(s) importé(s)</p>
+                  )}
+                  {importSuccess.travailleurs_added > 0 && (
+                    <p>{importSuccess.travailleurs_added} travailleur(s) importé(s)</p>
+                  )}
+                  {importSuccess.appareils_added > 0 && (
+                    <p>{importSuccess.appareils_added} appareil(s) importé(s)</p>
+                  )}
+                  {importSuccess.competences_added > 0 && (
+                    <p>{importSuccess.competences_added} compétence(s) importée(s)</p>
+                  )}
+                  {importSuccess.habilitations_added > 0 && (
+                    <p>{importSuccess.habilitations_added} habilitation(s) importée(s)</p>
+                  )}
+                  {importSuccess.verifications_added > 0 && (
+                    <p>{importSuccess.verifications_added} vérification(s) importée(s)</p>
+                  )}
+                  {importSuccess.controles_added > 0 && (
+                    <p>{importSuccess.controles_added} contrôle(s) importé(s)</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setImportModalOpen(false);
+                    setImportSuccess(null);
+                  }}
+                  className="w-full px-4 py-2.5 bg-accent hover:bg-accentDark text-white text-xs font-semibold rounded-md"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
