@@ -44,6 +44,8 @@ export interface Habilitation {
   formation_rp_travailleurs_date: string | null;
   formation_rp_patients_date: string | null;
   visite_medicale_date: string | null;
+  visite_medicale_date_peremption: string | null;
+  visite_medicale_duree_mois: number | null;
   updated_at: string;
 }
 
@@ -66,6 +68,9 @@ export interface CompetenceRef {
   libelle: string;
   ordre: number;
   description: string | null;
+  propre_appareil: number;
+  duree_validite_mois: number | null;
+  duree_alerte_mois: number;
 }
 
 export interface CompetenceTravailleur {
@@ -75,6 +80,7 @@ export interface CompetenceTravailleur {
   competence_ref_id: number;
   date_validation: string | null;
   validated: number;
+  date_peremption: string | null;
 }
 
 export interface Appareil {
@@ -127,4 +133,34 @@ export interface Document {
   nom_fichier: string;
   chemin_relatif: string;
   uploaded_at: string;
+}
+
+export interface TravailleurAppareil {
+  id: number;
+  travailleur_id: number;
+  appareil_id: number;
+}
+
+export interface CompetenceTravailleurGeneral {
+  id: number;
+  travailleur_id: number;
+  competence_ref_id: number;
+  date_validation: string | null;
+  date_peremption: string | null;
+  validated: number;
+}
+
+export interface ExportEncryptedResult {
+  code: string;
+  file_b64: string;
+}
+
+export interface ImportResultExtended {
+  travailleurs_added: number;
+  appareils_added: number;
+  competences_added: number;
+  habilitations_added: number;
+  etablissements_added: number;
+  verifications_added: number;
+  controles_added: number;
 }
