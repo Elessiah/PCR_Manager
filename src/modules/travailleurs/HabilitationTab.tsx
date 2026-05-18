@@ -13,7 +13,7 @@ interface HabilitationTabProps {
   travailleurId: number;
 }
 
-type EditModalType = 'dosimetries' | 'formationRpTravailleur' | 'formationRpPatient' | null;
+type EditModalType = 'dosimetries' | 'formationRpTravailleur' | 'formationRpPatient' | 'visiteMedicale' | null;
 type VisiteMedicaleMode = 'duree' | 'dateDirecte';
 
 export default function HabilitationTab({ travailleurId }: HabilitationTabProps) {
@@ -180,6 +180,12 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       title: 'Formation RP patients',
       ok: details.formation_rp_ok,
     },
+    {
+      id: 'visiteMedicale',
+      icon: Activity,
+      title: 'Visite médicale',
+      ok: visiteMedicaleStatus.variant === 'ok',
+    },
   ];
 
   const visiteMedicaleStatus = getVisiteMedicaleStatus();
@@ -212,6 +218,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                   )}
                   {item.id === 'formationRpTravailleur' && formatDate(habilitation.formation_rp_travailleurs_date)}
                   {item.id === 'formationRpPatient' && formatDate(habilitation.formation_rp_patients_date)}
+                  {item.id === 'visiteMedicale' && formatDate(habilitation.visite_medicale_date)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -256,92 +263,17 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
             isLoading={isLoadingUpdate}
             travailleurId={travailleurId}
           />
+
+          <EditModalVisiteMedicale
+            isOpen={editingModal === 'visiteMedicale'}
+            habilitation={habilitation}
+            onClose={() => setEditingModal(null)}
+            onSave={handleUpdateHabilitation}
+            isLoading={isLoadingUpdate}
+            travailleurId={travailleurId}
+          />
         </>
       )}
-
-      <Card>
-        <CardHead>
-          <CardTitle>Visite médicale</CardTitle>
-        </CardHead>
-        <CardBody className="space-y-4">
-          <div className="space-y-3">
-            <Label>Mode de saisie</Label>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  id="modeduree"
-                  value="duree"
-                  checked={visiteMedicaleEditMode === 'duree'}
-                  onChange={(e) => e.target.checked && setVisiteMedicaleEditMode('duree')}
-                  className="w-4 h-4 cursor-pointer"
-                />
-                <label htmlFor="modeduree" className="text-sm cursor-pointer">Durée + calcul auto</label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  id="modedatedirecte"
-                  value="dateDirecte"
-                  checked={visiteMedicaleEditMode === 'dateDirecte'}
-                  onChange={(e) => e.target.checked && setVisiteMedicaleEditMode('dateDirecte')}
-                  className="w-4 h-4 cursor-pointer"
-                />
-                <label htmlFor="modedatedirecte" className="text-sm cursor-pointer">Date de péremption directe</label>
-              </div>
-            </div>
-          </div>
-
-          {habilitation && (
-            <>
-              {visiteMedicaleEditMode === 'duree' ? (
-                <VisiteMedicaleModeduree
-                  habilitation={habilitation}
-                  onSave={handleUpdateHabilitation}
-                  isLoading={isLoadingUpdate}
-                  travailleurId={travailleurId}
-                />
-              ) : (
-                <VisiteMedicaleModeDateDirecte
-                  habilitation={habilitation}
-                  onSave={handleUpdateHabilitation}
-                  isLoading={isLoadingUpdate}
-                  travailleurId={travailleurId}
-                />
-              )}
-
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-textMuted">Statut</div>
-                    <div className="text-sm font-medium mt-1">
-                      {habilitation.visite_medicale_date ? (
-                        <>
-                          {`Visite: ${formatDate(habilitation.visite_medicale_date)} • `}
-                          {visiteMedicaleMode === 'duree' && habilitation.visite_medicale_duree_mois ? (
-                            <>
-                              {`Péremption calculée: ${calculateExpirationDate(habilitation.visite_medicale_date, habilitation.visite_medicale_duree_mois)}`}
-                            </>
-                          ) : habilitation.visite_medicale_date_peremption ? (
-                            `Péremption: ${formatDate(habilitation.visite_medicale_date_peremption)}`
-                          ) : (
-                            'Péremption non définie'
-                          )}
-                        </>
-                      ) : (
-                        'Aucune visite enregistrée'
-                      )}
-                    </div>
-                  </div>
-                  <Badge variant={visiteMedicaleStatus.variant}>
-                    {visiteMedicaleStatus.status}
-                  </Badge>
-                </div>
-              </div>
-            </>
-          )}
-        </CardBody>
-      </Card>
 
       <Card>
         <CardHead>
@@ -809,6 +741,60 @@ function VisiteMedicaleModeDateDirecte({
       >
         {isLoading ? 'Enregistrement...' : 'Enregistrer'}
       </Button>
+    </div>
+  );
+}
+
+function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
+  const [mode, setMode] = useState<VisiteMedicaleMode>(
+    habilitation?.visite_medicale_date_peremption ? 'dateDirecte' : 'duree'
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setMode(habilitation?.visite_medicale_date_peremption ? 'dateDirecte' : 'duree');
+    }
+  }, [isOpen, habilitation?.visite_medicale_date_peremption]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-surface rounded-lg shadow-lg w-[480px] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Éditer Visite médicale</h2>
+          <button onClick={onClose} className="text-textMuted hover:text-text">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={mode === 'duree'} onChange={() => setMode('duree')} className="w-4 h-4" />
+              <span className="text-sm">Durée + calcul auto</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={mode === 'dateDirecte'} onChange={() => setMode('dateDirecte')} className="w-4 h-4" />
+              <span className="text-sm">Date de péremption directe</span>
+            </label>
+          </div>
+          {mode === 'duree' ? (
+            <VisiteMedicaleModeduree
+              habilitation={habilitation}
+              onSave={async (input) => { await onSave(input); onClose(); }}
+              isLoading={isLoading}
+              travailleurId={travailleurId}
+            />
+          ) : (
+            <VisiteMedicaleModeDateDirecte
+              habilitation={habilitation}
+              onSave={async (input) => { await onSave(input); onClose(); }}
+              isLoading={isLoading}
+              travailleurId={travailleurId}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
