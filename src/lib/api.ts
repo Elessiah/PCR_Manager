@@ -137,9 +137,9 @@ export const api = {
         libelle: input.libelle,
         ordre: input.ordre,
         description: input.description,
-        propre_appareil: input.propreAppareil,
-        duree_validite_mois: input.dureeValiditeMois,
-        duree_alerte_mois: input.dureeAlerteMois,
+        propreAppareil: input.propreAppareil,
+        dureeValiditeMois: input.dureeValiditeMois,
+        dureeAlerteMois: input.dureeAlerteMois,
       }),
     refUpdate: (input: {
       id: number;
@@ -155,9 +155,9 @@ export const api = {
         libelle: input.libelle,
         ordre: input.ordre,
         description: input.description,
-        propre_appareil: input.propreAppareil,
-        duree_validite_mois: input.dureeValiditeMois,
-        duree_alerte_mois: input.dureeAlerteMois,
+        propreAppareil: input.propreAppareil,
+        dureeValiditeMois: input.dureeValiditeMois,
+        dureeAlerteMois: input.dureeAlerteMois,
       }),
     refDelete: (id: number) => invoke<void>('competence_ref_delete', { id }),
     set: (input: {
