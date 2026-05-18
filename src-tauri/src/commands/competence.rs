@@ -1,24 +1,28 @@
 use crate::db::DbState;
-use crate::models::{CompetenceRef, CompetenceTravailleur};
+use crate::models::{CompetenceRef, CompetenceTravailleur, CompetenceTravailleurGeneral};
 use crate::auth;
+use chrono::{NaiveDate, Months};
 
 #[tauri::command]
 pub async fn competence_ref_create(
     libelle: String,
     ordre: i64,
     description: Option<String>,
+    propre_appareil: i64,
+    duree_validite_mois: Option<i64>,
+    duree_alerte_mois: i64,
     session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
-        "INSERT INTO competence_ref (libelle, ordre, description) VALUES (?1, ?2, ?3)",
-        rusqlite::params![libelle, ordre, description],
+        "INSERT INTO competence_ref (libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois],
     )
     .map_err(|e| e.to_string())?;
     let id = conn.last_insert_rowid();
-    Ok(CompetenceRef { id, libelle, ordre, description })
+    Ok(CompetenceRef { id, libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois })
 }
 
 #[tauri::command]
@@ -27,14 +31,17 @@ pub async fn competence_ref_update(
     libelle: String,
     ordre: i64,
     description: Option<String>,
+    propre_appareil: i64,
+    duree_validite_mois: Option<i64>,
+    duree_alerte_mois: i64,
     session: tauri::State<'_, auth::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     conn.execute(
-        "UPDATE competence_ref SET libelle = ?1, ordre = ?2, description = ?3 WHERE id = ?4",
-        rusqlite::params![libelle, ordre, description, id],
+        "UPDATE competence_ref SET libelle = ?1, ordre = ?2, description = ?3, propre_appareil = ?4, duree_validite_mois = ?5, duree_alerte_mois = ?6 WHERE id = ?7",
+        rusqlite::params![libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois, id],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -58,7 +65,7 @@ pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, stat
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
-        .prepare("SELECT id, libelle, ordre, description FROM competence_ref ORDER BY ordre")
+        .prepare("SELECT id, libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois FROM competence_ref ORDER BY ordre")
         .map_err(|e| e.to_string())?;
 
     let competences = stmt
@@ -68,6 +75,9 @@ pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, stat
                 libelle: row.get(1)?,
                 ordre: row.get(2)?,
                 description: row.get(3)?,
+                propre_appareil: row.get(4)?,
+                duree_validite_mois: row.get(5)?,
+                duree_alerte_mois: row.get(6)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -91,12 +101,24 @@ pub async fn competence_set(
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
 
+    let date_peremption = if validated == 1 {
+        match &date_validation {
+            Some(dv) => calc_date_peremption(&*conn, competence_ref_id, dv)?,
+            None => {
+                let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+                calc_date_peremption(&*conn, competence_ref_id, &today)?
+            }
+        }
+    } else {
+        None
+    };
+
     conn.execute(
-        "INSERT INTO competence_travailleur (travailleur_id, appareil_id, competence_ref_id, date_validation, validated)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+        "INSERT INTO competence_travailleur (travailleur_id, appareil_id, competence_ref_id, date_validation, validated, date_peremption)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(travailleur_id, appareil_id, competence_ref_id) DO UPDATE SET
-         date_validation = ?4, validated = ?5",
-        rusqlite::params![travailleur_id, appareil_id, competence_ref_id, date_validation, validated],
+         date_validation = ?4, validated = ?5, date_peremption = ?6",
+        rusqlite::params![travailleur_id, appareil_id, competence_ref_id, date_validation, validated, date_peremption],
     )
     .map_err(|e| e.to_string())?;
 
@@ -112,7 +134,7 @@ pub async fn competence_get_for_travailleur(
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
-        .prepare("SELECT id, travailleur_id, appareil_id, competence_ref_id, date_validation, validated FROM competence_travailleur WHERE travailleur_id = ?1 ORDER BY id")
+        .prepare("SELECT id, travailleur_id, appareil_id, competence_ref_id, date_validation, validated, date_peremption FROM competence_travailleur WHERE travailleur_id = ?1 ORDER BY id")
         .map_err(|e| e.to_string())?;
 
     let competences = stmt
@@ -123,6 +145,77 @@ pub async fn competence_get_for_travailleur(
                 appareil_id: row.get(2)?,
                 competence_ref_id: row.get(3)?,
                 date_validation: row.get(4)?,
+                validated: row.get(5)?,
+                date_peremption: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(competences)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compétences générales (table competence_travailleur_general, V6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn competence_general_set(
+    travailleur_id: i64,
+    competence_ref_id: i64,
+    date_validation: Option<String>,
+    validated: i64,
+    session: tauri::State<'_, auth::SessionState>,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    ensure_authenticated(&session)?;
+    let conn = state.conn.lock();
+
+    let date_peremption = if validated == 1 {
+        match &date_validation {
+            Some(dv) => calc_date_peremption(&*conn, competence_ref_id, dv)?,
+            None => {
+                let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+                calc_date_peremption(&*conn, competence_ref_id, &today)?
+            }
+        }
+    } else {
+        None
+    };
+
+    conn.execute(
+        "INSERT INTO competence_travailleur_general (travailleur_id, competence_ref_id, date_validation, validated, date_peremption)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(travailleur_id, competence_ref_id) DO UPDATE SET
+         date_validation = ?3, validated = ?4, date_peremption = ?5",
+        rusqlite::params![travailleur_id, competence_ref_id, date_validation, validated, date_peremption],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn competence_general_get_for_travailleur(
+    travailleur_id: i64,
+    session: tauri::State<'_, auth::SessionState>,
+    state: tauri::State<'_, DbState>,
+) -> Result<Vec<CompetenceTravailleurGeneral>, String> {
+    ensure_authenticated(&session)?;
+    let conn = state.conn.lock();
+    let mut stmt = conn
+        .prepare("SELECT id, travailleur_id, competence_ref_id, date_validation, date_peremption, validated FROM competence_travailleur_general WHERE travailleur_id = ?1 ORDER BY id")
+        .map_err(|e| e.to_string())?;
+
+    let competences = stmt
+        .query_map([travailleur_id], |row| {
+            Ok(CompetenceTravailleurGeneral {
+                id: row.get(0)?,
+                travailleur_id: row.get(1)?,
+                competence_ref_id: row.get(2)?,
+                date_validation: row.get(3)?,
+                date_peremption: row.get(4)?,
                 validated: row.get(5)?,
             })
         })
@@ -196,9 +289,37 @@ fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
     Ok(())
 }
 
+fn calc_date_peremption(conn: &rusqlite::Connection, competence_ref_id: i64, date_validation: &str) -> Result<Option<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT duree_validite_mois FROM competence_ref WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let duree_validite_mois: Option<i64> = stmt
+        .query_row([competence_ref_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    match duree_validite_mois {
+        None => Ok(None),
+        Some(months) => {
+            let base_date = NaiveDate::parse_from_str(date_validation, "%Y-%m-%d")
+                .map_err(|e| e.to_string())?;
+            let peremption_date = base_date.checked_add_months(Months::new(months as u32))
+                .ok_or_else(|| "Date calculation failed".to_string())?;
+            Ok(Some(peremption_date.to_string()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn setup_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(include_str!("../../migrations/V1__initial.sql")).unwrap();
+        conn.execute_batch(include_str!("../../migrations/V6__competence_validity_assignments.sql")).unwrap();
+        conn
+    }
 
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
@@ -211,5 +332,28 @@ mod tests {
         let session = auth::SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
+    }
+
+    #[test]
+    fn test_calc_date_peremption_avec_duree_12_mois() {
+        let conn = setup_db();
+
+        conn.execute(
+            "UPDATE competence_ref SET duree_validite_mois = 12 WHERE id = 1",
+            [],
+        ).unwrap();
+
+        let result = calc_date_peremption(&conn, 1, "2026-01-15").unwrap();
+
+        assert_eq!(result, Some("2027-01-15".to_string()));
+    }
+
+    #[test]
+    fn test_calc_date_peremption_avec_duree_null_retourne_none() {
+        let conn = setup_db();
+
+        let result = calc_date_peremption(&conn, 1, "2026-01-15").unwrap();
+
+        assert_eq!(result, None);
     }
 }

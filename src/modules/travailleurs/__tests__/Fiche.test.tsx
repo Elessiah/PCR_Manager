@@ -52,6 +52,7 @@ const mockCompetences: CompetenceTravailleur[] = [
     competence_ref_id: 1,
     date_validation: '2024-01-15',
     validated: 1,
+    date_peremption: null,
   },
   {
     id: 2,
@@ -60,6 +61,7 @@ const mockCompetences: CompetenceTravailleur[] = [
     competence_ref_id: 2,
     date_validation: null,
     validated: 0,
+    date_peremption: null,
   },
 ]
 
@@ -90,12 +92,31 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       return [mockTravailleur]
     case 'habilitation_compute':
       return mockHabilitationStatus
+    case 'habilitation_get_for_travailleur':
+      return {
+        id: 1,
+        travailleur_id: 1,
+        dosimetrie_passive_date: null,
+        dosimetrie_operationnelle_date: null,
+        formation_rp_travailleurs_date: null,
+        formation_rp_patients_date: null,
+        visite_medicale_date: null,
+        visite_medicale_duree_mois: 12,
+        visite_medicale_date_peremption: null,
+        updated_at: '2025-01-01T00:00:00Z',
+      }
     case 'competence_get_for_travailleur':
       return mockCompetences
+    case 'competence_general_get_for_travailleur':
+      return []
     case 'appareil_list':
       return mockAppareils
     case 'competence_list':
       return []
+    case 'travailleur_appareil_list':
+      return [1]
+    case 'appareil_competence_list':
+      return [1, 2]
     default:
       return null
   }
@@ -141,9 +162,9 @@ describe('TravailleurFiche', () => {
     const habilitationTab = await screen.findByRole('button', { name: /Habilitation/ })
     await user.click(habilitationTab)
 
-    await screen.findByText('Formation radioprotection')
+    await screen.findByText('Formation RP travailleurs')
     expect(screen.getByText('Dosimétries')).toBeInTheDocument()
-    expect(screen.getByText('Compétences')).toBeInTheDocument()
+    expect(screen.getByText('Formation RP patients')).toBeInTheDocument()
     expect(screen.getByText('Visite médicale')).toBeInTheDocument()
   })
 

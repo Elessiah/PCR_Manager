@@ -94,6 +94,8 @@ pub fn run() {
             commands::travailleur::travailleur_update,
             commands::travailleur::travailleur_delete,
             commands::habilitation::habilitation_compute,
+            commands::habilitation::habilitation_update,
+            commands::habilitation::habilitation_get_for_travailleur,
             commands::competence::competence_list,
             commands::competence::competence_set,
             commands::competence::competence_get_for_travailleur,
@@ -121,9 +123,16 @@ pub fn run() {
             commands::document::document_delete,
             commands::export_import::data_export,
             commands::export_import::data_import,
+            commands::export_import::data_export_encrypted,
+            commands::export_import::data_import_encrypted,
             commands::competence::appareil_competence_add,
             commands::competence::appareil_competence_remove,
-            commands::competence::appareil_competence_list
+            commands::competence::appareil_competence_list,
+            commands::competence::competence_general_set,
+            commands::competence::competence_general_get_for_travailleur,
+            commands::travailleur_appareil::travailleur_appareil_list,
+            commands::travailleur_appareil::travailleur_appareil_add,
+            commands::travailleur_appareil::travailleur_appareil_remove
         ])
         .run(tauri::generate_context!())
         .expect("erreur Tauri");

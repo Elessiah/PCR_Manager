@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
-import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
-import { Download, Upload, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import type { Habilitation } from '../../types/domain';
@@ -29,46 +29,7 @@ interface Action {
 
 export default function Actions() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [filter, setFilter] = useState<FilterValue>('tout');
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleExport = async () => {
-    try {
-      const json = await api.data.export();
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const date = new Date().toISOString().split('T')[0];
-      a.href = url;
-      a.download = `pcr-export-${date}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Export échoué', e);
-    }
-  };
-
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportStatus('Importation en cours…');
-    try {
-      const text = await file.text();
-      const result = await api.data.import(text);
-      setImportStatus(
-        `Import réussi — ${result.travailleurs_added} travailleur(s), ${result.appareils_added} appareil(s) ajouté(s).`
-      );
-      qc.invalidateQueries({ queryKey: ['travailleurs'] });
-      qc.invalidateQueries({ queryKey: ['appareils'] });
-      qc.invalidateQueries({ queryKey: ['competences'] });
-    } catch (e) {
-      setImportStatus(`Erreur d'import : ${e}`);
-    }
-    // reset input pour permettre de re-sélectionner le même fichier
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
   const { data: appareils = [] } = useQuery({
     queryKey: ['appareils'],
@@ -356,34 +317,6 @@ export default function Actions() {
       <PageHead
         title="Actions"
         sub="Toutes les échéances réglementaires à effectuer"
-        actions={
-          <div className="flex items-center gap-2">
-            {importStatus && (
-              <span className={`text-[12px] ${importStatus.startsWith('Erreur') ? 'text-danger' : 'text-success'}`}>
-                {importStatus}
-              </span>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleImportFile}
-            />
-            <button
-              className="btn-ghost inline-flex items-center gap-1.5 text-[13px]"
-              onClick={() => { setImportStatus(null); fileInputRef.current?.click(); }}
-            >
-              <Upload size={14} /> Importer
-            </button>
-            <button
-              className="btn-ghost inline-flex items-center gap-1.5 text-[13px]"
-              onClick={handleExport}
-            >
-              <Download size={14} /> Exporter
-            </button>
-          </div>
-        }
       />
 
       <div className="inline-flex bg-surface2 border border-border rounded p-[3px] gap-[2px]">

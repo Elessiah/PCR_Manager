@@ -7,9 +7,33 @@ import CompetencesList from '../CompetencesList'
 import type { CompetenceRef } from '../../../types/domain'
 
 const mockCompetences: CompetenceRef[] = [
-  { id: 1, libelle: 'Mise sous tension de l\'appareil', ordre: 1, description: 'Procédure sécurisée' },
-  { id: 2, libelle: 'Mise en marche de l\'appareil', ordre: 2, description: null },
-  { id: 3, libelle: 'Enregistrement patient', ordre: 0, description: null },
+  {
+    id: 1,
+    libelle: 'Mise sous tension de l\'appareil',
+    ordre: 1,
+    description: 'Procédure sécurisée',
+    propre_appareil: 1,
+    duree_validite_mois: 12,
+    duree_alerte_mois: 3,
+  },
+  {
+    id: 2,
+    libelle: 'Mise en marche de l\'appareil',
+    ordre: 2,
+    description: null,
+    propre_appareil: 1,
+    duree_validite_mois: 24,
+    duree_alerte_mois: 3,
+  },
+  {
+    id: 3,
+    libelle: 'Enregistrement patient',
+    ordre: 0,
+    description: null,
+    propre_appareil: 0,
+    duree_validite_mois: null,
+    duree_alerte_mois: 3,
+  },
 ]
 
 vi.mocked(invoke).mockImplementation(async (cmd: string) => {
@@ -17,7 +41,15 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
     case 'competence_list':
       return mockCompetences
     case 'competence_ref_create':
-      return { id: 99, libelle: 'Nouvelle compétence', ordre: 10, description: null }
+      return {
+        id: 99,
+        libelle: 'Nouvelle compétence',
+        ordre: 10,
+        description: null,
+        propre_appareil: 1,
+        duree_validite_mois: null,
+        duree_alerte_mois: 3,
+      }
     case 'competence_ref_update':
       return undefined
     case 'competence_ref_delete':
@@ -35,7 +67,15 @@ describe('CompetencesList', () => {
         case 'competence_list':
           return mockCompetences
         case 'competence_ref_create':
-          return { id: 99, libelle: 'Nouvelle compétence', ordre: 10, description: null }
+          return {
+            id: 99,
+            libelle: 'Nouvelle compétence',
+            ordre: 10,
+            description: null,
+            propre_appareil: 1,
+            duree_validite_mois: null,
+            duree_alerte_mois: 3,
+          }
         case 'competence_ref_update':
           return undefined
         case 'competence_ref_delete':
@@ -46,7 +86,7 @@ describe('CompetencesList', () => {
     })
   })
 
-  it('affiche la liste triée par ordre ascendant', async () => {
+  it('affiche la liste triée alphabétiquement', async () => {
     renderWithProviders(<CompetencesList />, { route: '/competences' })
 
     await waitFor(() => {
@@ -54,11 +94,11 @@ describe('CompetencesList', () => {
     })
 
     const rows = screen.getAllByRole('row')
-    // Row 0 = header, rows 1..3 = data
-    expect(rows[1]).toHaveTextContent('0') // ordre 0 first
+    // Row 0 = header, rows 1..3 = data, triés alphabétiquement
+    // Enregistrement patient -> Mise en marche -> Mise sous tension
     expect(rows[1]).toHaveTextContent('Enregistrement patient')
-    expect(rows[2]).toHaveTextContent('1')
-    expect(rows[3]).toHaveTextContent('2')
+    expect(rows[2]).toHaveTextContent('Mise en marche de l\'appareil')
+    expect(rows[3]).toHaveTextContent('Mise sous tension de l\'appareil')
   })
 
   it('affiche un message quand la liste est vide', async () => {
@@ -89,12 +129,13 @@ describe('CompetencesList', () => {
 
     await user.click(screen.getByRole('button', { name: /ajouter une compétence/i }))
     await user.type(screen.getByLabelText(/libellé/i), 'Test compétence')
+    // Cocher Permanente pour rendre la durée non requise
+    await user.click(screen.getByLabelText(/permanente/i))
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }))
 
     await waitFor(() => {
       expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_create', expect.objectContaining({
         libelle: 'Test compétence',
-        ordre: 0,
       }))
     })
   })
@@ -116,7 +157,6 @@ describe('CompetencesList', () => {
     await waitFor(() => {
       expect(vi.mocked(invoke)).toHaveBeenCalledWith('competence_ref_update', expect.objectContaining({
         libelle: expect.any(String),
-        ordre: expect.any(Number),
       }))
     })
   })

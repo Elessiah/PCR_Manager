@@ -58,6 +58,8 @@ const mockHabilitation1: Habilitation = {
   formation_rp_travailleurs_date: '2025-01-01',
   formation_rp_patients_date: '2025-01-15',
   visite_medicale_date: '2025-06-01',
+  visite_medicale_date_peremption: '2026-06-01',
+  visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
 };
 
@@ -69,6 +71,8 @@ const mockHabilitation2: Habilitation = {
   formation_rp_travailleurs_date: null,
   formation_rp_patients_date: '2024-08-15',
   visite_medicale_date: '2024-12-15',
+  visite_medicale_date_peremption: '2025-12-15',
+  visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
 };
 

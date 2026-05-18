@@ -54,6 +54,8 @@ pub struct Habilitation {
     pub formation_rp_travailleurs_date: Option<String>,
     pub formation_rp_patients_date: Option<String>,
     pub visite_medicale_date: Option<String>,
+    pub visite_medicale_date_peremption: Option<String>,
+    pub visite_medicale_duree_mois: Option<i64>,
     pub updated_at: String,
 }
 
@@ -63,6 +65,9 @@ pub struct CompetenceRef {
     pub libelle: String,
     pub ordre: i64,
     pub description: Option<String>,
+    pub propre_appareil: i64,
+    pub duree_validite_mois: Option<i64>,
+    pub duree_alerte_mois: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +78,7 @@ pub struct CompetenceTravailleur {
     pub competence_ref_id: i64,
     pub date_validation: Option<String>,
     pub validated: i64,
+    pub date_peremption: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,4 +149,21 @@ pub struct HabilitationDetails {
     pub dosimetries_ok: bool,
     pub competences_ok: bool,
     pub visite_med_ok: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TravailleurAppareil {
+    pub id: i64,
+    pub travailleur_id: i64,
+    pub appareil_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompetenceTravailleurGeneral {
+    pub id: i64,
+    pub travailleur_id: i64,
+    pub competence_ref_id: i64,
+    pub date_validation: Option<String>,
+    pub date_peremption: Option<String>,
+    pub validated: i64,
 }

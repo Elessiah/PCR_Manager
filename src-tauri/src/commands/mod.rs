@@ -7,3 +7,4 @@ pub mod verification;
 pub mod controle_qualite;
 pub mod document;
 pub mod export_import;
+pub mod travailleur_appareil;

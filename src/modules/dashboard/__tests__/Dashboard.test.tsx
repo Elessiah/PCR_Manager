@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, waitFor } from '../../../test/test-utils';
 import Dashboard from '../Dashboard';
 import { invoke } from '@tauri-apps/api/core';
+import userEvent from '@testing-library/user-event';
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -153,14 +154,25 @@ describe('Dashboard', () => {
     expect(screen.getByText(/État réglementaire du service au \d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
   });
 
-  it('should display action buttons (Exporter, Actualiser)', async () => {
+  it('should display action buttons (Données menu, Actualiser)', async () => {
     renderWithProviders(<Dashboard />, { route: '/' });
 
     await waitFor(() => {
-      expect(screen.getByText('Exporter')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Données/i })).toBeInTheDocument();
     });
 
     expect(screen.getByText('Actualiser')).toBeInTheDocument();
+  });
+
+  it('should display Exporter and Importer options in Données menu', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Dashboard />, { route: '/' });
+
+    const dataMenuButton = await screen.findByRole('button', { name: /Données/i });
+    await user.click(dataMenuButton);
+
+    expect(screen.getByText('Exporter (chiffré)')).toBeInTheDocument();
+    expect(screen.getByText('Importer (chiffré)')).toBeInTheDocument();
   });
 
   it('should display KPI row with 3 tiles', async () => {
