@@ -9,7 +9,7 @@ import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Card } from '../../components/ui/Card';
 import { Field, Label, Input } from '../../components/ui/FormField';
-import { Plus, Search, ChevronRight } from 'lucide-react';
+import { Plus, Search, ChevronRight, Users } from 'lucide-react';
 
 function AddAppareilModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
@@ -109,18 +109,32 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
               placeholder="Ex : Salle 101"
             />
           </Field>
-          <Field className="flex flex-row items-center gap-2">
-            <input
-              id="utilisationPartagee"
-              type="checkbox"
-              checked={utilisationPartagee}
-              onChange={e => setUtilisationPartagee(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <Label htmlFor="utilisationPartagee" className="m-0">
-              Utilisation partagée
-            </Label>
-          </Field>
+          <button
+            type="button"
+            onClick={() => setUtilisationPartagee(v => !v)}
+            className={[
+              'flex items-center gap-3 w-full px-3 py-2.5 rounded border text-sm font-medium transition-colors duration-150',
+              utilisationPartagee
+                ? 'border-accent bg-accentSoft text-accent'
+                : 'border-border bg-surface text-textMuted hover:bg-surfaceHover',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200',
+                utilisationPartagee ? 'bg-accent' : 'bg-border',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                  utilisationPartagee ? 'translate-x-4' : 'translate-x-0',
+                ].join(' ')}
+              />
+            </span>
+            <Users size={14} className="shrink-0" />
+            Utilisation partagée
+          </button>
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Annuler
