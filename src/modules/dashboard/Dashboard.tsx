@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
 import { KpiTile } from '../../components/ui/KpiTile';
 import { Card, CardHead, CardBody, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -728,7 +729,7 @@ export default function Dashboard() {
                 <div>
                   <label className="text-xs font-semibold text-textMuted block mb-2">Code (sans tirets)</label>
                   <div className="p-3 bg-surface2 border border-border rounded-md font-mono text-lg tracking-widest text-center">
-                    {exportCode.match(/.{1,5}/g)?.join('-') || exportCode}
+                    {exportCode.replace(/-/g, '').match(/.{1,5}/g)?.join('-') || exportCode}
                   </div>
                   <button
                     onClick={handleCopyExportCode}

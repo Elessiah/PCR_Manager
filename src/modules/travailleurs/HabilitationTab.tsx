@@ -161,6 +161,8 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     return { status: 'En retard', variant: 'danger' as const };
   };
 
+  const visiteMedicaleStatus = getVisiteMedicaleStatus();
+
   const habItems = [
     {
       id: 'dosimetries',
@@ -187,8 +189,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       ok: visiteMedicaleStatus.variant === 'ok',
     },
   ];
-
-  const visiteMedicaleStatus = getVisiteMedicaleStatus();
   const visiteMedicaleMode: VisiteMedicaleMode =
     habilitation?.visite_medicale_date_peremption !== null && habilitation?.visite_medicale_date_peremption !== undefined ? 'dateDirecte' : 'duree';
 
