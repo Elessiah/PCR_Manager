@@ -9,7 +9,7 @@ import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { PageHead } from '../../components/ui/PageHead';
 import { ReadField } from '../../components/ui/ReadField';
 import { Field, Label, Input } from '../../components/ui/FormField';
-import { ChevronLeft, Edit, Plus, Calendar, X, Check } from 'lucide-react';
+import { ChevronLeft, Edit, Plus, Calendar, X, Check, Trash2 } from 'lucide-react';
 import type { StatusColor } from '../../lib/status';
 
 function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
@@ -53,6 +53,7 @@ export default function AppareilFiche() {
 
   const [showVerifModal, setShowVerifModal] = useState(false);
   const [showCQModal, setShowCQModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [verifFormData, setVerifFormData] = useState({
     type: 'annuelle_interne',
     dateRealisation: new Date().toISOString().split('T')[0],
@@ -143,6 +144,14 @@ export default function AppareilFiche() {
     },
   });
 
+  const deleteAppareilMutation = useMutation({
+    mutationFn: () => api.appareil.delete(Number(id!)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appareils'] });
+      navigate('/appareils');
+    },
+  });
+
   if (!appareil) return null;
 
   const appareilVerifications = verifications.filter(v => v.appareil_id === Number(id!));
@@ -200,6 +209,9 @@ export default function AppareilFiche() {
             </Badge>
             <Button className="inline-flex items-center gap-1.5">
               <Edit size={14} /> Modifier
+            </Button>
+            <Button variant="ghost" className="inline-flex items-center gap-1.5 text-danger hover:text-danger" onClick={() => setShowDeleteModal(true)}>
+              <Trash2 size={14} /> Supprimer
             </Button>
           </>
         }
@@ -482,6 +494,28 @@ export default function AppareilFiche() {
                   Ajouter
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-surface border border-border rounded-lg shadow-lg w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-2">Supprimer l'appareil</h2>
+            <p className="text-sm text-textMuted mb-6">
+              Êtes-vous sûr de vouloir supprimer <strong>{appareil.designation}</strong> ? Cette action est irréversible.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="ghost" onClick={() => setShowDeleteModal(false)}>Annuler</Button>
+              <Button
+                variant="primary"
+                className="bg-danger hover:bg-danger/90"
+                onClick={() => deleteAppareilMutation.mutate()}
+                disabled={deleteAppareilMutation.isPending}
+              >
+                {deleteAppareilMutation.isPending ? 'Suppression...' : 'Supprimer'}
+              </Button>
             </div>
           </div>
         </div>

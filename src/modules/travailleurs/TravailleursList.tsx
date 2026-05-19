@@ -29,6 +29,7 @@ export default function TravailleursList() {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<HabilitationFilter>('tous');
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const { data: travailleurs = [] } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
@@ -98,7 +99,20 @@ export default function TravailleursList() {
         <Table>
           <THead>
             <TR>
-              <TH className="w-10"><input type="checkbox"/></TH>
+              <TH className="w-10">
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && filtered.every(t => selectedIds.has(t.id))}
+                  ref={el => { if (el) el.indeterminate = filtered.some(t => selectedIds.has(t.id)) && !filtered.every(t => selectedIds.has(t.id)); }}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      setSelectedIds(new Set(filtered.map(t => t.id)));
+                    } else {
+                      setSelectedIds(new Set());
+                    }
+                  }}
+                />
+              </TH>
               <TH>Nom</TH>
               <TH>Prénom</TH>
               <TH>Fonction</TH>
@@ -112,7 +126,18 @@ export default function TravailleursList() {
               const hab = habilitations[t.id];
               return (
                 <TR key={t.id} className="cursor-pointer" onClick={() => navigate(`/travailleurs/${t.id}`)}>
-                  <TD onClick={e => e.stopPropagation()}><input type="checkbox"/></TD>
+                  <TD onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(t.id)}
+                      onChange={e => {
+                        const next = new Set(selectedIds);
+                        if (e.target.checked) next.add(t.id);
+                        else next.delete(t.id);
+                        setSelectedIds(next);
+                      }}
+                    />
+                  </TD>
                   <TD>
                     <div className="flex items-center gap-2">
                       <Avatar name={`${t.prenom} ${t.nom}`} size={28}/>
@@ -230,13 +255,13 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
 
           <Field>
             <Label htmlFor="fonction">Fonction</Label>
-            <Select id="fonction" value={fonction} onChange={(e) => setFonction(e.target.value)}>
-              <option value="">— Sélectionner —</option>
-              <option value="Cardiologue">Cardiologue</option>
-              <option value="Cardiologue_liberal">Cardiologue libéral</option>
-              <option value="MERM">MERM</option>
-              <option value="Infirmier">Infirmier</option>
-            </Select>
+            <Input
+              id="fonction"
+              type="text"
+              value={fonction}
+              onChange={(e) => setFonction(e.target.value)}
+              placeholder="Technicien"
+            />
           </Field>
 
           <Field>
