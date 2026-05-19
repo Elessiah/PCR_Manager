@@ -294,30 +294,6 @@ export const api = {
     delete: (id: number) => invoke<void>('document_delete', { id }),
   },
 
-  passkey: {
-    /** Retourne true si au moins une passkey est enregistrée dans la DB. */
-    hasCredentials: () => invoke<boolean>('passkey_has_credentials'),
-    /** Retourne { authenticated: boolean } depuis la session Rust. */
-    sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
-    /** Démarre l'enregistrement : retourne { regId, publicKey } à passer au navigateur. */
-    registerStart: () =>
-      invoke<{ regId: string; publicKey: Record<string, unknown> }>('passkey_register_start'),
-    registerFinish: (input: {
-      regId: string;
-      response: Record<string, unknown>;
-    }) => invoke<void>('passkey_register_finish', input),
-    /** Démarre l'authentification : retourne { authId, publicKey } à passer au navigateur. */
-    authStart: () =>
-      invoke<{ authId: string; publicKey: Record<string, unknown> }>('passkey_auth_start'),
-    authFinish: (input: {
-      authId: string;
-      response: Record<string, unknown>;
-    }) => invoke<void>('passkey_auth_finish', input),
-    logout: () => invoke<void>('passkey_logout'),
-    /** Dev-only : bypass passkey, retourne une erreur en release build. */
-    devAuthBypass: () => invoke<void>('dev_auth_bypass'),
-  },
-
   bluetooth: {
     /** Vérifie si un adaptateur Bluetooth est présent (available) et activé (enabled). */
     check: () => invoke<{ available: boolean; enabled: boolean }>('bluetooth_check'),
@@ -336,6 +312,40 @@ export const api = {
         fileB64: input.fileB64,
         code: input.code,
       }),
+  },
+
+  iphoneAuth: {
+    hasPairedDevice: () => invoke<boolean>('iphone_has_paired_device'),
+    pairingList: () =>
+      invoke<Array<{
+        pairingId: string;
+        iphoneDeviceName: string;
+        iphoneDeviceId: string;
+        pairedAt: string;
+        lastAuthAt: string | null;
+        authCounter: number;
+      }>>('iphone_pairing_list'),
+    pairingRevoke: (pairingId: string) =>
+      invoke<void>('iphone_pairing_revoke', { pairingId }),
+    pairingStart: () =>
+      invoke<{ qrData: string; invitationId: string; serverPort: number }>(
+        'iphone_pairing_start',
+      ),
+    pairingPoll: () =>
+      invoke<{ status: string; pairingId?: string; error?: string }>(
+        'iphone_pairing_poll',
+      ),
+    authChallengeStart: (pairingId: string) =>
+      invoke<{ qrData: string; challengeId: string; serverPort: number }>(
+        'iphone_auth_challenge_start',
+        { pairingId },
+      ),
+    authPoll: () =>
+      invoke<{ status: string; error?: string }>('iphone_auth_poll'),
+    cancelPending: () => invoke<void>('iphone_cancel_pending'),
+    sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
+    logout: () => invoke<void>('iphone_logout'),
+    networkAvailable: () => invoke<boolean>('iphone_network_available'),
   },
 
   travailleurAppareil: {

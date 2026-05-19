@@ -9,19 +9,6 @@ PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
 -- ------------------------------------------------------------
--- AUTH — Passkey WebAuthn (credential locale, utilisateur unique)
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS passkey (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    credential_id     TEXT    NOT NULL UNIQUE,
-    public_key        BLOB    NOT NULL,
-    sign_count        INTEGER NOT NULL DEFAULT 0,
-    label             TEXT,                          -- ex: "MacBook de papa"
-    created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
-    last_used_at      TEXT
-);
-
--- ------------------------------------------------------------
 -- ÉTABLISSEMENTS
 -- Un utilisateur gère N établissements.
 -- ------------------------------------------------------------

@@ -1,133 +1,112 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { QrCode } from '../../components/ui/QrCode';
 
-// ─── Types pour les API WebAuthn JSON (Safari 17.4+ / Chrome 128+) ───────────
-// PublicKeyCredential.parseCreationOptionsFromJSON et .parseRequestOptionsFromJSON
-// et PublicKeyCredential.prototype.toJSON sont des API récentes non encore dans
-// @types/web. On les déclare ici localement.
-// parseCreationOptionsFromJSON / parseRequestOptionsFromJSON prennent directement
-// le JSON des options (PublicKeyCredentialCreationOptionsJSON), avec "challenge" à
-// la racine — PAS wrappé dans { publicKey }. La fonction retourne elle-même
-// CredentialCreationOptions / CredentialRequestOptions (avec le wrapper publicKey).
-type ParseCreationFn = (opts: Record<string, unknown>) => CredentialCreationOptions;
-type ParseRequestFn  = (opts: Record<string, unknown>) => CredentialRequestOptions;
-type PKCStatic = typeof PublicKeyCredential & {
-  parseCreationOptionsFromJSON: ParseCreationFn;
-  parseRequestOptionsFromJSON:  ParseRequestFn;
-};
-type PKCWithJSON = PublicKeyCredential & { toJSON: () => Record<string, unknown> };
-// ─────────────────────────────────────────────────────────────────────────────
-
-const isDev = import.meta.env.DEV;
-
-async function checkPasskeySupport(): Promise<{ platform: boolean; conditional: boolean }> {
-  if (typeof PublicKeyCredential === 'undefined') return { platform: false, conditional: false };
-  const platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
-  const conditional = typeof (PublicKeyCredential as { isConditionalMediationAvailable?: () => Promise<boolean> })
-    .isConditionalMediationAvailable === 'function'
-    ? await (PublicKeyCredential as { isConditionalMediationAvailable: () => Promise<boolean> })
-        .isConditionalMediationAvailable().catch(() => false)
-    : false;
-  return { platform, conditional };
-}
+type IphoneAuthStep = 'idle' | 'loading' | 'scanning' | 'done' | 'failed';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { confirmAuth } = useAuth();
 
-  const [hasCredentials, setHasCredentials] = useState<boolean | null>(null);
-  const [error, setError]                   = useState<string | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [platformAuth, setPlatformAuth]     = useState<boolean | null>(null);
-  const [btStatus, setBtStatus]             = useState<{ available: boolean; enabled: boolean } | null>(null);
+  const [hasPairedIphone, setHasPairedIphone] = useState<boolean | null>(null);
+  const [networkOk, setNetworkOk]             = useState<boolean | null>(null);
+  const [pairedDevices, setPairedDevices]     = useState<Array<{ pairingId: string; iphoneDeviceName: string }>>([]);
+  const [activePairingId, setActivePairingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.passkey.hasCredentials()
-      .then(setHasCredentials)
-      .catch(() => setHasCredentials(false));
-    checkPasskeySupport().then(({ platform }) => setPlatformAuth(platform));
+  const [iphoneStep, setIphoneStep] = useState<IphoneAuthStep>('idle');
+  const [iphoneQr, setIphoneQr]     = useState<string>('');
+  const [countdown, setCountdown]   = useState(60);
+  const [error, setError]           = useState<string | null>(null);
+
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearTimers = useCallback(() => {
+    if (pollRef.current)  clearInterval(pollRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+    pollRef.current = null;
+    timerRef.current = null;
   }, []);
 
-  // Vérification Bluetooth uniquement quand Windows Hello est absent
   useEffect(() => {
-    if (platformAuth !== false) return;
-    const checkBt = () =>
-      api.bluetooth.check()
-        .then(setBtStatus)
-        .catch(() => setBtStatus({ available: false, enabled: false }));
-    checkBt();
-    // Re-vérifie automatiquement quand l'utilisateur revient dans l'app
-    // (ex : après avoir ouvert les paramètres Bluetooth)
-    const onVisibility = () => { if (!document.hidden) checkBt(); };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [platformAuth]);
+    const detect = async () => {
+      const [iphone, net] = await Promise.all([
+        api.iphoneAuth.hasPairedDevice().catch(() => false),
+        api.iphoneAuth.networkAvailable().catch(() => false),
+      ]);
+      setHasPairedIphone(iphone);
+      setNetworkOk(net);
+      if (iphone) {
+        const devices = await api.iphoneAuth.pairingList().catch(() => []);
+        setPairedDevices(devices.map(d => ({ pairingId: d.pairingId, iphoneDeviceName: d.iphoneDeviceName })));
+        if (devices.length > 0) setActivePairingId(devices[0].pairingId);
+      }
+    };
+    detect();
+  }, []);
 
-  // ── Enregistrement d'une nouvelle passkey (premier lancement) ──────────────
-  const handleRegister = async () => {
+  useEffect(() => () => clearTimers(), [clearTimers]);
+
+  const startIphoneAuth = useCallback(async () => {
+    if (!activePairingId) return;
+    clearTimers();
+    setIphoneStep('loading');
     setError(null);
-    setLoading(true);
+
     try {
-      const { regId, publicKey } = await api.passkey.registerStart();
+      const res = await api.iphoneAuth.authChallengeStart(activePairingId);
+      setIphoneQr(res.qrData);
+      setIphoneStep('scanning');
+      setCountdown(60);
 
-      const PKC = PublicKeyCredential as unknown as PKCStatic;
-      const creationOpts = PKC.parseCreationOptionsFromJSON(publicKey);
-      const credential   = await navigator.credentials.create(creationOpts) as PKCWithJSON;
+      pollRef.current = setInterval(async () => {
+        try {
+          const poll = await api.iphoneAuth.authPoll();
+          if (poll.status === 'authenticated') {
+            clearTimers();
+            setIphoneStep('done');
+            const ok = await confirmAuth();
+            if (ok) navigate('/', { replace: true });
+          } else if (poll.status === 'failed') {
+            clearTimers();
+            setError(poll.error ?? 'Authentification échouée');
+            setIphoneStep('failed');
+          }
+        } catch (e) {
+          clearTimers();
+          setError(e instanceof Error ? e.message : String(e));
+          setIphoneStep('failed');
+        }
+      }, 1000);
 
-      await api.passkey.registerFinish({ regId, response: credential.toJSON() });
-
-      setHasCredentials(true);
-      // Authentification immédiate après création de la passkey
-      await performLogin();
+      timerRef.current = setInterval(() => {
+        setCountdown(c => {
+          if (c <= 1) {
+            clearTimers();
+            setIphoneStep('failed');
+            setError('Délai expiré (60 s). Réessayez.');
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
     } catch (e) {
-      setError(friendlyError(e));
-      setLoading(false);
+      setError(e instanceof Error ? e.message : String(e));
+      setIphoneStep('failed');
     }
-  };
+  }, [activePairingId, clearTimers, confirmAuth, navigate]);
 
-  // ── Authentification avec une passkey existante ────────────────────────────
-  const handleLogin = async () => {
+  const resetIphone = useCallback(async () => {
+    clearTimers();
+    await api.iphoneAuth.cancelPending().catch(() => {});
+    setIphoneStep('idle');
+    setIphoneQr('');
     setError(null);
-    setLoading(true);
-    try {
-      await performLogin();
-    } catch (e) {
-      setError(friendlyError(e));
-      setLoading(false);
-    }
-  };
+  }, [clearTimers]);
 
-  // ── Bypass dev (debug only) ────────────────────────────────────────────────
-  const handleDevBypass = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await api.passkey.devAuthBypass();
-      const ok = await confirmAuth();
-      if (ok) navigate('/', { replace: true });
-    } catch (e) {
-      setError(friendlyError(e));
-      setLoading(false);
-    }
-  };
-
-  const performLogin = async () => {
-    const { authId, publicKey } = await api.passkey.authStart();
-
-    const PKC = PublicKeyCredential as unknown as PKCStatic;
-    const requestOpts = PKC.parseRequestOptionsFromJSON(publicKey);
-    const credential  = await navigator.credentials.get(requestOpts) as PKCWithJSON;
-
-    await api.passkey.authFinish({ authId, response: credential.toJSON() });
-
-    const ok = await confirmAuth();
-    if (ok) navigate('/', { replace: true });
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  if (hasCredentials === null) {
+  if (hasPairedIphone === null || networkOk === null) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
         <div className="text-textSoft text-sm">Chargement…</div>
@@ -136,69 +115,122 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
+    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-sm p-8 space-y-6">
 
-        {/* En-tête */}
         <div className="text-center space-y-1">
           <div className="text-2xl font-bold text-text">PCR Manager</div>
           <div className="text-textSoft text-sm">
-            {hasCredentials ? 'Connexion sécurisée' : 'Première connexion'}
+            {hasPairedIphone ? 'Connexion via iPhone' : 'Aucun iPhone configuré'}
           </div>
         </div>
 
-        {hasCredentials ? (
-          /* ── Connexion ── */
+        {/* iPhone appairé */}
+        {hasPairedIphone && (
           <div className="space-y-4">
-            <p className="text-sm text-textSoft text-center">
-              Utilisez votre passkey pour accéder à l'application.
-            </p>
-            <BluetoothHint platformAuth={platformAuth} btStatus={btStatus} />
-            {error && <p className="text-danger text-sm text-center">{error}</p>}
-            <button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <span className="animate-pulse">Vérification…</span>
-              ) : (
-                <>🔑 Se connecter avec ma passkey</>
-              )}
-            </button>
+            {iphoneStep === 'idle' && (
+              <>
+                <p className="text-sm text-textSoft text-center">
+                  Utilisez votre iPhone pour vous authentifier
+                  {pairedDevices.length === 1 && (
+                    <> — <strong>{pairedDevices[0].iphoneDeviceName}</strong></>
+                  )}
+                </p>
+                {pairedDevices.length > 1 && (
+                  <select
+                    value={activePairingId ?? ''}
+                    onChange={e => setActivePairingId(e.target.value)}
+                    disabled={!networkOk}
+                    className="w-full px-3 py-2 rounded-lg bg-surface2 border border-border text-text text-sm disabled:opacity-50"
+                  >
+                    {pairedDevices.map(d => (
+                      <option key={d.pairingId} value={d.pairingId}>
+                        {d.iphoneDeviceName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!networkOk && (
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg px-3 py-2 text-xs text-warning text-center">
+                    Aucun réseau local détecté. Connectez-vous au même Wi-Fi que votre iPhone.
+                  </div>
+                )}
+                {error && <p className="text-danger text-sm text-center">{error}</p>}
+                <button
+                  onClick={startIphoneAuth}
+                  disabled={!networkOk}
+                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>📱</span> Authentifier avec l'iPhone
+                </button>
+              </>
+            )}
+
+            {iphoneStep === 'loading' && (
+              <div className="text-center py-4 text-textSoft text-sm animate-pulse">
+                Génération du challenge…
+              </div>
+            )}
+
+            {iphoneStep === 'scanning' && iphoneQr && (
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <div className="bg-white p-3 rounded-xl shadow-sm">
+                    <QrCode data={iphoneQr} size={200} />
+                  </div>
+                </div>
+                <p className="text-xs text-textSoft text-center">
+                  Scannez ce code avec <strong>PCR Authenticator</strong>
+                  <br />puis validez avec Face ID ou Touch ID
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-textSoft">
+                  <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-accent inline-block" />
+                  En attente de l'iPhone… {countdown}s
+                </div>
+                <button
+                  onClick={resetIphone}
+                  className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            )}
+
+            {iphoneStep === 'failed' && (
+              <div className="space-y-3">
+                {error && <p className="text-danger text-sm text-center">{error}</p>}
+                <button
+                  onClick={resetIphone}
+                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors"
+                >
+                  Réessayer
+                </button>
+              </div>
+            )}
+
+            <div className="border-t border-border pt-3">
+              <button
+                onClick={() => navigate('/pairing')}
+                className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors"
+              >
+                + Ajouter un autre iPhone
+              </button>
+            </div>
           </div>
-        ) : (
-          /* ── Création passkey (premier lancement) ── */
+        )}
+
+        {/* Aucun iPhone — invitation à apparier */}
+        {!hasPairedIphone && (
           <div className="space-y-4">
             <div className="bg-surface2 border border-border rounded-lg p-4 text-sm text-textSoft space-y-2">
-              <p className="font-semibold text-text">Créez votre passkey</p>
-              <p>Une passkey remplace les mots de passe. Elle est liée à votre appareil.</p>
+              <p className="font-semibold text-text">Appairage requis</p>
+              <p>Associez votre iPhone pour vous connecter sans mot de passe, grâce à Face ID ou Touch ID.</p>
             </div>
-            <BluetoothHint platformAuth={platformAuth} btStatus={btStatus} />
-            {error && <p className="text-danger text-sm text-center">{error}</p>}
             <button
-              onClick={handleRegister}
-              disabled={loading}
-              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              onClick={() => navigate('/pairing')}
+              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors"
             >
-              {loading ? (
-                <span className="animate-pulse">Création…</span>
-              ) : (
-                <>🔑 Créer ma passkey</>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* ── Bouton dev bypass ── */}
-        {isDev && (
-          <div className="pt-2 border-t border-border">
-            <button
-              onClick={handleDevBypass}
-              disabled={loading}
-              className="w-full py-2 rounded-lg border border-yellow-500 text-yellow-500 text-xs font-medium hover:bg-yellow-500/10 disabled:opacity-50 transition-colors"
-            >
-              ⚠️ Connexion développeur (DEV uniquement)
+              Configurer mon iPhone
             </button>
           </div>
         )}
@@ -206,90 +238,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
-
-// ── Indicateur Bluetooth contextuel ───────────────────────────────────────
-interface BluetoothHintProps {
-  platformAuth: boolean | null;
-  btStatus: { available: boolean; enabled: boolean } | null;
-}
-
-function BluetoothHint({ platformAuth, btStatus }: BluetoothHintProps) {
-  if (platformAuth !== false) return null;
-
-  // Encore en train de vérifier
-  if (btStatus === null) {
-    return (
-      <div className="bg-surface2 border border-border rounded-lg p-3 text-xs text-textSoft">
-        Vérification du Bluetooth…
-      </div>
-    );
-  }
-
-  // Pas d'adaptateur Bluetooth sur ce PC
-  if (!btStatus.available) {
-    return (
-      <div className="bg-surface2 border border-border rounded-lg p-3 text-xs text-textSoft space-y-1">
-        <p className="font-semibold text-text">Windows Hello non disponible</p>
-        <p>
-          Votre PC n'a pas de module Bluetooth. Connectez une{' '}
-          <strong>clé de sécurité USB</strong> (YubiKey…) pour créer votre passkey.
-        </p>
-      </div>
-    );
-  }
-
-  // Bluetooth présent mais désactivé → demander activation
-  if (!btStatus.enabled) {
-    return (
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-textSoft space-y-2">
-        <p className="font-semibold text-text">Activez le Bluetooth pour continuer</p>
-        <p>
-          Windows Hello n'est pas disponible sur cet appareil. Vous pouvez utiliser votre{' '}
-          <strong>téléphone</strong> (Android ou iPhone) comme authentificateur via QR code —
-          le Bluetooth doit être activé sur ce PC et sur votre téléphone.
-        </p>
-        <button
-          onClick={() => api.bluetooth.openSettings()}
-          className="mt-1 w-full py-1.5 rounded bg-amber-500 text-white font-medium hover:bg-amber-400 transition-colors"
-        >
-          Ouvrir les paramètres Bluetooth
-        </button>
-        <p className="text-center opacity-60">
-          Cette fenêtre se met à jour automatiquement après activation.
-        </p>
-      </div>
-    );
-  }
-
-  // Bluetooth activé, mais pas de Windows Hello → guider vers l'option téléphone
-  return (
-    <div className="bg-surface2 border border-border rounded-lg p-3 text-xs text-textSoft space-y-1">
-      <p className="font-semibold text-text">Utilisez votre téléphone</p>
-      <p>
-        Dans la fenêtre qui s'ouvre, choisissez{' '}
-        <em>« Utiliser un téléphone ou une tablette »</em> et scannez le QR code
-        avec votre téléphone (Android ou iPhone).
-      </p>
-    </div>
-  );
-}
-
-// ── Utilitaire : message d'erreur lisible ──────────────────────────────────
-function friendlyError(e: unknown): string {
-  if (e instanceof DOMException) {
-    if (e.name === 'NotAllowedError') return 'Opération annulée ou non autorisée.';
-    if (e.name === 'AbortError')      return 'Opération annulée.';
-    if (e.name === 'NotSupportedError') {
-      return (
-        'Aucun authentificateur disponible sur ce PC. ' +
-        'Activez le Bluetooth et choisissez « Utiliser un téléphone ou une tablette » ' +
-        'dans la fenêtre Windows, ou connectez une clé de sécurité USB.'
-      );
-    }
-  }
-  if (e instanceof TypeError && (e.message.includes('parseCreationOptionsFromJSON') || e.message.includes('parseRequestOptionsFromJSON'))) {
-    return 'La version de WebView2 installée est trop ancienne. Mettez à jour WebView2 via microsoft.com/edge/webview2.';
-  }
-  return e instanceof Error ? e.message : String(e);
 }

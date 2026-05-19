@@ -10,6 +10,7 @@ import AppareilFiche from './modules/appareils/AppareilFiche';
 import Actions from './modules/actions/Actions';
 import CompetencesList from './modules/competences/CompetencesList';
 import LoginPage from './modules/auth/LoginPage';
+import PairingPage from './modules/auth/PairingPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -21,6 +22,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/pairing" element={<PairingPage />} />
       <Route
         element={
           <RequireAuth>

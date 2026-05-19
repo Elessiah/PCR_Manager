@@ -55,6 +55,7 @@ const MIGRATIONS: &[(i32, &str, &str)] = &[
     (4, "V4__appareil_competences",   include_str!("../migrations/V4__appareil_competences.sql")),
     (5, "V5__local_auth",             include_str!("../migrations/V5__local_auth.sql")),
     (6, "V6__competence_validity_assignments", include_str!("../migrations/V6__competence_validity_assignments.sql")),
+    (7, "V7__iphone_auth",            include_str!("../migrations/V7__iphone_auth.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
@@ -138,8 +139,8 @@ mod tests {
             "document",
             "etablissement",
             "habilitation",
+            "iphone_pairing",
             "local_credential",
-            "passkey",
             "travailleur",
             "travailleur_appareil",
             "verification_technique",

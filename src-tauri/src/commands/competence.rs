@@ -1,6 +1,6 @@
 use crate::db::DbState;
 use crate::models::{CompetenceRef, CompetenceTravailleur, CompetenceTravailleurGeneral};
-use crate::auth;
+use crate::auth_iphone;
 use chrono::{NaiveDate, Months};
 
 #[tauri::command]
@@ -11,7 +11,7 @@ pub async fn competence_ref_create(
     propre_appareil: i64,
     duree_validite_mois: Option<i64>,
     duree_alerte_mois: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
     ensure_authenticated(&session)?;
@@ -34,7 +34,7 @@ pub async fn competence_ref_update(
     propre_appareil: i64,
     duree_validite_mois: Option<i64>,
     duree_alerte_mois: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -50,7 +50,7 @@ pub async fn competence_ref_update(
 #[tauri::command]
 pub async fn competence_ref_delete(
     id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -61,7 +61,7 @@ pub async fn competence_ref_delete(
 }
 
 #[tauri::command]
-pub async fn competence_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
+pub async fn competence_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -94,7 +94,7 @@ pub async fn competence_set(
     competence_ref_id: i64,
     date_validation: Option<String>,
     validated: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] competence_set travailleur_id={} appareil_id={}", travailleur_id, appareil_id);
@@ -128,7 +128,7 @@ pub async fn competence_set(
 #[tauri::command]
 pub async fn competence_get_for_travailleur(
     travailleur_id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleur>, String> {
     ensure_authenticated(&session)?;
@@ -166,7 +166,7 @@ pub async fn competence_general_set(
     competence_ref_id: i64,
     date_validation: Option<String>,
     validated: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -199,7 +199,7 @@ pub async fn competence_general_set(
 #[tauri::command]
 pub async fn competence_general_get_for_travailleur(
     travailleur_id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleurGeneral>, String> {
     ensure_authenticated(&session)?;
@@ -282,7 +282,7 @@ pub async fn appareil_competence_list(
     Ok(ids)
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }
@@ -323,13 +323,13 @@ mod tests {
 
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth::SessionState::new();
+        let session = auth_iphone::SessionState::new();
         assert!(ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth::SessionState::new();
+        let session = auth_iphone::SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
     }
