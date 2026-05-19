@@ -125,6 +125,7 @@ pub fn run() {
             commands::export_import::data_import,
             commands::export_import::data_export_encrypted,
             commands::export_import::data_import_encrypted,
+            commands::export_import::choose_save_path,
             commands::export_import::save_export_file,
             commands::competence::appareil_competence_add,
             commands::competence::appareil_competence_remove,
