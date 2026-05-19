@@ -11,9 +11,15 @@ export default function PairingPage() {
   const [qrData, setQrData]     = useState<string>('');
   const [error, setError]       = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string>('');
-  const [countdown, setCountdown]   = useState(300); // 5 min timeout
+  const [countdown, setCountdown]   = useState(300);
+  const [networkOk, setNetworkOk]   = useState<boolean | null>(null);
 
-  // Démarre le serveur d'appairage et obtient le QR code
+  useEffect(() => {
+    api.iphoneAuth.networkAvailable()
+      .then(setNetworkOk)
+      .catch(() => setNetworkOk(false));
+  }, []);
+
   const startPairing = useCallback(async () => {
     setStep('generating');
     setError(null);
@@ -28,7 +34,6 @@ export default function PairingPage() {
     }
   }, []);
 
-  // Polling toutes les secondes pendant l'attente
   useEffect(() => {
     if (step !== 'waiting') return;
 
@@ -43,7 +48,6 @@ export default function PairingPage() {
           setError(res.error ?? 'Appairage échoué');
           setStep('failed');
         }
-        // 'pending' → on continue de poller
       } catch (e) {
         clearInterval(interval);
         setError(e instanceof Error ? e.message : String(e));
@@ -80,6 +84,8 @@ export default function PairingPage() {
   const mins = String(Math.floor(countdown / 60)).padStart(2, '0');
   const secs = String(countdown % 60).padStart(2, '0');
 
+  const canStart = networkOk === true && step !== 'generating';
+
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-md p-8 space-y-6">
@@ -104,10 +110,18 @@ export default function PairingPage() {
                 <li>Confirmez avec Face ID ou Touch ID</li>
               </ol>
             </div>
+
+            {/* Avertissement réseau */}
+            {networkOk === false && (
+              <div className="bg-warning/10 border border-warning/30 rounded-lg px-3 py-2 text-xs text-warning text-center">
+                Aucun réseau local détecté. Connectez-vous au même Wi-Fi que votre iPhone avant de continuer.
+              </div>
+            )}
+
             <button
               onClick={startPairing}
-              disabled={step === 'generating'}
-              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              disabled={!canStart}
+              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {step === 'generating' ? 'Génération…' : 'Générer le QR code'}
             </button>
@@ -186,10 +200,16 @@ export default function PairingPage() {
             </div>
             <button
               onClick={() => { setStep('idle'); setError(null); setQrData(''); }}
-              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors"
+              disabled={!networkOk}
+              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Réessayer
             </button>
+            {!networkOk && (
+              <p className="text-xs text-warning text-center">
+                Connectez-vous à un réseau Wi-Fi pour réessayer.
+              </p>
+            )}
             <button
               onClick={handleCancel}
               className="w-full py-2 text-sm text-textSoft hover:text-text transition-colors"

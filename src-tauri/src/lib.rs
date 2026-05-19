@@ -181,6 +181,7 @@ pub fn run() {
             commands::travailleur_appareil::travailleur_appareil_list,
             commands::travailleur_appareil::travailleur_appareil_add,
             commands::travailleur_appareil::travailleur_appareil_remove,
+            auth_iphone::iphone_network_available,
             auth_iphone::iphone_has_paired_device,
             auth_iphone::iphone_pairing_list,
             auth_iphone::iphone_pairing_revoke,

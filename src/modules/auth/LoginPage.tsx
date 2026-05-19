@@ -11,6 +11,7 @@ export default function LoginPage() {
   const { confirmAuth } = useAuth();
 
   const [hasPairedIphone, setHasPairedIphone] = useState<boolean | null>(null);
+  const [networkOk, setNetworkOk]             = useState<boolean | null>(null);
   const [pairedDevices, setPairedDevices]     = useState<Array<{ pairingId: string; iphoneDeviceName: string }>>([]);
   const [activePairingId, setActivePairingId] = useState<string | null>(null);
 
@@ -31,8 +32,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     const detect = async () => {
-      const iphone = await api.iphoneAuth.hasPairedDevice().catch(() => false);
+      const [iphone, net] = await Promise.all([
+        api.iphoneAuth.hasPairedDevice().catch(() => false),
+        api.iphoneAuth.networkAvailable().catch(() => false),
+      ]);
       setHasPairedIphone(iphone);
+      setNetworkOk(net);
       if (iphone) {
         const devices = await api.iphoneAuth.pairingList().catch(() => []);
         setPairedDevices(devices.map(d => ({ pairingId: d.pairingId, iphoneDeviceName: d.iphoneDeviceName })));
@@ -101,7 +106,7 @@ export default function LoginPage() {
     setError(null);
   }, [clearTimers]);
 
-  if (hasPairedIphone === null) {
+  if (hasPairedIphone === null || networkOk === null) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
         <div className="text-textSoft text-sm">Chargement…</div>
@@ -135,7 +140,8 @@ export default function LoginPage() {
                   <select
                     value={activePairingId ?? ''}
                     onChange={e => setActivePairingId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-surface2 border border-border text-text text-sm"
+                    disabled={!networkOk}
+                    className="w-full px-3 py-2 rounded-lg bg-surface2 border border-border text-text text-sm disabled:opacity-50"
                   >
                     {pairedDevices.map(d => (
                       <option key={d.pairingId} value={d.pairingId}>
@@ -144,10 +150,16 @@ export default function LoginPage() {
                     ))}
                   </select>
                 )}
+                {!networkOk && (
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg px-3 py-2 text-xs text-warning text-center">
+                    Aucun réseau local détecté. Connectez-vous au même Wi-Fi que votre iPhone.
+                  </div>
+                )}
                 {error && <p className="text-danger text-sm text-center">{error}</p>}
                 <button
                   onClick={startIphoneAuth}
-                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2"
+                  disabled={!networkOk}
+                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   <span>📱</span> Authentifier avec l'iPhone
                 </button>

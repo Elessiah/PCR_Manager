@@ -345,6 +345,7 @@ export const api = {
     cancelPending: () => invoke<void>('iphone_cancel_pending'),
     sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
     logout: () => invoke<void>('iphone_logout'),
+    networkAvailable: () => invoke<boolean>('iphone_network_available'),
   },
 
   travailleurAppareil: {

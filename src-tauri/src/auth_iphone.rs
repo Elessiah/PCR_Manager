@@ -45,6 +45,13 @@ pub fn iphone_logout(session: tauri::State<'_, SessionState>) -> Result<(), Stri
     Ok(())
 }
 
+/// Retourne true si un réseau local est disponible (adresse IP locale joignable).
+/// Utilisé par le frontend pour griser les boutons d'appairage/auth quand le Wi-Fi est absent.
+#[tauri::command]
+pub fn iphone_network_available() -> bool {
+    get_local_ip().is_some()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,6 +180,7 @@ struct AuthRequest {
 }
 
 // Résultat parsé de la requête de pairing
+#[derive(Debug)]
 struct ProcessedPairing {
     iphone_device_id: String,
     iphone_device_name: String,
@@ -853,11 +861,179 @@ pub async fn iphone_cancel_pending(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use p256::ecdsa::{signature::Signer, SigningKey};
+
+    // ── Helpers crypto ────────────────────────────────────────────────────────
+
+    fn random_signing_key() -> SigningKey {
+        SigningKey::random(&mut rand::rngs::OsRng)
+    }
+
+    fn sign_b64(sk: &SigningKey, payload: &[u8]) -> String {
+        let sig: Signature = sk.sign(payload);
+        URL_SAFE_NO_PAD.encode(sig.to_der().as_bytes())
+    }
+
+    fn pub_key_b64(sk: &SigningKey) -> String {
+        URL_SAFE_NO_PAD.encode(sk.verifying_key().to_encoded_point(false).as_bytes())
+    }
+
+    fn now_ms() -> i64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    }
+
+    fn make_pairing_body(
+        sk: &SigningKey,
+        invitation_id: &Uuid,
+        nonce: &[u8],
+        override_sig: Option<&str>,
+        override_id: Option<&str>,
+    ) -> Vec<u8> {
+        let payload = build_pairing_payload(invitation_id, nonce);
+        let sig = override_sig.map(str::to_owned).unwrap_or_else(|| sign_b64(sk, &payload));
+        let id_str = override_id.map(str::to_owned).unwrap_or_else(|| invitation_id.to_string());
+        serde_json::to_vec(&serde_json::json!({
+            "invitation_id": id_str,
+            "iphone_device_id": "test-device-id",
+            "iphone_device_name": "iPhone de test",
+            "iphone_identity_public_key": pub_key_b64(sk),
+            "signature": sig,
+            "timestamp_ms": now_ms(),
+        }))
+        .unwrap()
+    }
+
+    fn make_auth_body(
+        sk: &SigningKey,
+        challenge: &PendingChallenge,
+        counter: u64,
+        override_sig: Option<&str>,
+        override_id: Option<&str>,
+    ) -> Vec<u8> {
+        let ts = now_ms();
+        let payload = build_auth_payload(
+            &challenge.challenge_id,
+            &challenge.nonce,
+            ts,
+            &challenge.mac_device_id,
+            counter,
+        );
+        let sig = override_sig.map(str::to_owned).unwrap_or_else(|| sign_b64(sk, &payload));
+        let id_str = override_id
+            .map(str::to_owned)
+            .unwrap_or_else(|| challenge.challenge_id.to_string());
+        serde_json::to_vec(&serde_json::json!({
+            "challenge_id": id_str,
+            "device_id": "test-device-id",
+            "signature": sig,
+            "timestamp_ms": ts,
+            "counter": counter,
+        }))
+        .unwrap()
+    }
+
+    fn make_challenge(sk: &SigningKey, expected_counter: u64) -> PendingChallenge {
+        PendingChallenge {
+            challenge_id: Uuid::new_v4(),
+            pairing_id: Uuid::new_v4(),
+            nonce: random_nonce(),
+            mac_device_id: "a".repeat(64),
+            iphone_public_key: sk.verifying_key().to_encoded_point(false).as_bytes().to_vec(),
+            created_at: Instant::now(),
+            expected_counter,
+            result: Arc::new(Mutex::new(ChallengeResult::Pending)),
+        }
+    }
+
+    // ── SessionState ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_session_state_starts_unauthenticated() {
+        let s = SessionState::new();
+        assert!(!*s.authenticated.lock());
+    }
+
+    #[test]
+    fn test_session_state_can_authenticate() {
+        let s = SessionState::new();
+        *s.authenticated.lock() = true;
+        assert!(*s.authenticated.lock());
+    }
+
+    #[test]
+    fn test_session_state_can_logout() {
+        let s = SessionState::new();
+        *s.authenticated.lock() = true;
+        *s.authenticated.lock() = false;
+        assert!(!*s.authenticated.lock());
+    }
+
+    // ── IphoneAuthState ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_iphone_auth_state_new() {
+        let s = IphoneAuthState::new();
+        assert!(s.pending_pairing.lock().is_none());
+        assert!(s.pending_challenge.lock().is_none());
+    }
+
+    // ── Payloads ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_build_pairing_payload_length() {
+        let id = Uuid::new_v4();
+        let nonce = [0u8; 32];
+        let payload = build_pairing_payload(&id, &nonce);
+        assert_eq!(payload.len(), 48); // 16 UUID + 32 nonce
+    }
+
+    #[test]
+    fn test_build_pairing_payload_contains_uuid_bytes() {
+        let id = Uuid::new_v4();
+        let nonce = [0xABu8; 32];
+        let payload = build_pairing_payload(&id, &nonce);
+        assert_eq!(&payload[..16], id.as_bytes());
+        assert_eq!(&payload[16..], &[0xABu8; 32]);
+    }
+
+    #[test]
+    fn test_build_auth_payload_layout() {
+        let challenge_id = Uuid::new_v4();
+        let nonce = [0x01u8; 32];
+        let ts: i64 = 1_700_000_000_000;
+        let mac_id = "a".repeat(64);
+        let counter: u64 = 42;
+        let payload = build_auth_payload(&challenge_id, &nonce, ts, &mac_id, counter);
+
+        // challenge_id (16) + nonce (32) + ts (8) + mac_id (64) + counter (8) + suffix (18)
+        assert_eq!(payload.len(), 16 + 32 + 8 + 64 + 8 + 18);
+        assert_eq!(&payload[..16], challenge_id.as_bytes());
+        assert_eq!(&payload[16..48], &[0x01u8; 32]);
+        assert_eq!(&payload[48..56], &ts.to_be_bytes());
+        assert_eq!(&payload[56..120], mac_id.as_bytes());
+        assert_eq!(&payload[120..128], &counter.to_be_bytes());
+        assert_eq!(&payload[128..], b"com.pcrmanager.ios");
+    }
+
+    #[test]
+    fn test_build_auth_payload_different_counters_differ() {
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
+        let mac = "b".repeat(64);
+        let ts = now_ms();
+        let p1 = build_auth_payload(&id, &nonce, ts, &mac, 1);
+        let p2 = build_auth_payload(&id, &nonce, ts, &mac, 2);
+        assert_ne!(p1, p2);
+    }
+
+    // ── extract_http_body ─────────────────────────────────────────────────────
 
     #[test]
     fn test_extract_http_body_valid() {
-        let raw =
-            b"POST /pair HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello";
+        let raw = b"POST /pair HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello";
         assert_eq!(extract_http_body(raw), Some(b"hello".to_vec()));
     }
 
@@ -868,27 +1044,225 @@ mod tests {
     }
 
     #[test]
-    fn test_build_pairing_payload_length() {
+    fn test_extract_http_body_exact_content_length() {
+        let body = b"12345678";
+        let raw = format!("POST / HTTP/1.1\r\nContent-Length: 8\r\n\r\n")
+            .into_bytes()
+            .into_iter()
+            .chain(body.iter().copied())
+            .collect::<Vec<_>>();
+        assert_eq!(extract_http_body(&raw), Some(body.to_vec()));
+    }
+
+    #[test]
+    fn test_extract_http_body_empty_body() {
+        let raw = b"POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(extract_http_body(raw), Some(vec![]));
+    }
+
+    // ── timestamp_ok ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_timestamp_ok_now_is_valid() {
+        assert!(timestamp_ok(now_ms(), 30));
+    }
+
+    #[test]
+    fn test_timestamp_ok_60s_ago_fails_30s_window() {
+        assert!(!timestamp_ok(now_ms() - 60_000, 30));
+    }
+
+    #[test]
+    fn test_timestamp_ok_future_within_window() {
+        assert!(timestamp_ok(now_ms() + 10_000, 30));
+    }
+
+    #[test]
+    fn test_timestamp_ok_future_outside_window() {
+        assert!(!timestamp_ok(now_ms() + 60_000, 30));
+    }
+
+    #[test]
+    fn test_timestamp_ok_exactly_at_boundary() {
+        // juste dans la fenêtre (29 999 ms < 30 000 ms)
+        assert!(timestamp_ok(now_ms() - 29_999, 30));
+    }
+
+    // ── random_nonce ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_random_nonce_length() {
+        assert_eq!(random_nonce().len(), 32);
+    }
+
+    #[test]
+    fn test_random_nonce_is_random() {
+        let a = random_nonce();
+        let b = random_nonce();
+        assert_ne!(a, b, "deux nonces successifs ne doivent pas être identiques");
+    }
+
+    // ── process_pairing_request — crypto ─────────────────────────────────────
+
+    #[test]
+    fn test_process_pairing_valid_signature() {
+        let sk = random_signing_key();
         let id = Uuid::new_v4();
-        let nonce = [0u8; 32];
+        let nonce = random_nonce();
+        let body = make_pairing_body(&sk, &id, &nonce, None, None);
+        assert!(process_pairing_request(&body, &id, &nonce).is_ok());
+    }
+
+    #[test]
+    fn test_process_pairing_wrong_invitation_id_in_json() {
+        let sk = random_signing_key();
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
+        let wrong_id = Uuid::new_v4().to_string();
+        let body = make_pairing_body(&sk, &id, &nonce, None, Some(&wrong_id));
+        let err = process_pairing_request(&body, &id, &nonce).unwrap_err();
+        assert!(err.contains("invitation_id"), "erreur inattendue: {err}");
+    }
+
+    #[test]
+    fn test_process_pairing_tampered_signature_fails() {
+        let sk = random_signing_key();
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
+        // signature valide pour un payload différent (autre nonce)
+        let other_payload = build_pairing_payload(&Uuid::new_v4(), &random_nonce());
+        let bad_sig = sign_b64(&sk, &other_payload);
+        let body = make_pairing_body(&sk, &id, &nonce, Some(&bad_sig), None);
+        let err = process_pairing_request(&body, &id, &nonce).unwrap_err();
+        assert!(err.contains("Signature"), "erreur inattendue: {err}");
+    }
+
+    #[test]
+    fn test_process_pairing_wrong_key_fails() {
+        let sk_signer = random_signing_key();
+        let sk_other  = random_signing_key();
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
         let payload = build_pairing_payload(&id, &nonce);
-        assert_eq!(payload.len(), 48);
+        // signe avec sk_signer mais déclare pub key de sk_other
+        let sig = sign_b64(&sk_signer, &payload);
+        let body = serde_json::to_vec(&serde_json::json!({
+            "invitation_id": id.to_string(),
+            "iphone_device_id": "dev",
+            "iphone_device_name": "iPhone",
+            "iphone_identity_public_key": pub_key_b64(&sk_other),
+            "signature": sig,
+            "timestamp_ms": now_ms(),
+        }))
+        .unwrap();
+        assert!(process_pairing_request(&body, &id, &nonce).is_err());
     }
 
     #[test]
-    fn test_timestamp_ok() {
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
-        assert!(timestamp_ok(now_ms, 30));
-        assert!(!timestamp_ok(now_ms - 60_000, 30));
+    fn test_process_pairing_invalid_json_fails() {
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
+        let err = process_pairing_request(b"not json", &id, &nonce).unwrap_err();
+        assert!(err.contains("JSON"), "erreur inattendue: {err}");
     }
 
     #[test]
-    fn test_iphone_auth_state_new() {
-        let s = IphoneAuthState::new();
-        assert!(s.pending_pairing.lock().is_none());
-        assert!(s.pending_challenge.lock().is_none());
+    fn test_process_pairing_returns_correct_device_info() {
+        let sk = random_signing_key();
+        let id = Uuid::new_v4();
+        let nonce = random_nonce();
+        let payload = build_pairing_payload(&id, &nonce);
+        let sig = sign_b64(&sk, &payload);
+        let body = serde_json::to_vec(&serde_json::json!({
+            "invitation_id": id.to_string(),
+            "iphone_device_id": "uid-42",
+            "iphone_device_name": "iPhone 15 Pro",
+            "iphone_identity_public_key": pub_key_b64(&sk),
+            "signature": sig,
+            "timestamp_ms": now_ms(),
+        }))
+        .unwrap();
+        let result = process_pairing_request(&body, &id, &nonce).unwrap();
+        assert_eq!(result.iphone_device_id, "uid-42");
+        assert_eq!(result.iphone_device_name, "iPhone 15 Pro");
+        assert_eq!(result.iphone_public_key.len(), 65); // x963 uncompressed
+    }
+
+    // ── process_auth_request — crypto + anti-rejeu ───────────────────────────
+
+    #[test]
+    fn test_process_auth_valid_signature() {
+        let sk = random_signing_key();
+        let challenge = make_challenge(&sk, 0);
+        let body = make_auth_body(&sk, &challenge, 1, None, None);
+        let counter = process_auth_request(&body, &challenge).unwrap();
+        assert_eq!(counter, 1);
+    }
+
+    #[test]
+    fn test_process_auth_counter_increments_accepted() {
+        let sk = random_signing_key();
+        let challenge = make_challenge(&sk, 5);
+        let body = make_auth_body(&sk, &challenge, 6, None, None);
+        assert_eq!(process_auth_request(&body, &challenge).unwrap(), 6);
+    }
+
+    #[test]
+    fn test_process_auth_counter_replay_rejected() {
+        let sk = random_signing_key();
+        // expected_counter = 3 → req.counter doit être > 2 (saturating_sub(1))
+        let challenge = make_challenge(&sk, 3);
+        let body = make_auth_body(&sk, &challenge, 2, None, None);
+        let err = process_auth_request(&body, &challenge).unwrap_err();
+        assert!(err.contains("Compteur"), "erreur inattendue: {err}");
+    }
+
+    #[test]
+    fn test_process_auth_wrong_challenge_id_rejected() {
+        let sk = random_signing_key();
+        let challenge = make_challenge(&sk, 0);
+        let wrong_id = Uuid::new_v4().to_string();
+        let body = make_auth_body(&sk, &challenge, 1, None, Some(&wrong_id));
+        let err = process_auth_request(&body, &challenge).unwrap_err();
+        assert!(err.contains("challenge_id"), "erreur inattendue: {err}");
+    }
+
+    #[test]
+    fn test_process_auth_tampered_signature_rejected() {
+        let sk = random_signing_key();
+        let challenge = make_challenge(&sk, 0);
+        let other_payload = build_auth_payload(
+            &Uuid::new_v4(), &random_nonce(), now_ms(), &"x".repeat(64), 99,
+        );
+        let bad_sig = sign_b64(&sk, &other_payload);
+        let body = make_auth_body(&sk, &challenge, 1, Some(&bad_sig), None);
+        assert!(process_auth_request(&body, &challenge).is_err());
+    }
+
+    #[test]
+    fn test_process_auth_wrong_key_rejected() {
+        let sk_real  = random_signing_key();
+        let sk_other = random_signing_key();
+        // challenge enregistre la pub key de sk_real, mais sk_other signe
+        let challenge = make_challenge(&sk_real, 0);
+        let body = make_auth_body(&sk_other, &challenge, 1, None, None);
+        assert!(process_auth_request(&body, &challenge).is_err());
+    }
+
+    #[test]
+    fn test_process_auth_invalid_json_fails() {
+        let sk = random_signing_key();
+        let challenge = make_challenge(&sk, 0);
+        let err = process_auth_request(b"garbage", &challenge).unwrap_err();
+        assert!(err.contains("JSON"), "erreur inattendue: {err}");
+    }
+
+    // ── iphone_network_available ──────────────────────────────────────────────
+
+    #[test]
+    fn test_network_available_returns_bool() {
+        // On vérifie juste que la fonction s'exécute sans paniquer.
+        // La valeur dépend de l'environnement CI/réseau.
+        let _ = iphone_network_available();
     }
 }
