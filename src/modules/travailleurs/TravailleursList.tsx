@@ -255,13 +255,13 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
 
           <Field>
             <Label htmlFor="fonction">Fonction</Label>
-            <Select id="fonction" value={fonction} onChange={(e) => setFonction(e.target.value)}>
-              <option value="">— Sélectionner —</option>
-              <option value="Cardiologue">Cardiologue</option>
-              <option value="Cardiologue_liberal">Cardiologue libéral</option>
-              <option value="MERM">MERM</option>
-              <option value="Infirmier">Infirmier</option>
-            </Select>
+            <Input
+              id="fonction"
+              type="text"
+              value={fonction}
+              onChange={(e) => setFonction(e.target.value)}
+              placeholder="Technicien"
+            />
           </Field>
 
           <Field>

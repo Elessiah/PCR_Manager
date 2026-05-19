@@ -20,7 +20,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const queryClient = useQueryClient();
   const [editingModal, setEditingModal] = useState<EditModalType>(null);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
-  const [visiteMedicaleEditMode, setVisiteMedicaleEditMode] = useState<VisiteMedicaleMode>('duree');
   const [selectedAppareilIds, setSelectedAppareilIds] = useState<number[]>([]);
   const [appareilSearchQuery, setAppareilSearchQuery] = useState('');
 
@@ -59,13 +58,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     queryFn: () => api.travailleurAppareil.list(travailleurId),
   });
 
-  useEffect(() => {
-    if (habilitation?.visite_medicale_date_peremption !== null && habilitation?.visite_medicale_date_peremption !== undefined) {
-      setVisiteMedicaleEditMode('dateDirecte');
-    } else {
-      setVisiteMedicaleEditMode('duree');
-    }
-  }, [habilitation?.visite_medicale_date_peremption]);
 
   if (!habStatus || !travailleur || !habilitation) {
     return (
@@ -189,9 +181,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       ok: visiteMedicaleStatus.variant === 'ok',
     },
   ];
-  const visiteMedicaleMode: VisiteMedicaleMode =
-    habilitation?.visite_medicale_date_peremption !== null && habilitation?.visite_medicale_date_peremption !== undefined ? 'dateDirecte' : 'duree';
-
   return (
     <div className="space-y-4">
       <Card>
