@@ -18,8 +18,32 @@ use sha2::{Digest, Sha256};
 
 use tauri::Manager;
 
-use crate::auth::SessionState;
 use crate::db::DbState;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session (remplace l'ancien auth.rs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub struct SessionState {
+    pub authenticated: Mutex<bool>,
+}
+
+impl SessionState {
+    pub fn new() -> Self {
+        Self { authenticated: Mutex::new(false) }
+    }
+}
+
+#[tauri::command]
+pub fn session_check(session: tauri::State<'_, SessionState>) -> serde_json::Value {
+    serde_json::json!({ "authenticated": *session.authenticated.lock() })
+}
+
+#[tauri::command]
+pub fn iphone_logout(session: tauri::State<'_, SessionState>) -> Result<(), String> {
+    *session.authenticated.lock() = false;
+    Ok(())
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // State

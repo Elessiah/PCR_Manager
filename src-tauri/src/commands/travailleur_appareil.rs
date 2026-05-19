@@ -1,10 +1,10 @@
 use crate::db::DbState;
-use crate::auth;
+use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn travailleur_appareil_list(
     travailleur_id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<i64>, String> {
     ensure_authenticated(&session)?;
@@ -26,7 +26,7 @@ pub async fn travailleur_appareil_list(
 pub async fn travailleur_appareil_add(
     travailleur_id: i64,
     appareil_id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -43,7 +43,7 @@ pub async fn travailleur_appareil_add(
 pub async fn travailleur_appareil_remove(
     travailleur_id: i64,
     appareil_id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -56,7 +56,7 @@ pub async fn travailleur_appareil_remove(
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }

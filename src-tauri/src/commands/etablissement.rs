@@ -1,9 +1,9 @@
 use crate::db::DbState;
 use crate::models::Etablissement;
-use crate::auth;
+use crate::auth_iphone;
 
 #[tauri::command]
-pub async fn etablissement_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Etablissement>, String> {
+pub async fn etablissement_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Etablissement>, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -36,7 +36,7 @@ pub async fn etablissement_list(session: tauri::State<'_, auth::SessionState>, s
 }
 
 #[tauri::command]
-pub async fn etablissement_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Etablissement, String> {
+pub async fn etablissement_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Etablissement, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -78,7 +78,7 @@ pub async fn etablissement_create(
     email: Option<String>,
     site_internet: Option<String>,
     kbis_chemin: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
@@ -120,7 +120,7 @@ pub async fn etablissement_update(
     email: Option<String>,
     site_internet: Option<String>,
     kbis_chemin: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -150,7 +150,7 @@ pub async fn etablissement_update(
 }
 
 #[tauri::command]
-pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] etablissement_delete id={}", id);
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
@@ -159,7 +159,7 @@ pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth::Sessi
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }

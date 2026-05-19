@@ -1,9 +1,9 @@
 use crate::db::DbState;
 use crate::models::Travailleur;
-use crate::auth;
+use crate::auth_iphone;
 
 #[tauri::command]
-pub async fn travailleur_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
+pub async fn travailleur_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -42,7 +42,7 @@ pub async fn travailleur_list(session: tauri::State<'_, auth::SessionState>, sta
 }
 
 #[tauri::command]
-pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
+pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -96,7 +96,7 @@ pub async fn travailleur_create(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
@@ -156,7 +156,7 @@ pub async fn travailleur_update(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] travailleur_update id={}", id);
@@ -199,7 +199,7 @@ pub async fn travailleur_update(
 }
 
 #[tauri::command]
-pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     // NOTE: log d'audit non testé unitairement (effet de bord stderr)
     eprintln!("[AUDIT] travailleur_delete id={}", id);
     ensure_authenticated(&session)?;
@@ -209,7 +209,7 @@ pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth::Session
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }

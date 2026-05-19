@@ -1,5 +1,4 @@
 mod db;
-mod auth;
 mod auth_iphone;
 mod models;
 mod commands;
@@ -10,7 +9,6 @@ use tauri::Manager;
 /// Port du serveur localhost (production ET dev Vite).
 /// En production, tauri-plugin-localhost sert le frontend depuis http://localhost:1420.
 /// En dev, Vite tourne déjà sur 1420 (le plugin n'est pas utilisé).
-/// → rp_origin WebAuthn est identique dans les deux environnements.
 const LOCALHOST_PORT: u16 = 1420;
 
 #[tauri::command]
@@ -119,35 +117,7 @@ pub fn run() {
                 conn: parking_lot::Mutex::new(conn),
             });
 
-            // Origine principale (production) : http://localhost:LOCALHOST_PORT
-            // Origine additionnelle (dev Vite) : http://localhost:1420
-            // rp_id = "localhost" est valide pour toutes les origines localhost.
-            // rp_origin = http://localhost:1420 car :
-            //   - dev  : Vite sert sur :1420 → origin identique
-            //   - prod : tauri-plugin-localhost sert aussi sur :1420
-            let rp_id = "localhost";
-            let rp_origin = url::Url::parse(&format!("http://localhost:{}", LOCALHOST_PORT))
-                .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other, e.to_string(),
-                )))?;
-
-            let webauthn = webauthn_rs::WebauthnBuilder::new(rp_id, &rp_origin)
-                .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other, e.to_string(),
-                )))?
-                .rp_name("PCR Manager")
-                .build()
-                .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other, e.to_string(),
-                )))?;
-
-            app.manage(auth::WebauthnState {
-                webauthn: std::sync::Arc::new(webauthn),
-                reg_states: parking_lot::Mutex::new(std::collections::HashMap::new()),
-                auth_states: parking_lot::Mutex::new(std::collections::HashMap::new()),
-            });
-
-            app.manage(auth::SessionState::new());
+            app.manage(auth_iphone::SessionState::new());
             app.manage(auth_iphone::IphoneAuthState::new());
 
             Ok(())
@@ -157,14 +127,8 @@ pub fn run() {
             bluetooth_check,
             bluetooth_open_settings,
             db::init_db,
-            auth::passkey_has_credentials,
-            auth::passkey_register_start,
-            auth::passkey_register_finish,
-            auth::passkey_auth_start,
-            auth::passkey_auth_finish,
-            auth::session_check,
-            auth::passkey_logout,
-            auth::dev_auth_bypass,
+            auth_iphone::session_check,
+            auth_iphone::iphone_logout,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,

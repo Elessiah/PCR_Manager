@@ -294,30 +294,6 @@ export const api = {
     delete: (id: number) => invoke<void>('document_delete', { id }),
   },
 
-  passkey: {
-    /** Retourne true si au moins une passkey est enregistrée dans la DB. */
-    hasCredentials: () => invoke<boolean>('passkey_has_credentials'),
-    /** Retourne { authenticated: boolean } depuis la session Rust. */
-    sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
-    /** Démarre l'enregistrement : retourne { regId, publicKey } à passer au navigateur. */
-    registerStart: () =>
-      invoke<{ regId: string; publicKey: Record<string, unknown> }>('passkey_register_start'),
-    registerFinish: (input: {
-      regId: string;
-      response: Record<string, unknown>;
-    }) => invoke<void>('passkey_register_finish', input),
-    /** Démarre l'authentification : retourne { authId, publicKey } à passer au navigateur. */
-    authStart: () =>
-      invoke<{ authId: string; publicKey: Record<string, unknown> }>('passkey_auth_start'),
-    authFinish: (input: {
-      authId: string;
-      response: Record<string, unknown>;
-    }) => invoke<void>('passkey_auth_finish', input),
-    logout: () => invoke<void>('passkey_logout'),
-    /** Dev-only : bypass passkey, retourne une erreur en release build. */
-    devAuthBypass: () => invoke<void>('dev_auth_bypass'),
-  },
-
   bluetooth: {
     /** Vérifie si un adaptateur Bluetooth est présent (available) et activé (enabled). */
     check: () => invoke<{ available: boolean; enabled: boolean }>('bluetooth_check'),
@@ -367,6 +343,8 @@ export const api = {
     authPoll: () =>
       invoke<{ status: string; error?: string }>('iphone_auth_poll'),
     cancelPending: () => invoke<void>('iphone_cancel_pending'),
+    sessionCheck: () => invoke<{ authenticated: boolean }>('session_check'),
+    logout: () => invoke<void>('iphone_logout'),
   },
 
   travailleurAppareil: {

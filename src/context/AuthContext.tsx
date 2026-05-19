@@ -4,7 +4,6 @@ import { useAutoLogout } from '../hooks/useAutoLogout';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
-  /** Interroge la session Rust pour confirmer l'état d'auth (appelé après passkey_auth_finish). */
   confirmAuth: () => Promise<boolean>;
   logout: () => void;
 }
@@ -14,22 +13,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Restaure la session Rust au montage (persiste après rechargement).
   useEffect(() => {
-    api.passkey.sessionCheck()
+    api.iphoneAuth.sessionCheck()
       .then(result => setIsAuthenticated(result?.authenticated ?? false))
       .catch(() => setIsAuthenticated(false));
   }, []);
 
   const confirmAuth = useCallback(async (): Promise<boolean> => {
-    const result = await api.passkey.sessionCheck();
+    const result = await api.iphoneAuth.sessionCheck();
     const authenticated = result?.authenticated ?? false;
     setIsAuthenticated(authenticated);
     return authenticated;
   }, []);
 
   const logout = useCallback(() => {
-    api.passkey.logout().catch(console.error);
+    api.iphoneAuth.logout().catch(console.error);
     setIsAuthenticated(false);
   }, []);
 

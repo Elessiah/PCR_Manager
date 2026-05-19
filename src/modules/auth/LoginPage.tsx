@@ -4,42 +4,23 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { QrCode } from '../../components/ui/QrCode';
 
-// ── Types WebAuthn JSON (Safari 17.4+ / Chrome 128+) non encore dans @types/web ──
-type ParseCreationFn = (opts: Record<string, unknown>) => CredentialCreationOptions;
-type ParseRequestFn  = (opts: Record<string, unknown>) => CredentialRequestOptions;
-type PKCStatic = typeof PublicKeyCredential & {
-  parseCreationOptionsFromJSON: ParseCreationFn;
-  parseRequestOptionsFromJSON:  ParseRequestFn;
-};
-type PKCWithJSON = PublicKeyCredential & { toJSON: () => Record<string, unknown> };
-
-const isDev = import.meta.env.DEV;
-
-type AuthMode = 'detect' | 'iphone' | 'passkey';
 type IphoneAuthStep = 'idle' | 'loading' | 'scanning' | 'done' | 'failed';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { confirmAuth } = useAuth();
 
-  const [mode, setMode]                     = useState<AuthMode>('detect');
-  const [hasPasskey, setHasPasskey]         = useState<boolean | null>(null);
   const [hasPairedIphone, setHasPairedIphone] = useState<boolean | null>(null);
-  const [pairedDevices, setPairedDevices]   = useState<Array<{ pairingId: string; iphoneDeviceName: string }>>([]);
+  const [pairedDevices, setPairedDevices]     = useState<Array<{ pairingId: string; iphoneDeviceName: string }>>([]);
   const [activePairingId, setActivePairingId] = useState<string | null>(null);
 
-  // iPhone auth state
-  const [iphoneStep, setIphoneStep]     = useState<IphoneAuthStep>('idle');
-  const [iphoneQr, setIphoneQr]         = useState<string>('');
-  const [countdown, setCountdown]       = useState(60);
+  const [iphoneStep, setIphoneStep] = useState<IphoneAuthStep>('idle');
+  const [iphoneQr, setIphoneQr]     = useState<string>('');
+  const [countdown, setCountdown]   = useState(60);
+  const [error, setError]           = useState<string | null>(null);
 
-  // Passkey / generic auth state
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
-
-  const [error, setError]               = useState<string | null>(null);
-
-  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearTimers = useCallback(() => {
     if (pollRef.current)  clearInterval(pollRef.current);
@@ -48,33 +29,20 @@ export default function LoginPage() {
     timerRef.current = null;
   }, []);
 
-  // Détection au montage : iPhone appairé ? Passkey ?
   useEffect(() => {
     const detect = async () => {
-      const [iphone, passkey] = await Promise.all([
-        api.iphoneAuth.hasPairedDevice().catch(() => false),
-        api.passkey.hasCredentials().catch(() => false),
-      ]);
+      const iphone = await api.iphoneAuth.hasPairedDevice().catch(() => false);
       setHasPairedIphone(iphone);
-      setHasPasskey(passkey);
-
       if (iphone) {
         const devices = await api.iphoneAuth.pairingList().catch(() => []);
         setPairedDevices(devices.map(d => ({ pairingId: d.pairingId, iphoneDeviceName: d.iphoneDeviceName })));
         if (devices.length > 0) setActivePairingId(devices[0].pairingId);
-        setMode('iphone');
-      } else if (passkey) {
-        setMode('passkey');
-      } else {
-        setMode('passkey'); // premier lancement → création passkey
       }
     };
     detect();
   }, []);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
-
-  // ── Auth iPhone ────────────────────────────────────────────────────────────
 
   const startIphoneAuth = useCallback(async () => {
     if (!activePairingId) return;
@@ -88,7 +56,6 @@ export default function LoginPage() {
       setIphoneStep('scanning');
       setCountdown(60);
 
-      // Polling toutes les secondes
       pollRef.current = setInterval(async () => {
         try {
           const poll = await api.iphoneAuth.authPoll();
@@ -109,7 +76,6 @@ export default function LoginPage() {
         }
       }, 1000);
 
-      // Compte à rebours
       timerRef.current = setInterval(() => {
         setCountdown(c => {
           if (c <= 1) {
@@ -135,58 +101,6 @@ export default function LoginPage() {
     setError(null);
   }, [clearTimers]);
 
-  // ── Auth Passkey ───────────────────────────────────────────────────────────
-
-  const handlePasskeyLogin = async () => {
-    setError(null);
-    setPasskeyLoading(true);
-    try {
-      const { authId, publicKey } = await api.passkey.authStart();
-      const PKC = PublicKeyCredential as unknown as PKCStatic;
-      const opts = PKC.parseRequestOptionsFromJSON(publicKey);
-      const cred = await navigator.credentials.get(opts) as PKCWithJSON;
-      await api.passkey.authFinish({ authId, response: cred.toJSON() });
-      const ok = await confirmAuth();
-      if (ok) navigate('/', { replace: true });
-    } catch (e) {
-      setError(friendlyError(e));
-    } finally {
-      setPasskeyLoading(false);
-    }
-  };
-
-  const handlePasskeyRegister = async () => {
-    setError(null);
-    setPasskeyLoading(true);
-    try {
-      const { regId, publicKey } = await api.passkey.registerStart();
-      const PKC = PublicKeyCredential as unknown as PKCStatic;
-      const opts = PKC.parseCreationOptionsFromJSON(publicKey);
-      const cred = await navigator.credentials.create(opts) as PKCWithJSON;
-      await api.passkey.registerFinish({ regId, response: cred.toJSON() });
-      setHasPasskey(true);
-      await handlePasskeyLogin();
-    } catch (e) {
-      setError(friendlyError(e));
-      setPasskeyLoading(false);
-    }
-  };
-
-  const handleDevBypass = async () => {
-    setError(null);
-    setPasskeyLoading(true);
-    try {
-      await api.passkey.devAuthBypass();
-      const ok = await confirmAuth();
-      if (ok) navigate('/', { replace: true });
-    } catch (e) {
-      setError(friendlyError(e));
-      setPasskeyLoading(false);
-    }
-  };
-
-  // ── Rendu ──────────────────────────────────────────────────────────────────
-
   if (hasPairedIphone === null) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
@@ -199,16 +113,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-sm p-8 space-y-6">
 
-        {/* En-tête */}
         <div className="text-center space-y-1">
           <div className="text-2xl font-bold text-text">PCR Manager</div>
           <div className="text-textSoft text-sm">
-            {mode === 'iphone' ? 'Connexion via iPhone' : hasPasskey ? 'Connexion sécurisée' : 'Première connexion'}
+            {hasPairedIphone ? 'Connexion via iPhone' : 'Aucun iPhone configuré'}
           </div>
         </div>
 
-        {/* ── Mode iPhone ── */}
-        {mode === 'iphone' && (
+        {/* iPhone appairé */}
+        {hasPairedIphone && (
           <div className="space-y-4">
             {iphoneStep === 'idle' && (
               <>
@@ -273,9 +186,7 @@ export default function LoginPage() {
 
             {iphoneStep === 'failed' && (
               <div className="space-y-3">
-                {error && (
-                  <p className="text-danger text-sm text-center">{error}</p>
-                )}
+                {error && <p className="text-danger text-sm text-center">{error}</p>}
                 <button
                   onClick={resetIphone}
                   className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors"
@@ -285,94 +196,29 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Lien vers la gestion des appairages */}
-            <div className="border-t border-border pt-3 space-y-2">
+            <div className="border-t border-border pt-3">
               <button
                 onClick={() => navigate('/pairing')}
                 className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors"
               >
                 + Ajouter un autre iPhone
               </button>
-              {hasPasskey && (
-                <button
-                  onClick={() => setMode('passkey')}
-                  className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors"
-                >
-                  Utiliser une passkey à la place
-                </button>
-              )}
             </div>
           </div>
         )}
 
-        {/* ── Mode Passkey ── */}
-        {mode === 'passkey' && (
+        {/* Aucun iPhone — invitation à apparier */}
+        {!hasPairedIphone && (
           <div className="space-y-4">
-            {hasPasskey ? (
-              <>
-                <p className="text-sm text-textSoft text-center">
-                  Utilisez votre passkey pour accéder à l'application.
-                </p>
-                {error && <p className="text-danger text-sm text-center">{error}</p>}
-                <button
-                  onClick={handlePasskeyLogin}
-                  disabled={passkeyLoading}
-                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  {passkeyLoading ? (
-                    <span className="animate-pulse">Vérification…</span>
-                  ) : (
-                    <>🔑 Se connecter avec ma passkey</>
-                  )}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="bg-surface2 border border-border rounded-lg p-4 text-sm text-textSoft space-y-2">
-                  <p className="font-semibold text-text">Créez votre passkey</p>
-                  <p>Une passkey remplace les mots de passe. Elle est liée à votre appareil.</p>
-                </div>
-                {error && <p className="text-danger text-sm text-center">{error}</p>}
-                <button
-                  onClick={handlePasskeyRegister}
-                  disabled={passkeyLoading}
-                  className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  {passkeyLoading ? (
-                    <span className="animate-pulse">Création…</span>
-                  ) : <>🔑 Créer ma passkey</>}
-                </button>
-              </>
-            )}
-
-            {hasPairedIphone && (
-              <button
-                onClick={() => setMode('iphone')}
-                className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors border-t border-border pt-3"
-              >
-                📱 Utiliser mon iPhone à la place
-              </button>
-            )}
-            {!hasPairedIphone && (
-              <button
-                onClick={() => navigate('/pairing')}
-                className="w-full py-2 text-xs text-textSoft hover:text-text transition-colors border-t border-border pt-3"
-              >
-                📱 Ajouter un iPhone comme authentificateur
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Bouton dev bypass ── */}
-        {isDev && (
-          <div className="pt-2 border-t border-border">
+            <div className="bg-surface2 border border-border rounded-lg p-4 text-sm text-textSoft space-y-2">
+              <p className="font-semibold text-text">Appairage requis</p>
+              <p>Associez votre iPhone pour vous connecter sans mot de passe, grâce à Face ID ou Touch ID.</p>
+            </div>
             <button
-              onClick={handleDevBypass}
-              disabled={passkeyLoading}
-              className="w-full py-2 rounded-lg border border-yellow-500 text-yellow-500 text-xs font-medium hover:bg-yellow-500/10 disabled:opacity-50 transition-colors"
+              onClick={() => navigate('/pairing')}
+              className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 transition-colors"
             >
-              ⚠️ Connexion développeur (DEV uniquement)
+              Configurer mon iPhone
             </button>
           </div>
         )}
@@ -380,22 +226,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
-
-function friendlyError(e: unknown): string {
-  if (e instanceof DOMException) {
-    if (e.name === 'NotAllowedError') return 'Opération annulée ou non autorisée.';
-    if (e.name === 'AbortError') return 'Opération annulée.';
-    if (e.name === 'NotSupportedError') {
-      return 'Aucun authentificateur disponible. Connectez une clé de sécurité USB ou activez le Bluetooth.';
-    }
-  }
-  if (
-    e instanceof TypeError &&
-    (e.message.includes('parseCreationOptionsFromJSON') ||
-      e.message.includes('parseRequestOptionsFromJSON'))
-  ) {
-    return 'WebView2 trop ancienne. Mettez à jour via microsoft.com/edge/webview2.';
-  }
-  return e instanceof Error ? e.message : String(e);
 }

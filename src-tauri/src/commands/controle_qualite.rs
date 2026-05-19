@@ -1,9 +1,9 @@
 use crate::db::DbState;
 use crate::models::ControleQualite;
-use crate::auth;
+use crate::auth_iphone;
 
 #[tauri::command]
-pub async fn controle_qualite_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<ControleQualite>, String> {
+pub async fn controle_qualite_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<ControleQualite>, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -34,7 +34,7 @@ pub async fn controle_qualite_list(session: tauri::State<'_, auth::SessionState>
 }
 
 #[tauri::command]
-pub async fn controle_qualite_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<ControleQualite, String> {
+pub async fn controle_qualite_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<ControleQualite, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -73,7 +73,7 @@ pub async fn controle_qualite_create(
     realise_par: Option<String>,
     statut: String,
     observations: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
@@ -110,7 +110,7 @@ pub async fn controle_qualite_update(
     realise_par: Option<String>,
     statut: String,
     observations: Option<String>,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -136,7 +136,7 @@ pub async fn controle_qualite_update(
 }
 
 #[tauri::command]
-pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] controle_qualite_delete id={}", id);
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
@@ -145,7 +145,7 @@ pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth::Se
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }

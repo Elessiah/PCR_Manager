@@ -1,6 +1,6 @@
 use crate::db::DbState;
 use crate::models::Document;
-use crate::auth;
+use crate::auth_iphone;
 use std::path::PathBuf;
 use uuid::Uuid;
 use chrono;
@@ -31,7 +31,7 @@ fn delete_document_record(tx: &rusqlite::Transaction, id: i64) -> Result<String,
 }
 
 #[tauri::command]
-pub async fn document_list(session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
+pub async fn document_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -58,7 +58,7 @@ pub async fn document_list(session: tauri::State<'_, auth::SessionState>, state:
 }
 
 #[tauri::command]
-pub async fn document_get(id: i64, session: tauri::State<'_, auth::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
+pub async fn document_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
     ensure_authenticated(&session)?;
     let conn = state.conn.lock();
     let mut stmt = conn
@@ -90,7 +90,7 @@ pub async fn document_upload(
     type_document: String,
     nom_fichier: String,
     source_path: String,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Document, String> {
     eprintln!("[AUDIT] document_upload source={}", source_path);
@@ -140,7 +140,7 @@ pub async fn document_upload(
 pub async fn document_delete(
     app_handle: tauri::AppHandle,
     id: i64,
-    session: tauri::State<'_, auth::SessionState>,
+    session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] document_delete id={}", id);
@@ -165,7 +165,7 @@ pub async fn document_delete(
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifié".to_string());
     }
@@ -178,13 +178,13 @@ mod tests {
 
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth::SessionState::new();
+        let session = auth_iphone::SessionState::new();
         assert!(ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth::SessionState::new();
+        let session = auth_iphone::SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
     }
