@@ -17,6 +17,84 @@ fn ping() -> &'static str {
     "pong"
 }
 
+/// Vérifie si un adaptateur Bluetooth est présent et activé (Windows + macOS).
+/// Retourne { available: bool, enabled: bool }.
+#[tauri::command]
+fn bluetooth_check() -> serde_json::Value {
+    bluetooth_check_impl()
+}
+
+/// Ouvre la page Paramètres Bluetooth du système (Windows + macOS).
+#[tauri::command]
+fn bluetooth_open_settings() {
+    bluetooth_open_settings_impl();
+}
+
+// ── Windows ───────────────────────────────────────────────────────────────────
+
+#[cfg(target_os = "windows")]
+fn bluetooth_check_impl() -> serde_json::Value {
+    let result = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile", "-NonInteractive", "-Command",
+            "$s = Get-Service 'bthserv' -ErrorAction SilentlyContinue; \
+             if (!$s) { 'none' } elseif ($s.Status -eq 'Running') { 'on' } else { 'off' }",
+        ])
+        .output();
+    let state = match result {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        Err(_) => "none".to_string(),
+    };
+    serde_json::json!({ "available": state != "none", "enabled": state == "on" })
+}
+
+#[cfg(target_os = "windows")]
+fn bluetooth_open_settings_impl() {
+    let _ = std::process::Command::new("cmd")
+        .args(["/c", "start", "ms-settings:bluetooth"])
+        .spawn();
+}
+
+// ── macOS ─────────────────────────────────────────────────────────────────────
+
+/// Lit l'état du contrôleur Bluetooth via ioreg (disponible sur tout macOS).
+/// BluetoothPowerState = 1 → activé, 0 → désactivé, absent → pas d'adaptateur.
+#[cfg(target_os = "macos")]
+fn bluetooth_check_impl() -> serde_json::Value {
+    let Ok(output) = std::process::Command::new("ioreg")
+        .args(["-l", "-n", "IOBluetoothHCIController"])
+        .output()
+    else {
+        return serde_json::json!({ "available": false, "enabled": false });
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    if text.trim().is_empty() {
+        return serde_json::json!({ "available": false, "enabled": false });
+    }
+    let enabled = text.contains("\"BluetoothPowerState\" = 1");
+    serde_json::json!({ "available": true, "enabled": enabled })
+}
+
+/// Ouvre le panneau Bluetooth dans Préférences Système / Réglages Système
+/// (fonctionne sur macOS 12 et antérieurs via System Preferences,
+///  et sur macOS 13+ via System Settings grâce à la redirection du .prefPane).
+#[cfg(target_os = "macos")]
+fn bluetooth_open_settings_impl() {
+    let _ = std::process::Command::new("open")
+        .arg("/System/Library/PreferencePanes/Bluetooth.prefPane")
+        .spawn();
+}
+
+// ── Autres plateformes (Linux…) ───────────────────────────────────────────────
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn bluetooth_check_impl() -> serde_json::Value {
+    serde_json::json!({ "available": false, "enabled": false })
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn bluetooth_open_settings_impl() {}
+
 pub fn run() {
     tauri::Builder::default()
         // Sert le frontend depuis http://localhost:LOCALHOST_PORT en production
@@ -74,6 +152,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ping,
+            bluetooth_check,
+            bluetooth_open_settings,
             db::init_db,
             auth::passkey_has_credentials,
             auth::passkey_register_start,

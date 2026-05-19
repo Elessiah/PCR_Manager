@@ -318,6 +318,13 @@ export const api = {
     devAuthBypass: () => invoke<void>('dev_auth_bypass'),
   },
 
+  bluetooth: {
+    /** Vérifie si un adaptateur Bluetooth est présent (available) et activé (enabled). */
+    check: () => invoke<{ available: boolean; enabled: boolean }>('bluetooth_check'),
+    /** Ouvre la page Paramètres Bluetooth de Windows. */
+    openSettings: () => invoke<void>('bluetooth_open_settings'),
+  },
+
   data: {
     export: () => invoke<string>('data_export'),
     import: (jsonStr: string) =>
