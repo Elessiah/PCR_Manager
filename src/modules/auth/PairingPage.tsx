@@ -7,12 +7,11 @@ type PairingStep = 'idle' | 'generating' | 'waiting' | 'completed' | 'failed';
 
 export default function PairingPage() {
   const navigate = useNavigate();
-  const [step, setStep]         = useState<PairingStep>('idle');
-  const [qrData, setQrData]     = useState<string>('');
-  const [error, setError]       = useState<string | null>(null);
-  const [deviceName, setDeviceName] = useState<string>('');
-  const [countdown, setCountdown]   = useState(300);
-  const [networkOk, setNetworkOk]   = useState<boolean | null>(null);
+  const [step, setStep]       = useState<PairingStep>('idle');
+  const [qrData, setQrData]   = useState<string>('');
+  const [error, setError]     = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(300);
+  const [networkOk, setNetworkOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     api.iphoneAuth.networkAvailable()
@@ -175,9 +174,6 @@ export default function PairingPage() {
             <div className="text-5xl">✓</div>
             <div>
               <p className="font-semibold text-text text-lg">Appairage réussi !</p>
-              {deviceName && (
-                <p className="text-sm text-textSoft mt-1">{deviceName} est maintenant votre clé</p>
-              )}
               <p className="text-sm text-textSoft mt-2">
                 À chaque connexion, votre iPhone vous demandera Face ID ou Touch ID.
               </p>
