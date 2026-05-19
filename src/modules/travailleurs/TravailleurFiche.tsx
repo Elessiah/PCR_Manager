@@ -68,11 +68,11 @@ export default function TravailleurFiche() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" className="inline-flex items-center gap-1.5" onClick={() => setEditOpen(true)}>
-            <Pencil size={14} /> Modifier
+          <Button variant="default" size="sm" className="inline-flex items-center gap-1.5" onClick={() => setEditOpen(true)}>
+            <Pencil size={13} /> Modifier
           </Button>
-          <Button variant="ghost" className="inline-flex items-center gap-1.5 text-danger hover:text-danger" onClick={() => setDeleteOpen(true)}>
-            <Trash2 size={14} /> Supprimer
+          <Button variant="dangerGhost" size="sm" className="inline-flex items-center gap-1.5" onClick={() => setDeleteOpen(true)}>
+            <Trash2 size={13} /> Supprimer
           </Button>
           {habBadge && (
             <div className="text-right ml-2">

@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
 import { KpiTile } from '../../components/ui/KpiTile';
 import { Card, CardHead, CardBody, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -320,10 +321,12 @@ export default function Dashboard() {
   const handleDownloadExportFile = async () => {
     try {
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const filename = `pcr-export-${today}.pcrexp`;
-      const savedPath = await invoke<string>('save_export_file', { fileB64: exportFileB64, filename });
+      const defaultName = `pcr-export-${today}.pcrexp`;
+      const destPath = await invoke<string | null>('choose_save_path', { defaultName });
+      if (!destPath) return;
+      await invoke<string>('save_export_file', { fileB64: exportFileB64, destPath });
       setExportError('');
-      alert(`Fichier enregistré dans : ${savedPath}`);
+      toast.success(`Fichier enregistré : ${destPath}`);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde du fichier');
     }

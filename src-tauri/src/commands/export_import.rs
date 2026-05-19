@@ -6,7 +6,6 @@ use aes_gcm::{Aes256Gcm, Key, Nonce};
 use aes_gcm::aead::{Aead, KeyInit};
 use argon2::Argon2;
 use base64::{engine::general_purpose, Engine};
-use directories::UserDirs;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
@@ -1076,13 +1075,20 @@ pub async fn data_import_encrypted(
 }
 
 #[tauri::command]
-pub async fn save_export_file(file_b64: String, filename: String) -> Result<String, String> {
-    let user_dirs = UserDirs::new().ok_or_else(|| "Cannot locate user directories".to_string())?;
-    let downloads = user_dirs.download_dir().ok_or_else(|| "Cannot locate Downloads folder".to_string())?;
-    let path = downloads.join(&filename);
+pub async fn choose_save_path(default_name: String) -> Result<Option<String>, String> {
+    let handle = rfd::AsyncFileDialog::new()
+        .set_file_name(&default_name)
+        .add_filter("PCR Export", &["pcrexp"])
+        .save_file()
+        .await;
+    Ok(handle.map(|h| h.path().to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+pub async fn save_export_file(file_b64: String, dest_path: String) -> Result<String, String> {
     let bytes = general_purpose::STANDARD.decode(&file_b64).map_err(|e| e.to_string())?;
-    fs::write(&path, &bytes).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
+    fs::write(&dest_path, &bytes).map_err(|e| e.to_string())?;
+    Ok(dest_path)
 }
 
 #[cfg(test)]
