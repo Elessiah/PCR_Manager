@@ -1,5 +1,6 @@
 mod db;
 mod auth;
+mod auth_iphone;
 mod models;
 mod commands;
 mod validators;
@@ -147,6 +148,7 @@ pub fn run() {
             });
 
             app.manage(auth::SessionState::new());
+            app.manage(auth_iphone::IphoneAuthState::new());
 
             Ok(())
         })
@@ -214,7 +216,15 @@ pub fn run() {
             commands::competence::competence_general_get_for_travailleur,
             commands::travailleur_appareil::travailleur_appareil_list,
             commands::travailleur_appareil::travailleur_appareil_add,
-            commands::travailleur_appareil::travailleur_appareil_remove
+            commands::travailleur_appareil::travailleur_appareil_remove,
+            auth_iphone::iphone_has_paired_device,
+            auth_iphone::iphone_pairing_list,
+            auth_iphone::iphone_pairing_revoke,
+            auth_iphone::iphone_pairing_start,
+            auth_iphone::iphone_pairing_poll,
+            auth_iphone::iphone_auth_challenge_start,
+            auth_iphone::iphone_auth_poll,
+            auth_iphone::iphone_cancel_pending
         ])
         .run(tauri::generate_context!())
         .expect("erreur Tauri");

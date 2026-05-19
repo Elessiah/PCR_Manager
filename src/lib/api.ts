@@ -338,6 +338,37 @@ export const api = {
       }),
   },
 
+  iphoneAuth: {
+    hasPairedDevice: () => invoke<boolean>('iphone_has_paired_device'),
+    pairingList: () =>
+      invoke<Array<{
+        pairingId: string;
+        iphoneDeviceName: string;
+        iphoneDeviceId: string;
+        pairedAt: string;
+        lastAuthAt: string | null;
+        authCounter: number;
+      }>>('iphone_pairing_list'),
+    pairingRevoke: (pairingId: string) =>
+      invoke<void>('iphone_pairing_revoke', { pairingId }),
+    pairingStart: () =>
+      invoke<{ qrData: string; invitationId: string; serverPort: number }>(
+        'iphone_pairing_start',
+      ),
+    pairingPoll: () =>
+      invoke<{ status: string; pairingId?: string; error?: string }>(
+        'iphone_pairing_poll',
+      ),
+    authChallengeStart: (pairingId: string) =>
+      invoke<{ qrData: string; challengeId: string; serverPort: number }>(
+        'iphone_auth_challenge_start',
+        { pairingId },
+      ),
+    authPoll: () =>
+      invoke<{ status: string; error?: string }>('iphone_auth_poll'),
+    cancelPending: () => invoke<void>('iphone_cancel_pending'),
+  },
+
   travailleurAppareil: {
     list: (travailleurId: number) =>
       invoke<number[]>('travailleur_appareil_list', { travailleurId }),
