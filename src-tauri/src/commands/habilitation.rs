@@ -37,6 +37,7 @@ pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_,
                 statut: "non_validee".to_string(),
                 details: HabilitationDetails {
                     formation_rp_ok: false,
+                    formation_rp_patients_ok: false,
                     dosimetries_ok: false,
                     competences_ok: false,
                     visite_med_ok: false,
@@ -48,14 +49,21 @@ pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_,
 
     let habilitation = habilitation_result;
 
-    let (dosim_passive, _dosim_op, form_rp_workers, _form_rp_patients, visite_med_date, visite_med_date_peremption, visite_med_duree_mois) = habilitation;
+    let (dosim_passive, dosim_op, form_rp_workers, form_rp_patients, visite_med_date, visite_med_date_peremption, visite_med_duree_mois) = habilitation;
 
-    // dosimetries_ok: dosim_passive non NULL
-    let dosimetries_ok = dosim_passive.is_some();
+    // dosimetries_ok: passive ET opérationnelle toutes deux renseignées
+    let dosimetries_ok = dosim_passive.is_some() && dosim_op.is_some();
 
-    // formation_rp_ok: formation_rp_travailleurs_date dans les 3 ans
+    // formation_rp_ok: formation_rp_travailleurs_date dans les 3 ans (CDC §5)
     let formation_rp_ok = if let Some(date_str) = &form_rp_workers {
         check_date_within_years(date_str, 3)
+    } else {
+        false
+    };
+
+    // formation_rp_patients_ok: formation_rp_patients_date dans les 7 ans (CDC §5)
+    let formation_rp_patients_ok = if let Some(date_str) = &form_rp_patients {
+        check_date_within_years(date_str, 7)
     } else {
         false
     };
@@ -80,14 +88,15 @@ pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_,
 
     let details = HabilitationDetails {
         formation_rp_ok,
+        formation_rp_patients_ok,
         dosimetries_ok,
         competences_ok,
         visite_med_ok,
     };
 
-    let statut = if formation_rp_ok && dosimetries_ok && competences_ok && visite_med_ok {
+    let statut = if formation_rp_ok && formation_rp_patients_ok && dosimetries_ok && competences_ok && visite_med_ok {
         "validee".to_string()
-    } else if (formation_rp_ok as i32) + (dosimetries_ok as i32) + (competences_ok as i32) + (visite_med_ok as i32) > 0 {
+    } else if (formation_rp_ok as i32) + (formation_rp_patients_ok as i32) + (dosimetries_ok as i32) + (competences_ok as i32) + (visite_med_ok as i32) > 0 {
         "partielle".to_string()
     } else {
         "non_validee".to_string()

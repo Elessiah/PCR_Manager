@@ -39,6 +39,7 @@ const mockHabilitationStatus: HabilitationStatus = {
   statut: 'partielle',
   details: {
     formation_rp_ok: true,
+    formation_rp_patients_ok: true,
     dosimetries_ok: false,
     competences_ok: true,
     visite_med_ok: true,

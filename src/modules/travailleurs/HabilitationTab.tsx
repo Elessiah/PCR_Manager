@@ -172,7 +172,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       id: 'formationRpPatient',
       icon: GraduationCap,
       title: 'Formation RP patients',
-      ok: details.formation_rp_ok,
+      ok: details.formation_rp_patients_ok,
     },
     {
       id: 'visiteMedicale',
@@ -576,6 +576,9 @@ function EditModalFormationRp({
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
+            <p className="text-xs text-textMuted mt-1">
+              Renouvellement tous les {type === 'travailleur' ? '3 ans' : '7 ans'}
+            </p>
           </Field>
 
           <div className="flex gap-2 justify-end mt-6">

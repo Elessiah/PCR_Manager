@@ -38,6 +38,7 @@ const mockHabilitationStatus: HabilitationStatus = {
   statut: 'validee',
   details: {
     formation_rp_ok: true,
+    formation_rp_patients_ok: true,
     dosimetries_ok: true,
     competences_ok: false,
     visite_med_ok: true,

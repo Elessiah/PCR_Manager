@@ -292,6 +292,15 @@ export const api = {
       sourcePath: string;
     }) => invoke<Document>('document_upload', input),
     delete: (id: number) => invoke<void>('document_delete', { id }),
+    listForEntity: (entityType: string, entityId: number) =>
+      invoke<Document[]>('document_list_for_entity', { entityType, entityId }),
+    pickAndUpload: (input: {
+      entityType: string;
+      entityId: number;
+      typeDocument: string;
+      replaceDocumentId: number | null;
+    }) => invoke<Document | null>('document_pick_and_upload', input),
+    open: (id: number) => invoke<void>('document_open', { id }),
   },
 
   bluetooth: {

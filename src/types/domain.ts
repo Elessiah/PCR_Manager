@@ -53,6 +53,7 @@ export type HabilitationStatut = 'validee' | 'partielle' | 'non_validee';
 
 export interface HabilitationDetails {
   formation_rp_ok: boolean;
+  formation_rp_patients_ok: boolean;
   dosimetries_ok: boolean;
   competences_ok: boolean;
   visite_med_ok: boolean;
