@@ -14,8 +14,13 @@ fn validate_source_path(p: &str) -> Result<PathBuf, String> {
         return Err("Chemin source invalide".to_string());
     }
     #[cfg(target_os = "windows")]
-    if canonical.to_str().map_or(false, |s| s.starts_with("\\\\")) {
-        return Err("Chemin réseau non autorisé".to_string());
+    {
+        use std::path::Prefix;
+        if let Some(std::path::Component::Prefix(p)) = canonical.components().next() {
+            if matches!(p.kind(), Prefix::UNC(_, _) | Prefix::DeviceNS(_)) {
+                return Err("Chemin réseau non autorisé".to_string());
+            }
+        }
     }
     if std::fs::metadata(&canonical).map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
         return Err("Fichier source trop volumineux (max 50 Mo)".to_string());
@@ -347,7 +352,9 @@ mod tests {
 
     #[test]
     fn test_validate_source_path_nominal() {
-        let temp_file = tempfile::NamedTempFile::new()
+        let temp_file = tempfile::Builder::new()
+            .suffix(".pdf")
+            .tempfile()
             .expect("Failed to create temp file");
         let path_str = temp_file.path().to_str().unwrap();
         let result = validate_source_path(path_str);
