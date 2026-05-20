@@ -323,6 +323,12 @@ export const api = {
       }),
   },
 
+  macAuth: {
+    available: () => invoke<boolean>('mac_auth_available'),
+    start: () => invoke<void>('mac_auth_start'),
+    activate: () => invoke<void>('mac_se_activate'),
+  },
+
   iphoneAuth: {
     hasPairedDevice: () => invoke<boolean>('iphone_has_paired_device'),
     pairingList: () =>
