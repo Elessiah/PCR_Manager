@@ -316,8 +316,7 @@ mod tests {
 
     fn setup_db() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute_batch(include_str!("../../migrations/V1__initial.sql")).unwrap();
-        conn.execute_batch(include_str!("../../migrations/V6__competence_validity_assignments.sql")).unwrap();
+        conn.execute_batch(include_str!("../schema.sql")).unwrap();
         conn
     }
 

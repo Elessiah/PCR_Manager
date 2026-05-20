@@ -122,44 +122,20 @@ pub fn generate_db_key() -> String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Migrations
+// Schéma
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MIGRATIONS: &[(i32, &str, &str)] = &[
-    (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
-    (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
-    (3, "V3__competence_description", include_str!("../migrations/V3__competence_description.sql")),
-    (4, "V4__appareil_competences",   include_str!("../migrations/V4__appareil_competences.sql")),
-    (6, "V6__competence_validity_assignments", include_str!("../migrations/V6__competence_validity_assignments.sql")),
-    (9, "V9__journal_acces",          include_str!("../migrations/V9__journal_acces.sql")),
-    (10, "V10__registre_traitement",  include_str!("../migrations/V10__registre_traitement.sql")),
-];
+const SCHEMA: &str = include_str!("schema.sql");
+const SEED_DEMO: &str = include_str!("seed_demo.sql");
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS __migrations (version INTEGER PRIMARY KEY)",
-        [],
-    )?;
-
-    for (version, label, sql) in MIGRATIONS {
-        let already_applied: bool = conn
-            .prepare("SELECT 1 FROM __migrations WHERE version = ?1")?
-            .exists([version])
-            .with_context(|| format!("Impossible de vérifier la migration {}", label))?;
-
-        if already_applied {
-            continue;
-        }
-
-        conn.execute_batch(sql)
-            .with_context(|| format!("Échec de la migration {}", label))?;
-
-        conn.execute(
-            "INSERT INTO __migrations (version) VALUES (?1)",
-            [version],
-        )?;
+    conn.execute_batch(SCHEMA).context("Échec de l'initialisation du schéma")?;
+    let is_empty: bool = conn
+        .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
+        .unwrap_or(0) == 0;
+    if is_empty {
+        conn.execute_batch(SEED_DEMO).context("Échec du seed de démonstration")?;
     }
-
     Ok(())
 }
 
@@ -216,7 +192,6 @@ mod tests {
             .collect();
 
         let expected_tables = vec![
-            "__migrations",
             "appareil",
             "appareil_competence_ref",
             "competence_ref",

@@ -159,9 +159,8 @@ mod tests {
 
     fn init_test_db() -> Connection {
         let conn = Connection::open_in_memory().expect("Failed to open in-memory DB");
-        let migration_sql = include_str!("../../migrations/V1__initial.sql");
-        conn.execute_batch(migration_sql)
-            .expect("Failed to execute migration");
+        conn.execute_batch(include_str!("../schema.sql"))
+            .expect("Failed to execute schema");
         conn
     }
 

@@ -94,7 +94,7 @@ pub async fn totp_login(
 pub fn totp_revoke() -> Result<(), String> {
     Entry::new(KEYRING_SERVICE, KEYRING_TOTP_USER)
         .map_err(|e| e.to_string())?
-        .delete_credential()
+        .delete_password()
         .map_err(|e| e.to_string())
 }
 
