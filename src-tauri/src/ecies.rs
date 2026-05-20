@@ -54,7 +54,7 @@ pub fn ecies_encrypt(recipient_pub_bytes: &[u8], plaintext: &[u8]) -> Result<Vec
     let shared_bytes = shared.raw_secret_bytes();
 
     // 4. HKDF-SHA256 : salt = eph_pub, info = "PCRManager-v1-db-key" → 32 octets
-    let hk = Hkdf::<Sha256>::new(Some(&eph_pub_bytes), shared_bytes.as_slice());
+    let hk = Hkdf::<Sha256>::new(Some(&eph_pub_bytes), shared_bytes.as_ref());
     let mut aes_key = [0u8; 32];
     hk.expand(HKDF_INFO, &mut aes_key)
         .map_err(|_| "HKDF expand échoué")?;
@@ -64,10 +64,10 @@ pub fn ecies_encrypt(recipient_pub_bytes: &[u8], plaintext: &[u8]) -> Result<Vec
     rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
 
     // 6. AES-256-GCM chiffrement (retourne ciphertext || tag 16 octets)
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&aes_key));
-    let nonce  = GcmNonce::from_slice(&nonce_bytes);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(aes_key));
+    let nonce  = GcmNonce::from(nonce_bytes);
     let ciphertext_and_tag = cipher
-        .encrypt(nonce, plaintext)
+        .encrypt(&nonce, plaintext)
         .map_err(|_| "AES-GCM chiffrement échoué")?;
 
     // 7. Bundle : eph_pub (65) || nonce (12) || ciphertext+tag
@@ -105,14 +105,15 @@ mod tests {
         let shared = ecdh(recipient_secret.to_nonzero_scalar(), eph_pub.as_affine());
         let shared_bytes = shared.raw_secret_bytes();
 
-        let hk = Hkdf::<Sha256>::new(Some(eph_pub_bytes), shared_bytes.as_slice());
+        let hk = Hkdf::<Sha256>::new(Some(eph_pub_bytes), shared_bytes.as_ref());
         let mut aes_key = [0u8; 32];
         hk.expand(HKDF_INFO, &mut aes_key).map_err(|_| "HKDF")?;
 
-        let cipher    = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&aes_key));
-        let nonce     = GcmNonce::from_slice(nonce_bytes);
-        let plaintext = cipher
-            .decrypt(nonce, ct_and_tag)
+        let cipher        = Aes256Gcm::new(&Key::<Aes256Gcm>::from(aes_key));
+        let nonce_arr: [u8; 12] = nonce_bytes.try_into().expect("nonce 12 bytes");
+        let nonce         = GcmNonce::from(nonce_arr);
+        let plaintext     = cipher
+            .decrypt(&nonce, ct_and_tag)
             .map_err(|_| "AES-GCM déchiffrement échoué")?;
 
         Ok(plaintext)

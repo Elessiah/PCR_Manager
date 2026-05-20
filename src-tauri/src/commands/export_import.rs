@@ -376,10 +376,10 @@ fn encrypt_payload(payload: &ExportPayload, code: &str) -> Result<(String, Strin
 
     let mut nonce_bytes = [0u8; 12];
     OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+    let nonce = Nonce::from(nonce_bytes);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(key));
     let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_ref())
+        .encrypt(&nonce, plaintext.as_ref())
         .map_err(|e| format!("Erreur chiffrement: {}", e))?;
 
     let mut file_bytes = Vec::new();
@@ -420,10 +420,11 @@ fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> 
         .hash_password_into(code_clean.as_bytes(), salt, &mut key)
         .map_err(|e| format!("Erreur Argon2: {}", e))?;
 
-    let nonce = Nonce::from_slice(nonce_bytes);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+    let nonce_arr: [u8; 12] = nonce_bytes.try_into().expect("nonce 12 bytes");
+    let nonce = Nonce::from(nonce_arr);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(key));
     let plaintext = cipher
-        .decrypt(nonce, ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|_| "Code incorrect ou fichier corrompu".to_string())?;
 
     let mut decoder = GzDecoder::new(&plaintext[..]);
@@ -746,10 +747,10 @@ pub async fn data_export_encrypted(
     // Chiffrer
     let mut nonce_bytes = [0u8; 12];
     OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+    let nonce = Nonce::from(nonce_bytes);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(key));
     let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_ref())
+        .encrypt(&nonce, plaintext.as_ref())
         .map_err(|e| format!("Erreur chiffrement: {}", e))?;
 
     // Construire fichier
@@ -805,10 +806,11 @@ pub async fn data_import_encrypted(
         .map_err(|e| format!("Erreur Argon2: {}", e))?;
 
     // DÃ©chiffrer
-    let nonce = Nonce::from_slice(nonce_bytes);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+    let nonce_arr: [u8; 12] = nonce_bytes.try_into().expect("nonce 12 bytes");
+    let nonce = Nonce::from(nonce_arr);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(key));
     let plaintext = cipher
-        .decrypt(nonce, ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|_| "Code incorrect ou fichier corrompu".to_string())?;
 
     // DÃ©compresser
