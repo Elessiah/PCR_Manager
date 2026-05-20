@@ -2,7 +2,7 @@
 
 use crate::auth_iphone::SessionState;
 use crate::db::DbState;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 const SE_KEY_TAG: &[u8] = b"com.pcrmanager.mac.db-wrap";
 
@@ -85,7 +85,6 @@ pub(crate) fn activate_mac_key_wrapping(
 mod macos {
 	use super::*;
 	use core_foundation_sys::base::{CFRelease, kCFAllocatorDefault};
-	use core_foundation_sys::boolean::kCFBooleanTrue;
 	use core_foundation_sys::data::{CFDataCreate, CFDataGetBytePtr, CFDataGetLength};
 	use core_foundation_sys::dictionary::{
 		CFDictionaryCreate, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks,
@@ -94,6 +93,11 @@ mod macos {
 	use core_foundation_sys::string::{CFStringCreateWithBytes, kCFStringEncodingUTF8};
 	use std::ffi::c_void;
 	use std::ptr;
+
+	#[link(name = "CoreFoundation", kind = "framework")]
+	extern "C" {
+		static kCFBooleanTrue: *const c_void;
+	}
 
 	#[link(name = "Security", kind = "framework")]
 	extern "C" {
@@ -148,7 +152,7 @@ mod macos {
 			keys.len() as _,
 			&kCFTypeDictionaryKeyCallBacks,
 			&kCFTypeDictionaryValueCallBacks,
-		)
+		) as *const c_void
 	}
 
 	unsafe fn bytes_to_cfdata(b: &[u8]) -> *const c_void {
@@ -222,7 +226,7 @@ mod macos {
 		// Create 256-bit number
 		let key_size: i32 = 256;
 		let size_number =
-			CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &key_size as *const _);
+			CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &key_size as *const i32 as *const c_void);
 
 		// Build key generation parameters (standard Keychain P-256, compatible tous Mac y compris 2016)
 		let param_keys = [
@@ -232,7 +236,7 @@ mod macos {
 		];
 		let param_vals = [
 			kSecAttrKeyTypeECSECPrimeRandom,
-			size_number,
+			size_number as *const c_void,
 			priv_attrs,
 		];
 		let params = make_dict(&param_keys, &param_vals);
@@ -245,7 +249,7 @@ mod macos {
 		CFRelease(params);
 		CFRelease(priv_attrs);
 		CFRelease(tag_cfdata);
-		CFRelease(size_number);
+		CFRelease(size_number as *const c_void);
 		CFRelease(access_ctrl);
 
 		if key.is_null() {
@@ -280,7 +284,7 @@ mod macos {
 			key_class,
 			kCFBooleanTrue,
 			kSecMatchLimitOne,
-			reason_cfstring,
+			reason_cfstring as *const c_void,
 		];
 		let query = make_dict(&keys, &vals);
 
@@ -289,7 +293,7 @@ mod macos {
 
 		CFRelease(query);
 		CFRelease(tag_cfdata);
-		CFRelease(reason_cfstring);
+		CFRelease(reason_cfstring as *const c_void);
 
 		if status != 0 || result.is_null() {
 			return Err("Clé Secure Enclave non trouvée".into());
