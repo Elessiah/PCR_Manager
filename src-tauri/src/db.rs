@@ -17,7 +17,7 @@ impl DbState {
         let guard = self.conn.lock();
         if guard.is_none() {
             return Err(
-                "Base de données non disponible : authentification iPhone requise".into(),
+                "Base de données non disponible : authentification requise".into(),
             );
         }
         Ok(MutexGuard::map(guard, |opt| opt.as_mut().unwrap()))
@@ -47,6 +47,16 @@ pub fn wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
 /// Vrai si le bundle ECIES existe (mode auth iPhone activé).
 pub fn has_wrapped_key(app: &tauri::AppHandle) -> bool {
     wrapped_key_path(app).exists()
+}
+
+/// Chemin du bundle ECIES Mac Secure Enclave.
+pub fn mac_wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
+    app_data_dir(app).join("mac_wrapped_db_key.bin")
+}
+
+/// Vrai si le bundle Mac SE existe (mode Secure Enclave activé).
+pub fn has_mac_wrapped_key(app: &tauri::AppHandle) -> bool {
+    mac_wrapped_key_path(app).exists()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
