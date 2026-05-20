@@ -146,6 +146,7 @@ pub struct HabilitationStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HabilitationDetails {
     pub formation_rp_ok: bool,
+    pub formation_rp_patients_ok: bool,
     pub dosimetries_ok: bool,
     pub competences_ok: bool,
     pub visite_med_ok: bool,

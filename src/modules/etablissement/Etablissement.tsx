@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Edit, Save } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -20,7 +20,6 @@ const STATUTS_JURIDIQUES = [
 
 export default function Etablissement() {
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     denomination: '',
@@ -38,6 +37,26 @@ export default function Etablissement() {
     queryKey: ['etablissement', 1],
     queryFn: () => api.etablissement.get(1),
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: kbisDocs = [] } = useQuery({
+    queryKey: ['kbis', 1],
+    queryFn: () => api.document.listForEntity('etablissement', 1),
+    enabled: !!etablissement,
+  });
+  const kbisDoc = (kbisDocs ?? []).find(d => d.type_document === 'kbis') ?? null;
+
+  const pickUploadMutation = useMutation({
+    mutationFn: (replaceDocumentId: number | null) =>
+      api.document.pickAndUpload({
+        entityType: 'etablissement',
+        entityId: 1,
+        typeDocument: 'kbis',
+        replaceDocumentId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kbis', 1] });
+    },
   });
 
   React.useEffect(() => {
@@ -367,32 +386,44 @@ export default function Etablissement() {
               </div>
               <div className="flex-1">
                 <div className="font-semibold text-[13.5px]">
-                  {etablissement.kbis_chemin ? 'K-Bis.pdf' : 'Aucun document'}
+                  {kbisDoc ? kbisDoc.nom_fichier : 'Aucun document'}
                 </div>
-                {etablissement.kbis_chemin && (
+                {kbisDoc && (
                   <div className="text-textSoft text-[12px] mt-px">
-                    Mis à jour le {new Date(etablissement.updated_at).toLocaleDateString('fr-FR')}
+                    Mis à jour le {new Date(kbisDoc.uploaded_at).toLocaleDateString('fr-FR')}
                   </div>
                 )}
               </div>
-              {isEditing && (
-                <>
-                  <Button size="sm" variant="default">
-                    Remplacer
-                  </Button>
-                  <Button size="sm" variant="primary">
-                    Ouvrir
-                  </Button>
-                </>
+              {isEditing && !kbisDoc && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => pickUploadMutation.mutate(null)}
+                  disabled={pickUploadMutation.isPending}
+                >
+                  {pickUploadMutation.isPending ? 'Chargement…' : 'Charger le PDF'}
+                </Button>
+              )}
+              {isEditing && kbisDoc && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => pickUploadMutation.mutate(kbisDoc.id)}
+                  disabled={pickUploadMutation.isPending}
+                >
+                  {pickUploadMutation.isPending ? 'Chargement…' : 'Remplacer'}
+                </Button>
+              )}
+              {kbisDoc && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => api.document.open(kbisDoc.id)}
+                >
+                  Ouvrir
+                </Button>
               )}
             </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-            />
           </CardBody>
         </Card>
       </div>

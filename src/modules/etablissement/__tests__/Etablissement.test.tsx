@@ -19,24 +19,28 @@ const mockEtablissement = {
   updated_at: '2024-01-01',
 };
 
+const mockKbisDoc = {
+  id: 1,
+  entity_type: 'etablissement',
+  entity_id: 1,
+  type_document: 'kbis',
+  nom_fichier: 'kbis.pdf',
+  chemin_relatif: 'documents/uuid.pdf',
+  uploaded_at: new Date().toISOString(),
+};
+
 vi.mocked(invoke).mockImplementation(async (cmd) => {
   switch (cmd) {
     case 'etablissement_get':
       return mockEtablissement;
     case 'etablissement_update':
       return undefined;
+    case 'document_list_for_entity':
+      return [];
     case 'document_upload':
-      return {
-        id: 1,
-        entity_type: 'etablissement',
-        entity_id: 1,
-        type_document: 'kbis',
-        nom_fichier: 'kbis.pdf',
-        chemin_relatif: '/documents/kbis.pdf',
-        uploaded_at: new Date().toISOString(),
-      };
+      return mockKbisDoc;
     default:
-      return null;
+      return undefined;
   }
 });
 
@@ -78,26 +82,58 @@ describe('Etablissement', () => {
     });
   });
 
-  it('should display K-Bis section with edit buttons in editing mode', async () => {
+  it('should display K-Bis section with "Charger le PDF" button when no document', async () => {
     renderWithProviders(<Etablissement />, { route: '/etablissement' });
 
-    // Wait for the etablissement to load
     await waitFor(() => {
       expect(screen.getByText('Clinique Saint-Louis')).toBeInTheDocument();
     });
 
-    // Click on "Modifier" button
     const modifierButton = screen.getByText('Modifier');
     fireEvent.click(modifierButton);
 
-    // Wait for the Remplacer and Ouvrir buttons to be visible in K-Bis section
+    // Sans document KBIS, le mode édition affiche "Charger le PDF"
     await waitFor(() => {
-      expect(screen.getByText('Remplacer')).toBeInTheDocument();
+      expect(screen.getByText('Charger le PDF')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Document K-Bis')).toBeInTheDocument();
+    expect(screen.getByText('Aucun document')).toBeInTheDocument();
+  });
+
+  it('should display Remplacer and Ouvrir buttons when a KBIS document exists', async () => {
+    // Override le mock pour retourner un document KBIS
+    vi.mocked(invoke).mockImplementation(async (cmd) => {
+      switch (cmd) {
+        case 'etablissement_get':
+          return mockEtablissement;
+        case 'etablissement_update':
+          return undefined;
+        case 'document_list_for_entity':
+          return [mockKbisDoc];
+        default:
+          return undefined;
+      }
+    });
+
+    renderWithProviders(<Etablissement />, { route: '/etablissement' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Clinique Saint-Louis')).toBeInTheDocument();
+    });
+
+    // "Ouvrir" est visible même hors mode édition
+    await waitFor(() => {
+      expect(screen.getByText('kbis.pdf')).toBeInTheDocument();
       expect(screen.getByText('Ouvrir')).toBeInTheDocument();
     });
 
-    // Check that K-Bis section is displayed
-    expect(screen.getByText('Document K-Bis')).toBeInTheDocument();
-    expect(screen.getByText('Aucun document')).toBeInTheDocument();
+    // En mode édition, "Remplacer" apparaît aussi
+    const modifierButton = screen.getByText('Modifier');
+    fireEvent.click(modifierButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Remplacer')).toBeInTheDocument();
+    });
   });
 });
