@@ -49,7 +49,10 @@ pub fn totp_available() -> bool {
 /// Génère un nouveau secret TOTP, le stocke dans le Keychain, retourne l'URI otpauth.
 /// Appelé une seule fois lors de la configuration initiale.
 #[tauri::command]
-pub fn totp_setup_start() -> Result<String, String> {
+pub fn totp_setup_start(session: tauri::State<'_, SessionState>) -> Result<String, String> {
+    if has_totp() && !*session.authenticated.lock() {
+        return Err("TOTP déjà configuré : authentification requise pour réinitialiser".to_string());
+    }
     let secret = generate_secret();
     store_secret(&secret)?;
     Ok(totp_uri(&secret))
@@ -91,7 +94,10 @@ pub async fn totp_login(
 
 /// Supprime le secret TOTP du Keychain (désactivation du mode TOTP).
 #[tauri::command]
-pub fn totp_revoke() -> Result<(), String> {
+pub fn totp_revoke(session: tauri::State<'_, SessionState>) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Authentification requise pour révoquer le TOTP".to_string());
+    }
     Entry::new(KEYRING_SERVICE, KEYRING_TOTP_USER)
         .map_err(|e| e.to_string())?
         .delete_password()
@@ -172,4 +178,29 @@ fn hotp(secret: &[u8], counter: u64) -> u32 {
         | (result[offset + 2] as u32) << 8
         | result[offset + 3] as u32;
     code % 1_000_000
+}
+
+pub fn ensure_authenticated(session: &SessionState) -> Result<(), String> {
+    if !*session.authenticated.lock() {
+        return Err("Non authentifié".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ensure_authenticated_unauthenticated() {
+        let session = SessionState::new();
+        assert!(ensure_authenticated(&session).is_err());
+    }
+
+    #[test]
+    fn test_ensure_authenticated_authenticated() {
+        let session = SessionState::new();
+        *session.authenticated.lock() = true;
+        assert!(ensure_authenticated(&session).is_ok());
+    }
 }
