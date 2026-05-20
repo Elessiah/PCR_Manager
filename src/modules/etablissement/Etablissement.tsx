@@ -44,7 +44,7 @@ export default function Etablissement() {
     queryFn: () => api.document.listForEntity('etablissement', 1),
     enabled: !!etablissement,
   });
-  const kbisDoc = kbisDocs.find(d => d.type_document === 'kbis') ?? null;
+  const kbisDoc = (kbisDocs ?? []).find(d => d.type_document === 'kbis') ?? null;
 
   const pickUploadMutation = useMutation({
     mutationFn: (replaceDocumentId: number | null) =>
