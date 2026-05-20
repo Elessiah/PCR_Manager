@@ -23,7 +23,7 @@ pub async fn mac_auth_start(
 ) -> Result<(), String> {
 	#[cfg(not(target_os = "macos"))]
 	{
-		return Err("Secure Enclave non disponible".into());
+		return Err("Authentification Keychain non disponible sur cette plateforme".into());
 	}
 
 	#[cfg(target_os = "macos")]
@@ -56,7 +56,7 @@ pub async fn mac_se_activate(
 ) -> Result<(), String> {
 	#[cfg(not(target_os = "macos"))]
 	{
-		return Err("Secure Enclave non disponible".into());
+		return Err("Authentification Keychain non disponible sur cette plateforme".into());
 	}
 
 	#[cfg(target_os = "macos")]
@@ -247,7 +247,7 @@ mod macos {
 		CFRelease(access_ctrl);
 
 		if key.is_null() {
-			return Err("Échec de la génération de clé Secure Enclave".into());
+			return Err("Échec de la génération de clé Keychain macOS".into());
 		}
 
 		CFRelease(key);
