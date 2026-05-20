@@ -110,6 +110,7 @@ pub fn run() {
             commands::travailleur::travailleur_create,
             commands::travailleur::travailleur_update,
             commands::travailleur::travailleur_delete,
+            commands::travailleur::journal_acces_list,
             commands::habilitation::habilitation_compute,
             commands::habilitation::habilitation_update,
             commands::habilitation::habilitation_get_for_travailleur,
