@@ -1,11 +1,11 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::Etablissement;
 use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn etablissement_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Etablissement>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin, created_at, updated_at FROM etablissement ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -38,7 +38,7 @@ pub async fn etablissement_list(session: tauri::State<'_, auth_iphone::SessionSt
 #[tauri::command]
 pub async fn etablissement_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Etablissement, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin, created_at, updated_at FROM etablissement WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -85,7 +85,7 @@ pub async fn etablissement_create(
     if let Some(ref s) = siret {
         crate::validators::validate_siret(s)?;
     }
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO etablissement (denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -127,7 +127,7 @@ pub async fn etablissement_update(
     if let Some(ref s) = siret {
         crate::validators::validate_siret(s)?;
     }
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "UPDATE etablissement SET denomination = ?1, statut_juridique = ?2, siret = ?3, adresse = ?4, code_postal = ?5, ville = ?6, telephone = ?7, email = ?8, site_internet = ?9, kbis_chemin = ?10 WHERE id = ?11",
         rusqlite::params![
@@ -153,7 +153,7 @@ pub async fn etablissement_update(
 pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] etablissement_delete id={}", id);
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute("DELETE FROM etablissement WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -161,7 +161,7 @@ pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth_iphone
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

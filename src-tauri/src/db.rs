@@ -1,13 +1,57 @@
 use rusqlite::Connection;
 use anyhow::{Result, Context};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard, MappedMutexGuard};
 use tauri::Manager;
 use keyring::Entry;
 use uuid::Uuid;
+use std::path::PathBuf;
 
 pub struct DbState {
-    pub conn: Mutex<Connection>,
+    pub conn: Mutex<Option<Connection>>,
 }
+
+impl DbState {
+    /// Retourne un guard vers la connexion active.
+    /// Erreur si la DB n'est pas encore ouverte (auth iPhone requise).
+    pub fn get(&self) -> Result<MappedMutexGuard<'_, Connection>, String> {
+        let guard = self.conn.lock();
+        if guard.is_none() {
+            return Err(
+                "Base de données non disponible : authentification iPhone requise".into(),
+            );
+        }
+        Ok(MutexGuard::map(guard, |opt| opt.as_mut().unwrap()))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chemins de fichiers
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn app_data_dir(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+}
+
+pub fn db_path(app: &tauri::AppHandle) -> PathBuf {
+    app_data_dir(app).join("pcr.db")
+}
+
+/// Chemin du bundle ECIES (clé DB enveloppée avec la clé publique iPhone).
+/// Son existence indique que l'app est en mode "auth iPhone requise".
+pub fn wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
+    app_data_dir(app).join("wrapped_db_key.bin")
+}
+
+/// Vrai si le bundle ECIES existe (mode auth iPhone activé).
+pub fn has_wrapped_key(app: &tauri::AppHandle) -> bool {
+    wrapped_key_path(app).exists()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gestion de la clé DB (keyring OS — utilisé uniquement en mode legacy)
+// ─────────────────────────────────────────────────────────────────────────────
 
 fn get_or_create_db_key() -> Result<String> {
     let entry = Entry::new("PCRManager", "db_encryption_key")
@@ -17,37 +61,75 @@ fn get_or_create_db_key() -> Result<String> {
         Ok(password) => Ok(password),
         Err(_) => {
             let key = Uuid::new_v4().to_string();
-            entry.set_password(&key)
+            entry
+                .set_password(&key)
                 .context("Failed to store database key in keyring")?;
             Ok(key)
         }
     }
 }
 
-pub fn open_db(app_handle: &tauri::AppHandle) -> Result<Connection> {
-    let app_data_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .context("Failed to resolve AppLocalData directory")?;
+// ─────────────────────────────────────────────────────────────────────────────
+// Ouverture de la connexion SQLCipher
+// ─────────────────────────────────────────────────────────────────────────────
 
-    std::fs::create_dir_all(&app_data_dir)
-        .context("Failed to create AppData directory")?;
+/// Ouvre la DB avec une clé explicite (mode iPhone).
+pub fn open_db_with_key(app: &tauri::AppHandle, key: &str) -> Result<Connection> {
+    let dir = app_data_dir(app);
+    std::fs::create_dir_all(&dir).context("Impossible de créer le dossier AppData")?;
 
-    let db_path = app_data_dir.join("pcr.db");
+    let conn = Connection::open(dir.join("pcr.db"))
+        .context("Impossible d'ouvrir la connexion SQLCipher")?;
 
-    let conn = Connection::open(&db_path)
-        .context("Failed to open database connection")?;
-
-    let db_key = get_or_create_db_key()?;
-    let escaped_key = db_key.replace('\'', "''");
-    conn.execute_batch(&format!("PRAGMA key = '{}';", escaped_key))?;
+    let escaped = key.replace('\'', "''");
+    conn.execute_batch(&format!("PRAGMA key = '{}';", escaped))
+        .context("PRAGMA key échoué")?;
 
     Ok(conn)
 }
 
-/// Liste ordonnée des migrations à exécuter. Ajouter une nouvelle entrée
-/// pour chaque fichier `Vn__*.sql` ; les versions déjà appliquées sont
-/// détectées via la table `__migrations` et skippées.
+/// Ouvre la DB avec la clé stockée dans le keyring (mode legacy).
+pub fn open_db_keyring(app: &tauri::AppHandle) -> Result<Connection> {
+    let key = get_or_create_db_key()?;
+    open_db_with_key(app, &key)
+}
+
+/// Ouvre la DB et exécute les migrations en attente.
+/// `key` = None → mode legacy (keyring), Some(k) → clé fournie par iPhone.
+pub fn open_and_migrate(app: &tauri::AppHandle, key: Option<&str>) -> Result<Connection> {
+    let mut conn = match key {
+        Some(k) => open_db_with_key(app, k)?,
+        None    => open_db_keyring(app)?,
+    };
+    run_migrations(&mut conn)?;
+    Ok(conn)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Re-keying (lors du premier appairage iPhone en mode v2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Modifie la clé SQLCipher de la connexion ouverte.
+/// La connexion reste valide après l'appel.
+pub fn rekey_db(conn: &Connection, new_key: &str) -> Result<()> {
+    let escaped = new_key.replace('\'', "''");
+    conn.execute_batch(&format!("PRAGMA rekey = '{}';", escaped))
+        .context("PRAGMA rekey échoué")?;
+    Ok(())
+}
+
+/// Génère une clé DB aléatoire (32 octets → 64 chars hex).
+pub fn generate_db_key() -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Migrations
+// ─────────────────────────────────────────────────────────────────────────────
+
 const MIGRATIONS: &[(i32, &str, &str)] = &[
     (1, "V1__initial",   include_str!("../migrations/V1__initial.sql")),
     (2, "V2__seed_demo", include_str!("../migrations/V2__seed_demo.sql")),
@@ -56,6 +138,7 @@ const MIGRATIONS: &[(i32, &str, &str)] = &[
     (5, "V5__local_auth",             include_str!("../migrations/V5__local_auth.sql")),
     (6, "V6__competence_validity_assignments", include_str!("../migrations/V6__competence_validity_assignments.sql")),
     (7, "V7__iphone_auth",            include_str!("../migrations/V7__iphone_auth.sql")),
+    (8, "V8__iphone_ka_key",          include_str!("../migrations/V8__iphone_ka_key.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
@@ -68,14 +151,14 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
         let already_applied: bool = conn
             .prepare("SELECT 1 FROM __migrations WHERE version = ?1")?
             .exists([version])
-            .with_context(|| format!("Failed to check migration {} status", label))?;
+            .with_context(|| format!("Impossible de vérifier la migration {}", label))?;
 
         if already_applied {
             continue;
         }
 
         conn.execute_batch(sql)
-            .with_context(|| format!("Failed to execute migration {}", label))?;
+            .with_context(|| format!("Échec de la migration {}", label))?;
 
         conn.execute(
             "INSERT INTO __migrations (version) VALUES (?1)",
@@ -86,21 +169,24 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Commande Tauri
+// ─────────────────────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn init_db(state: tauri::State<'_, DbState>) -> Result<(), String> {
-    let mut conn = state.conn.lock();
-    run_migrations(&mut conn)
-        .map_err(|e| e.to_string())
+    let mut conn = state.get()?;
+    run_migrations(&mut conn).map_err(|e| e.to_string())
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
-
-    // Retourne (Connection, TempDir) : le TempDir doit rester en vie pendant
-    // tout le test pour que SQLCipher puisse accéder aux fichiers WAL/shm.
     fn create_test_db() -> Result<(Connection, tempfile::TempDir)> {
         let dir = tempfile::tempdir()?;
         let db_path = dir.path().join("test.db");
@@ -154,12 +240,8 @@ mod tests {
         let (mut conn, _dir) = create_test_db().expect("Failed to create test DB");
         run_migrations(&mut conn).expect("Failed to run migrations");
 
-        let mut stmt = conn
-            .prepare("SELECT COUNT(*) FROM competence_ref")
-            .expect("Failed to prepare statement");
-
-        let count: i64 = stmt
-            .query_row([], |row| row.get(0))
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM competence_ref", [], |row| row.get(0))
             .expect("Failed to query count");
 
         assert_eq!(count, 9, "competence_ref should have exactly 9 rows");
@@ -170,16 +252,32 @@ mod tests {
         let (mut conn, _dir) = create_test_db().expect("Failed to create test DB");
         run_migrations(&mut conn).expect("Failed to run migrations");
 
-        let mut stmt = conn
+        let exists = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='view' AND name='v_prochaine_verification'")
-            .expect("Failed to prepare statement");
-
-        let exists = stmt
+            .expect("prepare")
             .exists([])
-            .expect("Failed to query view existence");
+            .expect("exists");
 
         assert!(exists, "View v_prochaine_verification should exist");
     }
 
-    // NOTE: get_or_create_db_key() non testée unitairement (effet de bord OS keyring)
+    #[test]
+    fn test_generate_db_key_is_64_hex_chars() {
+        let key = generate_db_key();
+        assert_eq!(key.len(), 64);
+        assert!(key.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_generate_db_key_is_random() {
+        let k1 = generate_db_key();
+        let k2 = generate_db_key();
+        assert_ne!(k1, k2);
+    }
+
+    #[test]
+    fn test_dbstate_get_returns_err_when_none() {
+        let state = DbState { conn: Mutex::new(None) };
+        assert!(state.get().is_err());
+    }
 }

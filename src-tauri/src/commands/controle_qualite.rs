@@ -1,11 +1,11 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::ControleQualite;
 use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn controle_qualite_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<ControleQualite>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations, created_at FROM controle_qualite ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -36,7 +36,7 @@ pub async fn controle_qualite_list(session: tauri::State<'_, auth_iphone::Sessio
 #[tauri::command]
 pub async fn controle_qualite_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<ControleQualite, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations, created_at FROM controle_qualite WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -77,7 +77,7 @@ pub async fn controle_qualite_create(
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO controle_qualite (appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -114,7 +114,7 @@ pub async fn controle_qualite_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "UPDATE controle_qualite SET appareil_id = ?1, type = ?2, date_realisation = ?3, date_echeance = ?4, controle_externe_id = ?5, organisme = ?6, realise_par = ?7, statut = ?8, observations = ?9 WHERE id = ?10",
         rusqlite::params![
@@ -139,7 +139,7 @@ pub async fn controle_qualite_update(
 pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] controle_qualite_delete id={}", id);
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute("DELETE FROM controle_qualite WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -147,7 +147,7 @@ pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth_iph
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

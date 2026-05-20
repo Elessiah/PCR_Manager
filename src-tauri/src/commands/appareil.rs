@@ -1,11 +1,11 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::Appareil;
 use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn appareil_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Appareil>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma, created_at, updated_at FROM appareil ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -39,7 +39,7 @@ pub async fn appareil_list(session: tauri::State<'_, auth_iphone::SessionState>,
 #[tauri::command]
 pub async fn appareil_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Appareil, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma, created_at, updated_at FROM appareil WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -85,7 +85,7 @@ pub async fn appareil_create(
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO appareil (etablissement_id, designation, marque, modele, numero_serie, type, annee_mise_en_service, lieu_utilisation, utilisation_partagee, tension_nominale_kv, intensite_maximale_ma)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
@@ -126,7 +126,7 @@ pub async fn appareil_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "UPDATE appareil SET etablissement_id = ?1, designation = ?2, marque = ?3, modele = ?4, numero_serie = ?5, type = ?6, annee_mise_en_service = ?7, lieu_utilisation = ?8, utilisation_partagee = ?9, tension_nominale_kv = ?10, intensite_maximale_ma = ?11 WHERE id = ?12",
         rusqlite::params![
@@ -153,7 +153,7 @@ pub async fn appareil_update(
 pub async fn appareil_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] appareil_delete id={}", id);
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute("DELETE FROM appareil WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -161,7 +161,7 @@ pub async fn appareil_delete(id: i64, session: tauri::State<'_, auth_iphone::Ses
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

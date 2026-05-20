@@ -1,4 +1,4 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::{CompetenceRef, CompetenceTravailleur, CompetenceTravailleurGeneral};
 use crate::auth_iphone;
 use chrono::{NaiveDate, Months};
@@ -15,7 +15,7 @@ pub async fn competence_ref_create(
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO competence_ref (libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         rusqlite::params![libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois],
@@ -38,7 +38,7 @@ pub async fn competence_ref_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "UPDATE competence_ref SET libelle = ?1, ordre = ?2, description = ?3, propre_appareil = ?4, duree_validite_mois = ?5, duree_alerte_mois = ?6 WHERE id = ?7",
         rusqlite::params![libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois, id],
@@ -54,7 +54,7 @@ pub async fn competence_ref_delete(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute("DELETE FROM competence_ref WHERE id = ?1", rusqlite::params![id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -63,7 +63,7 @@ pub async fn competence_ref_delete(
 #[tauri::command]
 pub async fn competence_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois FROM competence_ref ORDER BY ordre")
         .map_err(|e| e.to_string())?;
@@ -99,7 +99,7 @@ pub async fn competence_set(
 ) -> Result<(), String> {
     eprintln!("[AUDIT] competence_set travailleur_id={} appareil_id={}", travailleur_id, appareil_id);
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     let date_peremption = if validated == 1 {
         match &date_validation {
@@ -132,7 +132,7 @@ pub async fn competence_get_for_travailleur(
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleur>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, travailleur_id, appareil_id, competence_ref_id, date_validation, validated, date_peremption FROM competence_travailleur WHERE travailleur_id = ?1 ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -156,9 +156,9 @@ pub async fn competence_get_for_travailleur(
     Ok(competences)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Compétences générales (table competence_travailleur_general, V6)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// CompÃ©tences gÃ©nÃ©rales (table competence_travailleur_general, V6)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn competence_general_set(
@@ -170,7 +170,7 @@ pub async fn competence_general_set(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     let date_peremption = if validated == 1 {
         match &date_validation {
@@ -203,7 +203,7 @@ pub async fn competence_general_get_for_travailleur(
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleurGeneral>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, travailleur_id, competence_ref_id, date_validation, date_peremption, validated FROM competence_travailleur_general WHERE travailleur_id = ?1 ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -226,9 +226,9 @@ pub async fn competence_general_get_for_travailleur(
     Ok(competences)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Compétences requises par appareil (table appareil_competence_ref, V4)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// CompÃ©tences requises par appareil (table appareil_competence_ref, V4)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn appareil_competence_add(
@@ -236,7 +236,7 @@ pub async fn appareil_competence_add(
     competence_ref_id: i64,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT OR IGNORE INTO appareil_competence_ref (appareil_id, competence_ref_id) VALUES (?1, ?2)",
         rusqlite::params![appareil_id, competence_ref_id],
@@ -251,7 +251,7 @@ pub async fn appareil_competence_remove(
     competence_ref_id: i64,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "DELETE FROM appareil_competence_ref WHERE appareil_id = ?1 AND competence_ref_id = ?2",
         rusqlite::params![appareil_id, competence_ref_id],
@@ -265,7 +265,7 @@ pub async fn appareil_competence_list(
     appareil_id: i64,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<i64>, String> {
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare(
             "SELECT competence_ref_id FROM appareil_competence_ref \
@@ -284,7 +284,7 @@ pub async fn appareil_competence_list(
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

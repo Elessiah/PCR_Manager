@@ -11,6 +11,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
@@ -40,8 +41,17 @@ pub fn session_check(session: tauri::State<'_, SessionState>) -> serde_json::Val
 }
 
 #[tauri::command]
-pub fn iphone_logout(session: tauri::State<'_, SessionState>) -> Result<(), String> {
+pub fn iphone_logout(
+    app: tauri::AppHandle,
+    session: tauri::State<'_, SessionState>,
+    db: tauri::State<'_, DbState>,
+) -> Result<(), String> {
     *session.authenticated.lock() = false;
+    // En mode iPhone (wrapped_db_key.bin présent) : fermer la connexion DB
+    // pour que les données soient inaccessibles jusqu'à la prochaine auth.
+    if crate::db::has_wrapped_key(&app) {
+        *db.conn.lock() = None;
+    }
     Ok(())
 }
 
@@ -83,7 +93,8 @@ enum PairingResult {
     Completed {
         iphone_device_id: String,
         iphone_device_name: String,
-        iphone_public_key: Vec<u8>,
+        iphone_public_key: Vec<u8>,          // clé ECDSA (signature)
+        iphone_ka_public_key: Option<Vec<u8>>, // clé KA (protocole v2)
     },
     Failed(String),
 }
@@ -102,7 +113,7 @@ struct PendingChallenge {
 #[derive(Clone)]
 enum ChallengeResult {
     Pending,
-    Verified { new_counter: u64 },
+    Verified { new_counter: u64, db_key: Option<String> },
     Failed(String),
 }
 
@@ -161,8 +172,12 @@ struct PairingRequest {
     invitation_id: String,
     iphone_device_id: String,
     iphone_device_name: String,
-    /// P-256 uncompressed point (65 bytes), base64url
+    /// P-256 uncompressed point (65 bytes), base64url — clé ECDSA de signature
     iphone_identity_public_key: String,
+    /// P-256 uncompressed point (65 bytes), base64url — clé P-256 Key Agreement (protocole v2)
+    /// Absente pour les clients v1 (rétrocompatibilité).
+    #[serde(default)]
+    iphone_ka_public_key: Option<String>,
     /// DER-encoded ECDSA signature, base64url
     signature: String,
     timestamp_ms: i64,
@@ -177,6 +192,10 @@ struct AuthRequest {
     signature: String,
     counter: u64,
     timestamp_ms: i64,
+    /// Clé DB déchiffrée par l'iPhone via ECIES (protocole v2).
+    /// Transmise en base64url (32 octets raw → clé hex convertie par le Mac).
+    #[serde(default)]
+    db_key: Option<String>,
 }
 
 // Résultat parsé de la requête de pairing
@@ -184,7 +203,61 @@ struct AuthRequest {
 struct ProcessedPairing {
     iphone_device_id: String,
     iphone_device_name: String,
-    iphone_public_key: Vec<u8>,
+    iphone_public_key: Vec<u8>,       // clé ECDSA (signature)
+    iphone_ka_public_key: Option<Vec<u8>>, // clé KA (key agreement), protocole v2
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Métadonnées d'appairage (fichier JSON non-chiffré — clés publiques uniquement)
+// Permet d'identifier les appareils et de vérifier les signatures AVANT
+// que la DB SQLCipher soit ouverte (bootstrap du mode auth iPhone).
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Default)]
+struct PairingsMeta {
+    version: u32,
+    pairings: Vec<PairingMetaEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct PairingMetaEntry {
+    pairing_id: String,
+    device_name: String,
+    device_id: String,
+    /// Clé publique ECDSA P-256 x963, base64url (65 octets)
+    signing_pub_key: String,
+    /// Clé publique P-256 Key Agreement x963, base64url (65 octets) — protocole v2
+    ka_pub_key: Option<String>,
+    auth_counter: u64,
+    active: bool,
+}
+
+fn pairings_meta_path(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_local_data_dir()
+        .map(|p| p.join("pairings_meta.json"))
+        .unwrap_or_else(|_| PathBuf::from("pairings_meta.json"))
+}
+
+fn read_pairings_meta(app: &tauri::AppHandle) -> PairingsMeta {
+    std::fs::read_to_string(pairings_meta_path(app))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_pairings_meta(app: &tauri::AppHandle, meta: &PairingsMeta) {
+    if let Ok(json) = serde_json::to_string_pretty(meta) {
+        let _ = std::fs::write(pairings_meta_path(app), json);
+    }
+}
+
+fn update_pairings_meta_counter(app: &tauri::AppHandle, pairing_id: &str, new_counter: u64) {
+    let mut meta = read_pairings_meta(app);
+    if let Some(entry) = meta.pairings.iter_mut().find(|p| p.pairing_id == pairing_id) {
+        entry.auth_counter = new_counter;
+    }
+    write_pairings_meta(app, &meta);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -371,17 +444,31 @@ fn process_pairing_request(
     let sig = Signature::from_der(&sig_bytes).map_err(|_| "Signature DER invalide")?;
     vk.verify(&payload, &sig).map_err(|_| "Signature de pairing invalide")?;
 
+    // Clé Key Agreement (protocole v2, optionnelle)
+    let iphone_ka_public_key = if let Some(ka_b64) = req.iphone_ka_public_key {
+        let ka_bytes =
+            URL_SAFE_NO_PAD.decode(&ka_b64).map_err(|e| e.to_string())?;
+        // Vérifier que c'est bien un point P-256 valide
+        p256::EncodedPoint::from_bytes(&ka_bytes).map_err(|_| "Point KA P-256 invalide")?;
+        Some(ka_bytes)
+    } else {
+        None
+    };
+
     Ok(ProcessedPairing {
         iphone_device_id: req.iphone_device_id,
         iphone_device_name: req.iphone_device_name,
         iphone_public_key: pub_bytes,
+        iphone_ka_public_key,
     })
 }
 
+/// Retourne (nouveau_compteur, db_key_optionnel).
+/// Le db_key est transmis tel quel depuis l'iPhone (base64url, protocole v2).
 fn process_auth_request(
     body: &[u8],
     challenge: &PendingChallenge,
-) -> Result<u64, String> {
+) -> Result<(u64, Option<String>), String> {
     let req: AuthRequest =
         serde_json::from_slice(body).map_err(|e| format!("JSON invalide: {}", e))?;
 
@@ -405,10 +492,7 @@ fn process_auth_request(
         ));
     }
 
-    // Vérification device_id
-    // (le device peut avoir plusieurs pairings ; on vérifie juste qu'il ne triche pas)
-
-    // Import de la clé publique stockée lors de l'appairage
+    // Import de la clé publique ECDSA stockée lors de l'appairage
     let encoded_point = p256::EncodedPoint::from_bytes(&challenge.iphone_public_key)
         .map_err(|_| "Clé publique enregistrée corrompue")?;
     let vk = VerifyingKey::from_encoded_point(&encoded_point)
@@ -426,7 +510,7 @@ fn process_auth_request(
     let sig = Signature::from_der(&sig_bytes).map_err(|_| "Signature DER invalide")?;
     vk.verify(&payload, &sig).map_err(|_| "Signature d'authentification invalide")?;
 
-    Ok(req.counter)
+    Ok((req.counter, req.db_key))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -459,6 +543,7 @@ fn run_pairing_server(
                                 iphone_device_id: p.iphone_device_id,
                                 iphone_device_name: p.iphone_device_name,
                                 iphone_public_key: p.iphone_public_key,
+                                iphone_ka_public_key: p.iphone_ka_public_key,
                             };
                         }
                         Err(e) => {
@@ -521,9 +606,9 @@ fn run_auth_server(
                 stream.set_write_timeout(Some(std::time::Duration::from_secs(5))).ok();
                 match read_http_body(&mut stream) {
                     Some(body) => match process_auth_request(&body, &fake_challenge) {
-                        Ok(new_counter) => {
+                        Ok((new_counter, db_key)) => {
                             http_ok(&mut stream);
-                            *result.lock() = ChallengeResult::Verified { new_counter };
+                            *result.lock() = ChallengeResult::Verified { new_counter, db_key };
                         }
                         Err(e) => {
                             http_error(&mut stream, &e);
@@ -549,68 +634,161 @@ fn run_auth_server(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Activation du mode key-wrapping ECIES (protocole v2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Appelée après un appairage v2 réussi :
+/// 1. Génère une nouvelle clé DB aléatoire K_new
+/// 2. Re-keye SQLCipher avec K_new (l'ancienne clé keyring devient caduque)
+/// 3. Chiffre K_new avec la clé publique KA de l'iPhone (ECIES) → wrapped_db_key.bin
+/// 4. Met à jour pairings_meta.json
+///
+/// Après cette opération, la DB ne peut être ouverte que via l'iPhone.
+fn activate_iphone_key_wrapping(
+    app: &tauri::AppHandle,
+    db: &tauri::State<'_, DbState>,
+    pairing_id: &str,
+    device_id: &str,
+    device_name: &str,
+    signing_pub_key: &[u8],
+    ka_pub_key: &[u8],
+) -> Result<(), String> {
+    // 1. Nouvelle clé DB (64 chars hex, 32 octets d'entropie)
+    let k_new = crate::db::generate_db_key();
+
+    // 2. Chiffrer K_new avec la clé KA de l'iPhone (ECIES)
+    let bundle = crate::ecies::ecies_encrypt(ka_pub_key, k_new.as_bytes())
+        .map_err(|e| format!("ECIES chiffrement échoué: {}", e))?;
+
+    // 3. Écrire dans un fichier temporaire (atomicité : rename après rekey)
+    let tmp_path  = crate::db::wrapped_key_path(app).with_extension("bin.tmp");
+    let final_path = crate::db::wrapped_key_path(app);
+    std::fs::write(&tmp_path, &bundle)
+        .map_err(|e| format!("Écriture bundle ECIES (tmp): {}", e))?;
+
+    // 4. Re-keyer la DB avec K_new
+    {
+        let conn = db.get()?;
+        crate::db::rekey_db(&conn, &k_new)
+            .map_err(|e| format!("PRAGMA rekey échoué: {}", e))?;
+    }
+
+    // 5. Rendre le bundle officiel (rename atomique)
+    std::fs::rename(&tmp_path, &final_path)
+        .map_err(|e| format!("Rename bundle ECIES: {}", e))?;
+
+    // 6. Mettre à jour pairings_meta.json
+    let mut meta = read_pairings_meta(app);
+    meta.version = 2;
+    meta.pairings.push(PairingMetaEntry {
+        pairing_id: pairing_id.to_string(),
+        device_name: device_name.to_string(),
+        device_id: device_id.to_string(),
+        signing_pub_key: URL_SAFE_NO_PAD.encode(signing_pub_key),
+        ka_pub_key: Some(URL_SAFE_NO_PAD.encode(ka_pub_key)),
+        auth_counter: 0,
+        active: true,
+    });
+    write_pairings_meta(app, &meta);
+
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Commandes Tauri
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Retourne true si au moins un appairage iPhone actif existe.
+/// Interroge la DB si disponible, sinon pairings_meta.json (bootstrap avant auth).
 #[tauri::command]
-pub async fn iphone_has_paired_device(db: tauri::State<'_, DbState>) -> Result<bool, String> {
-    let conn = db.conn.lock();
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM iphone_pairing WHERE active = 1",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(count > 0)
+pub async fn iphone_has_paired_device(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, DbState>,
+) -> Result<bool, String> {
+    if let Ok(conn) = db.get() {
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM iphone_pairing WHERE active = 1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        return Ok(count > 0);
+    }
+    // DB pas encore ouverte → lire le fichier de métadonnées
+    Ok(read_pairings_meta(&app).pairings.iter().any(|p| p.active))
 }
 
 /// Liste tous les appareils iPhone appairés.
+/// Interroge la DB si disponible, sinon pairings_meta.json.
 #[tauri::command]
 pub async fn iphone_pairing_list(
+    app: tauri::AppHandle,
     db: tauri::State<'_, DbState>,
 ) -> Result<Vec<PairedDevice>, String> {
-    let conn = db.conn.lock();
-    let mut stmt = conn
-        .prepare(
-            "SELECT pairing_id, iphone_device_name, iphone_device_id,
-                    paired_at, last_auth_at, auth_counter
-             FROM iphone_pairing WHERE active = 1
-             ORDER BY paired_at DESC",
-        )
-        .map_err(|e| e.to_string())?;
+    if let Ok(conn) = db.get() {
+        let mut stmt = conn
+            .prepare(
+                "SELECT pairing_id, iphone_device_name, iphone_device_id,
+                        paired_at, last_auth_at, auth_counter
+                 FROM iphone_pairing WHERE active = 1
+                 ORDER BY paired_at DESC",
+            )
+            .map_err(|e| e.to_string())?;
 
-    let devices = stmt
-        .query_map([], |row| {
-            Ok(PairedDevice {
-                pairing_id: row.get(0)?,
-                iphone_device_name: row.get(1)?,
-                iphone_device_id: row.get(2)?,
-                paired_at: row.get(3)?,
-                last_auth_at: row.get(4)?,
-                auth_counter: row.get::<_, i64>(5)? as u64,
+        return stmt
+            .query_map([], |row| {
+                Ok(PairedDevice {
+                    pairing_id: row.get(0)?,
+                    iphone_device_name: row.get(1)?,
+                    iphone_device_id: row.get(2)?,
+                    paired_at: row.get(3)?,
+                    last_auth_at: row.get(4)?,
+                    auth_counter: row.get::<_, i64>(5)? as u64,
+                })
             })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string());
+    }
+    // DB pas encore ouverte → construire depuis les métadonnées
+    let devices = read_pairings_meta(&app)
+        .pairings
+        .into_iter()
+        .filter(|p| p.active)
+        .map(|p| PairedDevice {
+            pairing_id: p.pairing_id,
+            iphone_device_name: p.device_name,
+            iphone_device_id: p.device_id,
+            paired_at: String::new(),
+            last_auth_at: None,
+            auth_counter: p.auth_counter,
         })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
+        .collect();
     Ok(devices)
 }
 
-/// Révoque un appairage (soft delete).
+/// Révoque un appairage (soft delete). Synchronise la DB et pairings_meta.json.
 #[tauri::command]
 pub async fn iphone_pairing_revoke(
+    app: tauri::AppHandle,
     db: tauri::State<'_, DbState>,
     pairing_id: String,
 ) -> Result<(), String> {
-    let conn = db.conn.lock();
+    let conn = db.get()?;
     conn.execute(
         "UPDATE iphone_pairing SET active = 0 WHERE pairing_id = ?1",
         rusqlite::params![pairing_id],
     )
     .map_err(|e| e.to_string())?;
+
+    // Synchroniser pairings_meta.json
+    let mut meta = read_pairings_meta(&app);
+    if let Some(entry) = meta.pairings.iter_mut().find(|p| p.pairing_id == pairing_id) {
+        entry.active = false;
+    }
+    write_pairings_meta(&app, &meta);
+
     Ok(())
 }
 
@@ -663,6 +841,7 @@ pub async fn iphone_pairing_start(
 /// Interroge l'état de l'appairage en cours. Sauvegarde en DB si complété.
 #[tauri::command]
 pub async fn iphone_pairing_poll(
+    app: tauri::AppHandle,
     state: tauri::State<'_, IphoneAuthState>,
     db: tauri::State<'_, DbState>,
 ) -> Result<PairingPollResponse, String> {
@@ -687,27 +866,59 @@ pub async fn iphone_pairing_poll(
         PairingResult::Pending => {
             Ok(PairingPollResponse { status: "pending".into(), pairing_id: None, error: None })
         }
-        PairingResult::Completed { iphone_device_id, iphone_device_name, iphone_public_key } => {
+        PairingResult::Completed { iphone_device_id, iphone_device_name, iphone_public_key, iphone_ka_public_key } => {
             let pairing_id = Uuid::new_v4();
+            let pairing_id_str = pairing_id.to_string();
+
+            // Insérer dans la DB (qui est forcément ouverte ici)
             {
-                let conn = db.conn.lock();
+                let conn = db.get()?;
                 conn.execute(
                     "INSERT INTO iphone_pairing
-                     (pairing_id, iphone_device_id, iphone_device_name, iphone_public_key, auth_counter, paired_at, active)
-                     VALUES (?1, ?2, ?3, ?4, 0, datetime('now'), 1)",
+                     (pairing_id, iphone_device_id, iphone_device_name, iphone_public_key, ka_public_key, auth_counter, paired_at, active)
+                     VALUES (?1, ?2, ?3, ?4, ?5, 0, datetime('now'), 1)",
                     rusqlite::params![
-                        pairing_id.to_string(),
+                        pairing_id_str,
                         iphone_device_id,
                         iphone_device_name,
                         iphone_public_key,
+                        iphone_ka_public_key,
                     ],
                 )
                 .map_err(|e| e.to_string())?;
             }
+
+            // ── Protocole v2 : re-keying + ECIES bundle ─────────────────────
+            if let Some(ref ka_pub_key) = iphone_ka_public_key {
+                activate_iphone_key_wrapping(
+                    &app,
+                    &db,
+                    &pairing_id_str,
+                    &iphone_device_id,
+                    &iphone_device_name,
+                    &iphone_public_key,
+                    ka_pub_key,
+                )?;
+            } else {
+                // Protocole v1 : mettre à jour pairings_meta.json sans re-keying
+                let mut meta = read_pairings_meta(&app);
+                meta.version = 1;
+                meta.pairings.push(PairingMetaEntry {
+                    pairing_id: pairing_id_str.clone(),
+                    device_name: iphone_device_name.clone(),
+                    device_id: iphone_device_id.clone(),
+                    signing_pub_key: URL_SAFE_NO_PAD.encode(&iphone_public_key),
+                    ka_pub_key: None,
+                    auth_counter: 0,
+                    active: true,
+                });
+                write_pairings_meta(&app, &meta);
+            }
+
             *pending_guard = None;
             Ok(PairingPollResponse {
                 status: "completed".into(),
-                pairing_id: Some(pairing_id.to_string()),
+                pairing_id: Some(pairing_id_str),
                 error: None,
             })
         }
@@ -720,6 +931,8 @@ pub async fn iphone_pairing_poll(
 
 /// Génère un challenge d'authentification pour l'iPhone appairé `pairing_id`.
 /// Lance un serveur HTTP en arrière-plan et retourne le payload QR.
+/// En mode v2, inclut le bundle ECIES dans le QR pour que l'iPhone puisse
+/// déchiffrer la clé DB et la renvoyer après vérification Face ID.
 #[tauri::command]
 pub async fn iphone_auth_challenge_start(
     app: tauri::AppHandle,
@@ -727,9 +940,10 @@ pub async fn iphone_auth_challenge_start(
     db: tauri::State<'_, DbState>,
     pairing_id: String,
 ) -> Result<ChallengeStartResponse, String> {
-    // Charger le pairing depuis la DB
-    let (iphone_public_key, current_counter) = {
-        let conn = db.conn.lock();
+    // Charger la clé publique ECDSA et le compteur :
+    // - depuis la DB si elle est déjà ouverte (mode legacy ou même session)
+    // - depuis pairings_meta.json si la DB n'est pas encore ouverte (bootstrap v2)
+    let (iphone_public_key, current_counter) = if let Ok(conn) = db.get() {
         conn.query_row(
             "SELECT iphone_public_key, auth_counter FROM iphone_pairing
              WHERE pairing_id = ?1 AND active = 1",
@@ -737,6 +951,17 @@ pub async fn iphone_auth_challenge_start(
             |r| Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, i64>(1)? as u64)),
         )
         .map_err(|_| "Appairage introuvable ou inactif".to_string())?
+    } else {
+        let meta = read_pairings_meta(&app);
+        let entry = meta
+            .pairings
+            .iter()
+            .find(|p| p.pairing_id == pairing_id && p.active)
+            .ok_or("Appairage introuvable ou inactif")?;
+        let pub_key_bytes = URL_SAFE_NO_PAD
+            .decode(&entry.signing_pub_key)
+            .map_err(|e| format!("Clé publique invalide: {}", e))?;
+        (pub_key_bytes, entry.auth_counter)
     };
 
     let local_ip = get_local_ip().ok_or("Impossible de déterminer l'IP locale")?;
@@ -754,10 +979,23 @@ pub async fn iphone_auth_challenge_start(
     let nonce_b64 = URL_SAFE_NO_PAD.encode(nonce);
     let pairing_id_uuid =
         Uuid::parse_str(&pairing_id).map_err(|_| "pairing_id invalide")?;
-    let qr_data = format!(
-        "pcrauth://auth?v=1&host={}&port={}&challenge_id={}&nonce={}&mac_id={}&pairing_id={}&counter={}",
-        local_ip, port, challenge_id, nonce_b64, mac_device_id, pairing_id_uuid, expected_counter
-    );
+
+    // En mode v2 (bundle ECIES présent), l'iPhone doit déchiffrer la clé DB
+    // et la renvoyer dans sa réponse POST.
+    let qr_data = if crate::db::has_wrapped_key(&app) {
+        let bundle = std::fs::read(crate::db::wrapped_key_path(&app))
+            .map_err(|e| format!("Lecture bundle ECIES: {}", e))?;
+        let bundle_b64 = URL_SAFE_NO_PAD.encode(&bundle);
+        format!(
+            "pcrauth://auth?v=2&host={}&port={}&challenge_id={}&nonce={}&mac_id={}&pairing_id={}&counter={}&wrapped_key={}",
+            local_ip, port, challenge_id, nonce_b64, mac_device_id, pairing_id_uuid, expected_counter, bundle_b64
+        )
+    } else {
+        format!(
+            "pcrauth://auth?v=1&host={}&port={}&challenge_id={}&nonce={}&mac_id={}&pairing_id={}&counter={}",
+            local_ip, port, challenge_id, nonce_b64, mac_device_id, pairing_id_uuid, expected_counter
+        )
+    };
 
     // État pending
     let result_arc: Arc<Mutex<ChallengeResult>> =
@@ -795,9 +1033,11 @@ pub async fn iphone_auth_challenge_start(
     })
 }
 
-/// Interroge l'état du challenge en cours. Ouvre la session et met à jour le compteur si vérifié.
+/// Interroge l'état du challenge en cours.
+/// En mode v2, ouvre la DB avec la clé déchiffrée par l'iPhone.
 #[tauri::command]
 pub async fn iphone_auth_poll(
+    app: tauri::AppHandle,
     state: tauri::State<'_, IphoneAuthState>,
     session: tauri::State<'_, SessionState>,
     db: tauri::State<'_, DbState>,
@@ -821,10 +1061,30 @@ pub async fn iphone_auth_poll(
         ChallengeResult::Pending => {
             Ok(AuthPollResponse { status: "pending".into(), error: None })
         }
-        ChallengeResult::Verified { new_counter } => {
+        ChallengeResult::Verified { new_counter, db_key } => {
             let pairing_id_str = pending.pairing_id.to_string();
-            {
-                let conn = db.conn.lock();
+
+            // ── Mode v2 : ouvrir la DB avec la clé fournie par l'iPhone ──────
+            if let Some(ref key_b64) = db_key {
+                // La DB n'est pas encore ouverte (mode iPhone activé)
+                if db.get().is_err() {
+                    // Décoder la clé raw (32 octets) et la convertir en hex
+                    let key_bytes = URL_SAFE_NO_PAD
+                        .decode(key_b64)
+                        .map_err(|_| "db_key base64 invalide")?;
+                    let hex_key: String =
+                        key_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+
+                    let conn = crate::db::open_and_migrate(&app, Some(&hex_key))
+                        .map_err(|e| format!("Impossible d'ouvrir la DB: {}", e))?;
+                    *db.conn.lock() = Some(conn);
+                }
+                // Si la DB est déjà ouverte (premier appairage dans la même session),
+                // on n'a pas besoin de la réouvrir.
+            }
+
+            // ── Mise à jour du compteur anti-rejeu ───────────────────────────
+            if let Ok(conn) = db.get() {
                 conn.execute(
                     "UPDATE iphone_pairing
                      SET auth_counter = ?1, last_auth_at = datetime('now')
@@ -833,6 +1093,9 @@ pub async fn iphone_auth_poll(
                 )
                 .map_err(|e| e.to_string())?;
             }
+            // Synchroniser dans pairings_meta.json (lu avant que la DB soit ouverte)
+            update_pairings_meta_counter(&app, &pairing_id_str, new_counter);
+
             *session.authenticated.lock() = true;
             *pending_guard = None;
             Ok(AuthPollResponse { status: "authenticated".into(), error: None })
@@ -1195,8 +1458,9 @@ mod tests {
         let sk = random_signing_key();
         let challenge = make_challenge(&sk, 0);
         let body = make_auth_body(&sk, &challenge, 1, None, None);
-        let counter = process_auth_request(&body, &challenge).unwrap();
+        let (counter, db_key) = process_auth_request(&body, &challenge).unwrap();
         assert_eq!(counter, 1);
+        assert!(db_key.is_none()); // pas de db_key en v1
     }
 
     #[test]
@@ -1204,7 +1468,8 @@ mod tests {
         let sk = random_signing_key();
         let challenge = make_challenge(&sk, 5);
         let body = make_auth_body(&sk, &challenge, 6, None, None);
-        assert_eq!(process_auth_request(&body, &challenge).unwrap(), 6);
+        let (counter, _) = process_auth_request(&body, &challenge).unwrap();
+        assert_eq!(counter, 6);
     }
 
     #[test]

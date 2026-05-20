@@ -1,11 +1,11 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::VerificationTechnique;
 use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn verification_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<VerificationTechnique>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations, created_at FROM verification_technique ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -33,7 +33,7 @@ pub async fn verification_list(session: tauri::State<'_, auth_iphone::SessionSta
 #[tauri::command]
 pub async fn verification_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<VerificationTechnique, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations, created_at FROM verification_technique WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -68,7 +68,7 @@ pub async fn verification_create(
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO verification_technique (appareil_id, type, date_realisation, realise_par, organisme, observations)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -92,7 +92,7 @@ pub async fn verification_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "UPDATE verification_technique SET appareil_id = ?1, type = ?2, date_realisation = ?3, realise_par = ?4, organisme = ?5, observations = ?6 WHERE id = ?7",
         rusqlite::params![appareil_id, type_, date_realisation, realise_par, organisme, observations, id],
@@ -106,7 +106,7 @@ pub async fn verification_update(
 pub async fn verification_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] verification_delete id={}", id);
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute("DELETE FROM verification_technique WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -114,7 +114,7 @@ pub async fn verification_delete(id: i64, session: tauri::State<'_, auth_iphone:
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

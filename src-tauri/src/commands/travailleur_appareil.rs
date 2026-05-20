@@ -1,4 +1,4 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::auth_iphone;
 
 #[tauri::command]
@@ -8,7 +8,7 @@ pub async fn travailleur_appareil_list(
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<i64>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT appareil_id FROM travailleur_appareil WHERE travailleur_id = ?1 ORDER BY appareil_id")
         .map_err(|e| e.to_string())?;
@@ -30,7 +30,7 @@ pub async fn travailleur_appareil_add(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT OR IGNORE INTO travailleur_appareil (travailleur_id, appareil_id) VALUES (?1, ?2)",
         rusqlite::params![travailleur_id, appareil_id],
@@ -47,7 +47,7 @@ pub async fn travailleur_appareil_remove(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "DELETE FROM travailleur_appareil WHERE travailleur_id = ?1 AND appareil_id = ?2",
         rusqlite::params![travailleur_id, appareil_id],
@@ -58,7 +58,7 @@ pub async fn travailleur_appareil_remove(
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

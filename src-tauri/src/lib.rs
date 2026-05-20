@@ -1,5 +1,6 @@
 mod db;
 mod auth_iphone;
+mod ecies;
 mod models;
 mod commands;
 mod validators;
@@ -100,21 +101,21 @@ pub fn run() {
         // (en dev, Tauri utilise directement devUrl = http://localhost:1420)
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .setup(|app| {
-            let conn = db::open_db(app.handle())
-                .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                )))?;
-
-            let mut conn = conn;
-            db::run_migrations(&mut conn)
-                .map_err(|e| tauri::Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                )))?;
+            // Mode iPhone (wrapped_db_key.bin présent) : la DB sera ouverte après auth.
+            // Mode legacy (pas de bundle) : ouverture immédiate avec la clé du keyring.
+            let conn_opt = if db::has_wrapped_key(app.handle()) {
+                None
+            } else {
+                let conn = db::open_and_migrate(app.handle(), None)
+                    .map_err(|e| tauri::Error::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        e.to_string(),
+                    )))?;
+                Some(conn)
+            };
 
             app.manage(db::DbState {
-                conn: parking_lot::Mutex::new(conn),
+                conn: parking_lot::Mutex::new(conn_opt),
             });
 
             app.manage(auth_iphone::SessionState::new());

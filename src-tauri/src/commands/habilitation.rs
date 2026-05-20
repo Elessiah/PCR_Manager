@@ -1,4 +1,4 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::{HabilitationStatus, HabilitationDetails, Habilitation};
 use crate::auth_iphone;
 use chrono::NaiveDate;
@@ -18,7 +18,7 @@ pub fn desactiver_competences_perimees(conn: &rusqlite::Connection) -> rusqlite:
 #[tauri::command]
 pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     if let Err(e) = desactiver_competences_perimees(&conn) {
         eprintln!("Warning: Failed to deactivate expired competences: {}", e);
@@ -110,7 +110,7 @@ pub async fn habilitation_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     conn.execute(
         "INSERT INTO habilitation (travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_duree_mois, visite_medicale_date_peremption) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(travailleur_id) DO UPDATE SET dosimetrie_passive_date = COALESCE(excluded.dosimetrie_passive_date, habilitation.dosimetrie_passive_date), dosimetrie_operationnelle_date = COALESCE(excluded.dosimetrie_operationnelle_date, habilitation.dosimetrie_operationnelle_date), formation_rp_travailleurs_date = COALESCE(excluded.formation_rp_travailleurs_date, habilitation.formation_rp_travailleurs_date), formation_rp_patients_date = COALESCE(excluded.formation_rp_patients_date, habilitation.formation_rp_patients_date), visite_medicale_date = COALESCE(excluded.visite_medicale_date, habilitation.visite_medicale_date), visite_medicale_duree_mois = COALESCE(excluded.visite_medicale_duree_mois, habilitation.visite_medicale_duree_mois), visite_medicale_date_peremption = COALESCE(excluded.visite_medicale_date_peremption, habilitation.visite_medicale_date_peremption)",
@@ -136,7 +136,7 @@ pub async fn habilitation_get_for_travailleur(
     state: tauri::State<'_, DbState>,
 ) -> Result<Habilitation, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     let result = conn.query_row(
         "SELECT id, travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_date_peremption, visite_medicale_duree_mois, updated_at FROM habilitation WHERE travailleur_id = ?1",
@@ -249,7 +249,7 @@ fn verify_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> ru
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use crate::models::Document;
 use crate::auth_iphone;
 use std::path::PathBuf;
@@ -33,7 +33,7 @@ fn delete_document_record(tx: &rusqlite::Transaction, id: i64) -> Result<String,
 #[tauri::command]
 pub async fn document_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -60,7 +60,7 @@ pub async fn document_list(session: tauri::State<'_, auth_iphone::SessionState>,
 #[tauri::command]
 pub async fn document_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
     ensure_authenticated(&session)?;
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -115,7 +115,7 @@ pub async fn document_upload(
 
     let chemin_relatif = format!("documents/{}", uuid_name);
 
-    let conn = state.conn.lock();
+    let conn = state.get()?;
     conn.execute(
         "INSERT INTO document (entity_type, entity_id, type_document, nom_fichier, chemin_relatif)
          VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -145,7 +145,7 @@ pub async fn document_delete(
 ) -> Result<(), String> {
     eprintln!("[AUDIT] document_delete id={}", id);
     ensure_authenticated(&session)?;
-    let mut conn = state.conn.lock();
+    let mut conn = state.get()?;
 
     let tx = conn.transaction()
         .map_err(|e| { eprintln!("[ERR] {}", e); "Une erreur est survenue".to_string() })?;
@@ -167,7 +167,7 @@ pub async fn document_delete(
 
 fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
-        return Err("Non authentifié".to_string());
+        return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::db::DbState;
+﻿use crate::db::DbState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,9 +17,9 @@ use std::io::{Read, Write};
 const MAGIC: &[u8] = b"PCREXP01";
 const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-// ────────────────────────────────────────────────────────────────────────────
-// Types partagés export / import
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Types partagÃ©s export / import
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExportPayload {
@@ -61,13 +61,13 @@ pub struct ExportEncryptedResult {
     pub file_b64: String,
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Export
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, String> {
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
     // Travailleurs
     let mut stmt = conn
@@ -136,7 +136,7 @@ pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, Str
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Compétences (inclut description ajoutée en V3)
+    // CompÃ©tences (inclut description ajoutÃ©e en V3)
     let mut stmt = conn
         .prepare("SELECT id, libelle, ordre, description FROM competence_ref ORDER BY ordre")
         .map_err(|e| e.to_string())?;
@@ -198,9 +198,9 @@ pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, Str
     serde_json::to_string_pretty(&payload).map_err(|e| e.to_string())
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Import — paramètres rusqlite corrects (pas de string-formatting SQL)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Import â€” paramÃ¨tres rusqlite corrects (pas de string-formatting SQL)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn data_import(
@@ -212,18 +212,18 @@ pub async fn data_import(
 
     if payload.version != 1 {
         return Err(format!(
-            "Version d'export non supportée : {}",
+            "Version d'export non supportÃ©e : {}",
             payload.version
         ));
     }
 
-    let mut conn = state.conn.lock();
+    let mut conn = state.get()?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let mut travailleurs_added = 0usize;
     let mut appareils_added = 0usize;
 
-    // ── Travailleurs ────────────────────────────────────────────────────────
+    // â”€â”€ Travailleurs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for t in &payload.travailleurs {
         let rows = tx
             .execute(
@@ -258,7 +258,7 @@ pub async fn data_import(
         travailleurs_added += rows;
     }
 
-    // ── Appareils ───────────────────────────────────────────────────────────
+    // â”€â”€ Appareils â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for a in &payload.appareils {
         let rows = tx
             .execute(
@@ -286,7 +286,7 @@ pub async fn data_import(
         appareils_added += rows;
     }
 
-    // ── Compétences ─────────────────────────────────────────────────────────
+    // â”€â”€ CompÃ©tences â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for c in &payload.competences {
         tx.execute(
             "INSERT OR IGNORE INTO competence_ref (id, libelle, ordre, description) \
@@ -301,7 +301,7 @@ pub async fn data_import(
         .map_err(|e| e.to_string())?;
     }
 
-    // ── Habilitations ───────────────────────────────────────────────────────
+    // â”€â”€ Habilitations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for h in &payload.habilitations {
         tx.execute(
             "INSERT OR IGNORE INTO habilitation \
@@ -329,9 +329,9 @@ pub async fn data_import(
     })
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Export chiffré (v2 complet)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Export chiffrÃ© (v2 complet)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn generate_short_code() -> String {
     let mut code = [0u8; 10];
@@ -429,7 +429,7 @@ fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> 
     let mut decoder = GzDecoder::new(&plaintext[..]);
     let mut json_str = String::new();
     decoder.read_to_string(&mut json_str)
-        .map_err(|e| format!("Erreur décompression: {}", e))?;
+        .map_err(|e| format!("Erreur dÃ©compression: {}", e))?;
 
     let payload: ExportPayload = serde_json::from_str(&json_str)
         .map_err(|e| format!("JSON invalide: {}", e))?;
@@ -441,9 +441,9 @@ fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> 
 pub async fn data_export_encrypted(
     state: tauri::State<'_, DbState>,
 ) -> Result<ExportEncryptedResult, String> {
-    let conn = state.conn.lock();
+    let conn = state.get()?;
 
-    // Établissements
+    // Ã‰tablissements
     let mut stmt = conn
         .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin FROM etablissement")
         .map_err(|e| e.to_string())?;
@@ -535,7 +535,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Compétences
+    // CompÃ©tences
     let mut stmt = conn
         .prepare("SELECT id, libelle, ordre, description FROM competence_ref ORDER BY ordre")
         .map_err(|e| e.to_string())?;
@@ -578,7 +578,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Vérifications
+    // VÃ©rifications
     let mut stmt = conn
         .prepare(
             "SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations \
@@ -602,7 +602,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Contrôles qualité
+    // ContrÃ´les qualitÃ©
     let mut stmt = conn
         .prepare(
             "SELECT id, appareil_id, type, date_realisation, date_echeance, \
@@ -630,7 +630,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Compétences travailleur
+    // CompÃ©tences travailleur
     let mut stmt = conn
         .prepare(
             "SELECT id, travailleur_id, appareil_id, competence_ref_id, \
@@ -654,7 +654,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Compétences travailleur général
+    // CompÃ©tences travailleur gÃ©nÃ©ral
     let mut stmt = conn
         .prepare(
             "SELECT id, travailleur_id, competence_ref_id, date_validation, \
@@ -694,7 +694,7 @@ pub async fn data_export_encrypted(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Appareils compétences ref
+    // Appareils compÃ©tences ref
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, competence_ref_id FROM appareil_competence_ref")
         .map_err(|e| e.to_string())?;
@@ -727,13 +727,13 @@ pub async fn data_export_encrypted(
         appareils_competences_ref,
     };
 
-    // Sérialiser et compresser
+    // SÃ©rialiser et compresser
     let json_str = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(json_str.as_bytes()).map_err(|e| e.to_string())?;
     let plaintext = encoder.finish().map_err(|e| e.to_string())?;
 
-    // Générer code et dériver clé
+    // GÃ©nÃ©rer code et dÃ©river clÃ©
     let code = generate_short_code();
     let mut salt = [0u8; 16];
     OsRng.fill_bytes(&mut salt);
@@ -765,9 +765,9 @@ pub async fn data_export_encrypted(
     })
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Import chiffré (v2 avec fallback v1)
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Import chiffrÃ© (v2 avec fallback v1)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
 pub async fn data_import_encrypted(
@@ -775,12 +775,12 @@ pub async fn data_import_encrypted(
     file_b64: String,
     code: String,
 ) -> Result<ImportResultExtended, String> {
-    // Décoder base64
+    // DÃ©coder base64
     let file_bytes = general_purpose::STANDARD
         .decode(&file_b64)
         .map_err(|e| format!("Base64 invalide: {}", e))?;
 
-    // Vérifier magic
+    // VÃ©rifier magic
     if file_bytes.len() < 8 || &file_bytes[..8] != MAGIC {
         return Err("Fichier invalide ou corrompu".to_string());
     }
@@ -793,7 +793,7 @@ pub async fn data_import_encrypted(
     let nonce_bytes = &file_bytes[24..36];
     let ciphertext = &file_bytes[36..];
 
-    // Normaliser et dériver clé
+    // Normaliser et dÃ©river clÃ©
     let code_upper = code.to_uppercase();
     let code_clean: String = code_upper.chars()
         .filter(|c| c.is_alphanumeric())
@@ -804,28 +804,28 @@ pub async fn data_import_encrypted(
         .hash_password_into(code_clean.as_bytes(), salt, &mut key)
         .map_err(|e| format!("Erreur Argon2: {}", e))?;
 
-    // Déchiffrer
+    // DÃ©chiffrer
     let nonce = Nonce::from_slice(nonce_bytes);
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
     let plaintext = cipher
         .decrypt(nonce, ciphertext)
         .map_err(|_| "Code incorrect ou fichier corrompu".to_string())?;
 
-    // Décompresser
+    // DÃ©compresser
     let mut decoder = GzDecoder::new(&plaintext[..]);
     let mut json_str = String::new();
     decoder.read_to_string(&mut json_str)
-        .map_err(|e| format!("Erreur décompression: {}", e))?;
+        .map_err(|e| format!("Erreur dÃ©compression: {}", e))?;
 
     // Parser JSON
     let payload: ExportPayload = serde_json::from_str(&json_str)
         .map_err(|e| format!("JSON invalide: {}", e))?;
 
     if payload.version != 2 {
-        return Err(format!("Version non supportée: {}", payload.version));
+        return Err(format!("Version non supportÃ©e: {}", payload.version));
     }
 
-    let mut conn = state.conn.lock();
+    let mut conn = state.get()?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let mut etablissements_added = 0;
@@ -836,7 +836,7 @@ pub async fn data_import_encrypted(
     let mut verifications_added = 0;
     let mut controles_added = 0;
 
-    // Établissements
+    // Ã‰tablissements
     for e in &payload.etablissements {
         let rows = tx.execute(
             "INSERT OR IGNORE INTO etablissement \
@@ -919,7 +919,7 @@ pub async fn data_import_encrypted(
         appareils_added += rows;
     }
 
-    // Compétences
+    // CompÃ©tences
     for c in &payload.competences {
         let rows = tx.execute(
             "INSERT OR IGNORE INTO competence_ref (id, libelle, ordre, description) \
@@ -954,7 +954,7 @@ pub async fn data_import_encrypted(
         habilitations_added += rows;
     }
 
-    // Vérifications
+    // VÃ©rifications
     for v in &payload.verifications {
         let rows = tx.execute(
             "INSERT OR IGNORE INTO verification_technique \
@@ -973,7 +973,7 @@ pub async fn data_import_encrypted(
         verifications_added += rows;
     }
 
-    // Contrôles qualité
+    // ContrÃ´les qualitÃ©
     for cq in &payload.controles_qualite {
         let rows = tx.execute(
             "INSERT OR IGNORE INTO controle_qualite \
@@ -996,7 +996,7 @@ pub async fn data_import_encrypted(
         controles_added += rows;
     }
 
-    // Compétences travailleur
+    // CompÃ©tences travailleur
     for ct in &payload.competences_travailleur {
         tx.execute(
             "INSERT OR IGNORE INTO competence_travailleur \
@@ -1015,7 +1015,7 @@ pub async fn data_import_encrypted(
         ).map_err(|e| e.to_string())?;
     }
 
-    // Compétences travailleur général
+    // CompÃ©tences travailleur gÃ©nÃ©ral
     for ctg in &payload.competences_travailleur_general {
         tx.execute(
             "INSERT OR IGNORE INTO competence_travailleur_general \
@@ -1047,7 +1047,7 @@ pub async fn data_import_encrypted(
         ).map_err(|e| e.to_string())?;
     }
 
-    // Appareils compétences ref
+    // Appareils compÃ©tences ref
     for acr in &payload.appareils_competences_ref {
         tx.execute(
             "INSERT OR IGNORE INTO appareil_competence_ref \
