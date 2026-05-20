@@ -13,6 +13,23 @@ fn validate_source_path(p: &str) -> Result<PathBuf, String> {
     if canonical.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
         return Err("Chemin source invalide".to_string());
     }
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::Prefix;
+        if let Some(std::path::Component::Prefix(p)) = canonical.components().next() {
+            if matches!(p.kind(), Prefix::UNC(_, _) | Prefix::DeviceNS(_)) {
+                return Err("Chemin réseau non autorisé".to_string());
+            }
+        }
+    }
+    if std::fs::metadata(&canonical).map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
+        return Err("Fichier source trop volumineux (max 50 Mo)".to_string());
+    }
+    const ALLOWED_EXT: &[&str] = &["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+    let ext_low = canonical.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    if !ALLOWED_EXT.contains(&ext_low.as_str()) {
+        return Err("Extension de fichier non autorisée".to_string());
+    }
     if !canonical.exists() {
         return Err("Chemin source invalide".to_string());
     }
@@ -32,7 +49,7 @@ fn delete_document_record(tx: &rusqlite::Transaction, id: i64) -> Result<String,
 
 #[tauri::command]
 pub async fn document_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document ORDER BY id")
@@ -59,7 +76,7 @@ pub async fn document_list(session: tauri::State<'_, auth_totp::SessionState>, s
 
 #[tauri::command]
 pub async fn document_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document WHERE id = ?1")
@@ -94,7 +111,7 @@ pub async fn document_upload(
     state: tauri::State<'_, DbState>,
 ) -> Result<Document, String> {
     eprintln!("[AUDIT] document_upload source={}", source_path);
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let app_data_dir = app_handle
         .path()
         .app_local_data_dir()
@@ -144,7 +161,7 @@ pub async fn document_delete(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] document_delete id={}", id);
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let mut conn = state.get()?;
 
     let tx = conn.transaction()
@@ -172,7 +189,7 @@ pub async fn document_list_for_entity(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<Document>, String> {
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, entity_type, entity_id, type_document, nom_fichier, chemin_relatif, uploaded_at FROM document WHERE entity_type = ?1 AND entity_id = ?2 ORDER BY uploaded_at DESC")
@@ -207,7 +224,7 @@ pub async fn document_pick_and_upload(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Option<Document>, String> {
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
 
     let file = rfd::AsyncFileDialog::new()
         .add_filter("PDF", &["pdf"])
@@ -238,6 +255,10 @@ pub async fn document_pick_and_upload(
         .extension()
         .and_then(|s| s.to_str())
         .unwrap_or("pdf");
+    const ALLOWED_PICK_EXT: &[&str] = &["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+    if !ALLOWED_PICK_EXT.contains(&ext.to_lowercase().as_str()) {
+        return Err("Extension de fichier non autorisée".to_string());
+    }
     let uuid_name = format!("{}.{}", Uuid::new_v4(), ext);
     let dest_path = docs_dir.join(&uuid_name);
 
@@ -284,7 +305,7 @@ pub async fn document_open(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    crate::auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let chemin_relatif: String = conn
         .query_row("SELECT chemin_relatif FROM document WHERE id = ?1", [id], |row| row.get(0))
@@ -325,33 +346,15 @@ fn open_with_system_default(_path: &std::path::Path) -> Result<(), String> {
     Err("Ouverture non supportée sur cette plateforme".to_string())
 }
 
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth_totp::SessionState::new();
-        assert!(ensure_authenticated(&session).is_err());
-    }
-
-    #[test]
-    fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth_totp::SessionState::new();
-        *session.authenticated.lock() = true;
-        assert!(ensure_authenticated(&session).is_ok());
-    }
-
-    #[test]
     fn test_validate_source_path_nominal() {
-        let temp_file = tempfile::NamedTempFile::new()
+        let temp_file = tempfile::Builder::new()
+            .suffix(".pdf")
+            .tempfile()
             .expect("Failed to create temp file");
         let path_str = temp_file.path().to_str().unwrap();
         let result = validate_source_path(path_str);
@@ -415,5 +418,39 @@ mod tests {
         let tx = conn.transaction().expect("Failed to start transaction");
         let result = delete_document_record(&tx, 999);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_source_path_rejects_unknown_extension() {
+        let temp_file = tempfile::Builder::new()
+            .suffix(".exe")
+            .tempfile()
+            .expect("Failed to create temp file");
+        let path_str = temp_file.path().to_str().unwrap();
+        let result = validate_source_path(path_str);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Extension"));
+    }
+
+    #[test]
+    fn test_validate_source_path_allows_pdf() {
+        let temp_file = tempfile::Builder::new()
+            .suffix(".pdf")
+            .tempfile()
+            .expect("Failed to create temp file");
+        let path_str = temp_file.path().to_str().unwrap();
+        let result = validate_source_path(path_str);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_source_path_allows_jpg() {
+        let temp_file = tempfile::Builder::new()
+            .suffix(".jpg")
+            .tempfile()
+            .expect("Failed to create temp file");
+        let path_str = temp_file.path().to_str().unwrap();
+        let result = validate_source_path(path_str);
+        assert!(result.is_ok());
     }
 }

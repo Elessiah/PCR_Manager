@@ -1,4 +1,5 @@
-﻿use crate::db::DbState;
+﻿use crate::auth_totp;
+use crate::db::DbState;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -66,7 +67,11 @@ pub struct ExportEncryptedResult {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[tauri::command]
-pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, String> {
+pub async fn data_export(
+    state: tauri::State<'_, DbState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
+) -> Result<String, String> {
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     // Travailleurs
@@ -205,8 +210,14 @@ pub async fn data_export(state: tauri::State<'_, DbState>) -> Result<String, Str
 #[tauri::command]
 pub async fn data_import(
     state: tauri::State<'_, DbState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     json_str: String,
 ) -> Result<ImportResult, String> {
+    auth_totp::ensure_authenticated(&session)?;
+    const MAX_JSON: usize = 50 * 1024 * 1024;
+    if json_str.len() > MAX_JSON {
+        return Err("Payload JSON trop volumineux (max 50 Mo)".to_string());
+    }
     let payload: ExportPayload =
         serde_json::from_str(&json_str).map_err(|e| format!("JSON invalide : {}", e))?;
 
@@ -441,7 +452,9 @@ fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> 
 #[tauri::command]
 pub async fn data_export_encrypted(
     state: tauri::State<'_, DbState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
 ) -> Result<ExportEncryptedResult, String> {
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     // Ã‰tablissements
@@ -773,9 +786,15 @@ pub async fn data_export_encrypted(
 #[tauri::command]
 pub async fn data_import_encrypted(
     state: tauri::State<'_, DbState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     file_b64: String,
     code: String,
 ) -> Result<ImportResultExtended, String> {
+    auth_totp::ensure_authenticated(&session)?;
+    const MAX_B64: usize = 70 * 1024 * 1024;
+    if file_b64.len() > MAX_B64 {
+        return Err("Fichier d'import trop volumineux (max 70 Mo)".to_string());
+    }
     // DÃ©coder base64
     let file_bytes = general_purpose::STANDARD
         .decode(&file_b64)
@@ -818,6 +837,11 @@ pub async fn data_import_encrypted(
     let mut json_str = String::new();
     decoder.read_to_string(&mut json_str)
         .map_err(|e| format!("Erreur dÃ©compression: {}", e))?;
+
+    const MAX_JSON_DEC: usize = 50 * 1024 * 1024;
+    if json_str.len() > MAX_JSON_DEC {
+        return Err("Payload dÃ©compress\u{00e9} trop volumineux (max 50 Mo)".to_string());
+    }
 
     // Parser JSON
     let payload: ExportPayload = serde_json::from_str(&json_str)
@@ -1077,7 +1101,11 @@ pub async fn data_import_encrypted(
 }
 
 #[tauri::command]
-pub async fn choose_save_path(default_name: String) -> Result<Option<String>, String> {
+pub async fn choose_save_path(
+    session: tauri::State<'_, auth_totp::SessionState>,
+    default_name: String,
+) -> Result<Option<String>, String> {
+    auth_totp::ensure_authenticated(&session)?;
     let handle = rfd::AsyncFileDialog::new()
         .set_file_name(&default_name)
         .add_filter("PCR Export", &["pcrexp"])
@@ -1087,7 +1115,12 @@ pub async fn choose_save_path(default_name: String) -> Result<Option<String>, St
 }
 
 #[tauri::command]
-pub async fn save_export_file(file_b64: String, dest_path: String) -> Result<String, String> {
+pub async fn save_export_file(
+    session: tauri::State<'_, auth_totp::SessionState>,
+    file_b64: String,
+    dest_path: String,
+) -> Result<String, String> {
+    auth_totp::ensure_authenticated(&session)?;
     let bytes = general_purpose::STANDARD.decode(&file_b64).map_err(|e| e.to_string())?;
     fs::write(&dest_path, &bytes).map_err(|e| e.to_string())?;
     Ok(dest_path)
@@ -1163,5 +1196,19 @@ mod tests {
 
         assert_eq!(formatted1, formatted2);
         assert_eq!(formatted1, "AAAAB-BBBCC");
+    }
+
+    #[test]
+    fn test_import_json_size_limit_rejected() {
+        const MAX_JSON: usize = 50 * 1024 * 1024;
+        let s = "x".repeat(MAX_JSON + 1);
+        assert!(s.len() > MAX_JSON);
+    }
+
+    #[test]
+    fn test_import_b64_size_limit_rejected() {
+        const MAX_B64: usize = 70 * 1024 * 1024;
+        let s = "y".repeat(MAX_B64 + 1);
+        assert!(s.len() > MAX_B64);
     }
 }
