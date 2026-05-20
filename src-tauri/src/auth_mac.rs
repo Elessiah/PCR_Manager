@@ -35,7 +35,9 @@ pub async fn mac_auth_start(
 		.await
 		.map_err(|e| e.to_string())??;
 
-		let conn = crate::db::open_and_migrate(&app, Some(&db_key))
+		let db_key_str = String::from_utf8(db_key)
+			.map_err(|e| format!("Clé DB invalide: {}", e))?;
+		let conn = crate::db::open_and_migrate(&app, Some(&db_key_str))
 			.map_err(|e| e.to_string())?;
 		*db.conn.lock() = Some(conn);
 		*session.authenticated.lock() = true;

@@ -64,6 +64,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: actions/cache@v4
         with:
           path: |
@@ -74,11 +76,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       - run: npm ci
-      - run: npm run tauri:build
+      - run: npm run tauri:build -- --target universal-apple-darwin
       - uses: actions/upload-artifact@v4
         with:
           name: pcr-manager-macos-installer
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
   build-windows:
