@@ -3,46 +3,81 @@
 @tailwind utilities;
 
 :root {
-  /* Surfaces — teintes froides bleutées (hue 250) pour rendu médical/clinique */
-  --bg: oklch(0.985 0.003 250);
+  /* Fallbacks hex — WebKit sans support oklch (macOS < 12.3 / Safari < 15.4) */
+  --bg: #f7f8fb;
   --surface: #ffffff;
-  --surface-2: oklch(0.975 0.004 250);
-  --surface-hover: oklch(0.965 0.005 250);
-  --border: oklch(0.92 0.006 250);
-  --border-strong: oklch(0.86 0.008 250);
+  --surface-2: #f3f5f9;
+  --surface-hover: #eef1f6;
+  --border: #e2e5ee;
+  --border-strong: #ced2e2;
 
-  /* Texte — teintes légèrement bleutées (hue 255) */
-  --text: oklch(0.22 0.02 255);
-  --text-muted: oklch(0.48 0.015 255);
-  --text-soft: oklch(0.62 0.012 255);
+  --text: #1c2135;
+  --text-muted: #5c6480;
+  --text-soft: #8b93ab;
 
-  /* Accent bleu institutionnel (hue 245) */
-  --accent: oklch(0.52 0.14 245);
-  --accent-hover: oklch(0.46 0.15 245);
-  --accent-soft: oklch(0.96 0.02 245);
-  --accent-soft-border: oklch(0.90 0.04 245);
+  --accent: #3858d8;
+  --accent-hover: #2d4bbe;
+  --accent-soft: #eef1fd;
+  --accent-soft-border: #c8d4f8;
 
-  /* Statuts — fonds très clairs, couleurs sobres */
-  --ok: oklch(0.55 0.13 150);
-  --ok-bg: oklch(0.965 0.025 150);
-  --ok-border: oklch(0.88 0.05 150);
+  --ok: #00995f;
+  --ok-bg: #ecf8f2;
+  --ok-border: #b5dcc8;
 
-  --warn: oklch(0.62 0.14 65);
-  --warn-bg: oklch(0.97 0.04 75);
-  --warn-border: oklch(0.88 0.08 70);
+  --warn: #957000;
+  --warn-bg: #fef6e0;
+  --warn-border: #e6cb78;
 
-  --danger: oklch(0.58 0.18 25);
-  --danger-bg: oklch(0.965 0.03 25);
-  --danger-border: oklch(0.88 0.08 25);
+  --danger: #c94325;
+  --danger-bg: #faf1ef;
+  --danger-border: #e2b5ab;
 
-  --neutral: oklch(0.55 0.01 255);
-  --neutral-bg: oklch(0.96 0.004 255);
-  --neutral-border: oklch(0.90 0.006 255);
+  --neutral: #6a7489;
+  --neutral-bg: #f3f4f7;
+  --neutral-border: #d8dce6;
 
   --radius: 6px;
   --radius-sm: 4px;
-  --shadow-sm: 0 1px 0 oklch(0.92 0.006 250 / 0.7);
+  --shadow-sm: 0 1px 0 rgba(226, 229, 238, 0.7);
   --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
+}
+
+/* Couleurs oklch (surfaces froides hue 250, accent hue 245) pour WebKit moderne */
+@supports (color: oklch(0 0 0)) {
+  :root {
+    --bg: oklch(0.985 0.003 250);
+    --surface-2: oklch(0.975 0.004 250);
+    --surface-hover: oklch(0.965 0.005 250);
+    --border: oklch(0.92 0.006 250);
+    --border-strong: oklch(0.86 0.008 250);
+
+    --text: oklch(0.22 0.02 255);
+    --text-muted: oklch(0.48 0.015 255);
+    --text-soft: oklch(0.62 0.012 255);
+
+    --accent: oklch(0.52 0.14 245);
+    --accent-hover: oklch(0.46 0.15 245);
+    --accent-soft: oklch(0.96 0.02 245);
+    --accent-soft-border: oklch(0.90 0.04 245);
+
+    --ok: oklch(0.55 0.13 150);
+    --ok-bg: oklch(0.965 0.025 150);
+    --ok-border: oklch(0.88 0.05 150);
+
+    --warn: oklch(0.62 0.14 65);
+    --warn-bg: oklch(0.97 0.04 75);
+    --warn-border: oklch(0.88 0.08 70);
+
+    --danger: oklch(0.58 0.18 25);
+    --danger-bg: oklch(0.965 0.03 25);
+    --danger-border: oklch(0.88 0.08 25);
+
+    --neutral: oklch(0.55 0.01 255);
+    --neutral-bg: oklch(0.96 0.004 255);
+    --neutral-border: oklch(0.90 0.006 255);
+
+    --shadow-sm: 0 1px 0 oklch(0.92 0.006 250 / 0.7);
+  }
 }
 
 body {

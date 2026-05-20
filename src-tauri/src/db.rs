@@ -133,6 +133,7 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     let is_empty: bool = conn
         .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
         .unwrap_or(0) == 0;
+    #[cfg(debug_assertions)]
     if is_empty {
         conn.execute_batch(SEED_DEMO).context("Échec du seed de démonstration")?;
     }

@@ -8,8 +8,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { PageHead } from '../../components/ui/PageHead';
 import { ReadField } from '../../components/ui/ReadField';
-import { Field, Label, Input } from '../../components/ui/FormField';
-import { ChevronLeft, Edit, Plus, Calendar, X, Check, Trash2 } from 'lucide-react';
+import { Field, Label, Input, Select } from '../../components/ui/FormField';
+import { ChevronLeft, Edit, Plus, Calendar, X, Check, Trash2, Users } from 'lucide-react';
 import type { StatusColor } from '../../lib/status';
 
 function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
@@ -54,6 +54,19 @@ export default function AppareilFiche() {
   const [showVerifModal, setShowVerifModal] = useState(false);
   const [showCQModal, setShowCQModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    designation: '',
+    marque: '',
+    modele: '',
+    numeroSerie: '',
+    type: '',
+    anneeMiseEnService: '',
+    lieuUtilisation: '',
+    utilisationPartagee: false,
+    tensionNominaleKv: '',
+    intensiteMaximaleMa: '',
+  });
   const [verifFormData, setVerifFormData] = useState({
     type: 'annuelle_interne',
     dateRealisation: new Date().toISOString().split('T')[0],
@@ -144,6 +157,46 @@ export default function AppareilFiche() {
     },
   });
 
+  const updateAppareilMutation = useMutation({
+    mutationFn: () =>
+      api.appareil.update({
+        id: Number(id!),
+        etablissementId: appareil!.etablissement_id,
+        designation: editFormData.designation,
+        marque: editFormData.marque || null,
+        modele: editFormData.modele || null,
+        numeroSerie: editFormData.numeroSerie || null,
+        type: editFormData.type || null,
+        anneeMiseEnService: editFormData.anneeMiseEnService ? parseInt(editFormData.anneeMiseEnService) : null,
+        lieuUtilisation: editFormData.lieuUtilisation || null,
+        utilisationPartagee: editFormData.utilisationPartagee ? 1 : 0,
+        tensionNominaleKv: editFormData.tensionNominaleKv ? parseFloat(editFormData.tensionNominaleKv) : null,
+        intensiteMaximaleMa: editFormData.intensiteMaximaleMa ? parseFloat(editFormData.intensiteMaximaleMa) : null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appareil', id] });
+      queryClient.invalidateQueries({ queryKey: ['appareils'] });
+      setShowEditModal(false);
+    },
+  });
+
+  const openEditModal = () => {
+    if (!appareil) return;
+    setEditFormData({
+      designation: appareil.designation,
+      marque: appareil.marque ?? '',
+      modele: appareil.modele ?? '',
+      numeroSerie: appareil.numero_serie ?? '',
+      type: appareil.type_ ?? '',
+      anneeMiseEnService: appareil.annee_mise_en_service?.toString() ?? '',
+      lieuUtilisation: appareil.lieu_utilisation ?? '',
+      utilisationPartagee: Boolean(appareil.utilisation_partagee),
+      tensionNominaleKv: appareil.tension_nominale_kv?.toString() ?? '',
+      intensiteMaximaleMa: appareil.intensite_maximale_ma?.toString() ?? '',
+    });
+    setShowEditModal(true);
+  };
+
   const deleteAppareilMutation = useMutation({
     mutationFn: () => api.appareil.delete(Number(id!)),
     onSuccess: () => {
@@ -207,7 +260,7 @@ export default function AppareilFiche() {
               {statutGlobalStatus === 'a_prevoir' && 'À prévoir'}
               {statutGlobalStatus === 'en_retard' && 'En retard'}
             </Badge>
-            <Button className="inline-flex items-center gap-1.5">
+            <Button className="inline-flex items-center gap-1.5" onClick={openEditModal}>
               <Edit size={14} /> Modifier
             </Button>
             <Button variant="ghost" className="inline-flex items-center gap-1.5 text-danger hover:text-danger" onClick={() => setShowDeleteModal(true)}>
@@ -492,6 +545,122 @@ export default function AppareilFiche() {
                   disabled={createCQMutation.isPending}
                 >
                   Ajouter
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-[16px] font-semibold">Modifier l'appareil</h2>
+            <div className="space-y-4">
+              <Field>
+                <Label>Désignation *</Label>
+                <Input
+                  value={editFormData.designation}
+                  onChange={e => setEditFormData({ ...editFormData, designation: e.target.value })}
+                  placeholder="Ex : Tube radiogène"
+                  autoFocus
+                />
+              </Field>
+              <Field>
+                <Label>Marque</Label>
+                <Input
+                  value={editFormData.marque}
+                  onChange={e => setEditFormData({ ...editFormData, marque: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <Label>Modèle</Label>
+                <Input
+                  value={editFormData.modele}
+                  onChange={e => setEditFormData({ ...editFormData, modele: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <Label>Numéro de série</Label>
+                <Input
+                  value={editFormData.numeroSerie}
+                  onChange={e => setEditFormData({ ...editFormData, numeroSerie: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <Label>Type</Label>
+                <Select value={editFormData.type} onChange={e => setEditFormData({ ...editFormData, type: e.target.value })}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="Fixe">Fixe</option>
+                  <option value="Deplacable">Déplaçable</option>
+                </Select>
+              </Field>
+              <Field>
+                <Label>Année de mise en service</Label>
+                <Input
+                  type="number"
+                  value={editFormData.anneeMiseEnService}
+                  onChange={e => setEditFormData({ ...editFormData, anneeMiseEnService: e.target.value })}
+                  placeholder="Ex : 2020"
+                />
+              </Field>
+              <Field>
+                <Label>Lieu d'utilisation</Label>
+                <Input
+                  value={editFormData.lieuUtilisation}
+                  onChange={e => setEditFormData({ ...editFormData, lieuUtilisation: e.target.value })}
+                />
+              </Field>
+              <button
+                type="button"
+                onClick={() => setEditFormData(d => ({ ...d, utilisationPartagee: !d.utilisationPartagee }))}
+                className={[
+                  'flex items-center gap-3 w-full px-3 py-2.5 rounded border text-sm font-medium transition-colors duration-150',
+                  editFormData.utilisationPartagee
+                    ? 'border-accent bg-accentSoft text-accent'
+                    : 'border-border bg-surface text-textMuted hover:bg-surfaceHover',
+                ].join(' ')}
+              >
+                <span className={[
+                  'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200',
+                  editFormData.utilisationPartagee ? 'bg-accent' : 'bg-border',
+                ].join(' ')}>
+                  <span className={[
+                    'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                    editFormData.utilisationPartagee ? 'translate-x-4' : 'translate-x-0',
+                  ].join(' ')} />
+                </span>
+                <Users size={14} className="shrink-0" />
+                Utilisation partagée
+              </button>
+              <Field>
+                <Label>Tension nominale (kV)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={editFormData.tensionNominaleKv}
+                  onChange={e => setEditFormData({ ...editFormData, tensionNominaleKv: e.target.value })}
+                  placeholder="Ex : 150"
+                />
+              </Field>
+              <Field>
+                <Label>Intensité maximale (mA)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={editFormData.intensiteMaximaleMa}
+                  onChange={e => setEditFormData({ ...editFormData, intensiteMaximaleMa: e.target.value })}
+                  placeholder="Ex : 500"
+                />
+              </Field>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button variant="ghost" onClick={() => setShowEditModal(false)}>Annuler</Button>
+                <Button
+                  variant="primary"
+                  onClick={() => updateAppareilMutation.mutate()}
+                  disabled={updateAppareilMutation.isPending || !editFormData.designation.trim()}
+                >
+                  {updateAppareilMutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
                 </Button>
               </div>
             </div>
