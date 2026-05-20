@@ -82,8 +82,8 @@ impl IphoneAuthState {
 }
 
 struct PendingPairing {
-    invitation_id: Uuid,
-    nonce: [u8; 32],
+    _invitation_id: Uuid,
+    _nonce: [u8; 32],
     created_at: Instant,
     result: Arc<Mutex<PairingResult>>,
 }
@@ -188,6 +188,7 @@ struct PairingRequest {
 #[derive(Deserialize)]
 struct AuthRequest {
     challenge_id: String,
+    #[allow(dead_code)]
     device_id: String,
     /// DER-encoded ECDSA signature, base64url
     signature: String,
@@ -821,8 +822,8 @@ pub async fn iphone_pairing_start(
     let result_clone = result_arc.clone();
 
     *state.pending_pairing.lock() = Some(PendingPairing {
-        invitation_id,
-        nonce,
+        _invitation_id: invitation_id,
+        _nonce: nonce,
         created_at: Instant::now(),
         result: result_arc,
     });

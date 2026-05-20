@@ -4,6 +4,7 @@ use crate::auth_iphone::SessionState;
 use crate::db::DbState;
 use tauri::{AppHandle, State};
 
+#[cfg(target_os = "macos")]
 const SE_KEY_TAG: &[u8] = b"com.pcrmanager.mac.db-wrap";
 
 // Platform-agnostic Tauri commands
@@ -14,6 +15,7 @@ pub async fn mac_auth_available(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn mac_auth_start(
 	app: AppHandle,
 	session: State<'_, SessionState>,
@@ -46,6 +48,7 @@ pub async fn mac_auth_start(
 }
 
 #[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn mac_se_activate(
 	app: AppHandle,
 	_session: State<'_, SessionState>,
@@ -62,21 +65,12 @@ pub async fn mac_se_activate(
 	}
 }
 
-// Public non-platform-specific wrapper
-
+#[cfg(target_os = "macos")]
 pub(crate) fn activate_mac_key_wrapping(
 	app: &AppHandle,
 	db: &State<DbState>,
 ) -> Result<(), String> {
-	#[cfg(target_os = "macos")]
-	{
-		unsafe { macos::activate_mac_key_wrapping_impl(app, db) }
-	}
-
-	#[cfg(not(target_os = "macos"))]
-	{
-		Err("Secure Enclave non disponible".into())
-	}
+	unsafe { macos::activate_mac_key_wrapping_impl(app, db) }
 }
 
 // macOS-specific implementation

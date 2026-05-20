@@ -34,10 +34,6 @@ fn app_data_dir(app: &tauri::AppHandle) -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-pub fn db_path(app: &tauri::AppHandle) -> PathBuf {
-    app_data_dir(app).join("pcr.db")
-}
-
 /// Chemin du bundle ECIES (clé DB enveloppée avec la clé publique iPhone).
 /// Son existence indique que l'app est en mode "auth iPhone requise".
 pub fn wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
