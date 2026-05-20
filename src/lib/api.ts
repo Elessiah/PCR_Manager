@@ -294,11 +294,11 @@ export const api = {
     delete: (id: number) => invoke<void>('document_delete', { id }),
   },
 
-  bluetooth: {
-    /** Vérifie si un adaptateur Bluetooth est présent (available) et activé (enabled). */
-    check: () => invoke<{ available: boolean; enabled: boolean }>('bluetooth_check'),
-    /** Ouvre la page Paramètres Bluetooth de Windows. */
-    openSettings: () => invoke<void>('bluetooth_open_settings'),
+  wifi: {
+    /** Vérifie si le Wi-Fi est présent (available) et activé (enabled) sur macOS. */
+    check: () => invoke<{ available: boolean; enabled: boolean }>('wifi_check'),
+    /** Ouvre le panneau Wi-Fi dans les Réglages Système macOS. */
+    openSettings: () => invoke<void>('wifi_open_settings'),
   },
 
   data: {

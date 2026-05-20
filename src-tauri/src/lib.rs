@@ -1,5 +1,6 @@
 mod db;
 mod auth_iphone;
+mod auth_mac;
 mod ecies;
 mod models;
 mod commands;
@@ -17,52 +18,27 @@ fn ping() -> &'static str {
     "pong"
 }
 
-/// Vérifie si un adaptateur Bluetooth est présent et activé (Windows + macOS).
+/// Vérifie si le Wi-Fi est présent et activé sur macOS.
 /// Retourne { available: bool, enabled: bool }.
 #[tauri::command]
-fn bluetooth_check() -> serde_json::Value {
-    bluetooth_check_impl()
+fn wifi_check() -> serde_json::Value {
+    wifi_check_impl()
 }
 
-/// Ouvre la page Paramètres Bluetooth du système (Windows + macOS).
+/// Ouvre le panneau Wi-Fi dans les Réglages Système macOS.
 #[tauri::command]
-fn bluetooth_open_settings() {
-    bluetooth_open_settings_impl();
-}
-
-// ── Windows ───────────────────────────────────────────────────────────────────
-
-#[cfg(target_os = "windows")]
-fn bluetooth_check_impl() -> serde_json::Value {
-    let result = std::process::Command::new("powershell")
-        .args([
-            "-NoProfile", "-NonInteractive", "-Command",
-            "$s = Get-Service 'bthserv' -ErrorAction SilentlyContinue; \
-             if (!$s) { 'none' } elseif ($s.Status -eq 'Running') { 'on' } else { 'off' }",
-        ])
-        .output();
-    let state = match result {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        Err(_) => "none".to_string(),
-    };
-    serde_json::json!({ "available": state != "none", "enabled": state == "on" })
-}
-
-#[cfg(target_os = "windows")]
-fn bluetooth_open_settings_impl() {
-    let _ = std::process::Command::new("cmd")
-        .args(["/c", "start", "ms-settings:bluetooth"])
-        .spawn();
+fn wifi_open_settings() {
+    wifi_open_settings_impl();
 }
 
 // ── macOS ─────────────────────────────────────────────────────────────────────
 
-/// Lit l'état du contrôleur Bluetooth via ioreg (disponible sur tout macOS).
-/// BluetoothPowerState = 1 → activé, 0 → désactivé, absent → pas d'adaptateur.
-#[cfg(target_os = "macos")]
-fn bluetooth_check_impl() -> serde_json::Value {
-    let Ok(output) = std::process::Command::new("ioreg")
-        .args(["-l", "-n", "IOBluetoothHCIController"])
+/// Vérifie l'état Wi-Fi via `networksetup -getairportpower Wi-Fi`.
+/// Sortie attendue : "Wi-Fi Power (en0): On" ou "Wi-Fi Power (en0): Off".
+/// Si l'interface Wi-Fi est absente, la commande échoue → available: false.
+fn wifi_check_impl() -> serde_json::Value {
+    let Ok(output) = std::process::Command::new("networksetup")
+        .args(["-getairportpower", "Wi-Fi"])
         .output()
     else {
         return serde_json::json!({ "available": false, "enabled": false });
@@ -71,29 +47,17 @@ fn bluetooth_check_impl() -> serde_json::Value {
     if text.trim().is_empty() {
         return serde_json::json!({ "available": false, "enabled": false });
     }
-    let enabled = text.contains("\"BluetoothPowerState\" = 1");
+    let enabled = text.contains(": On");
     serde_json::json!({ "available": true, "enabled": enabled })
 }
 
-/// Ouvre le panneau Bluetooth dans Préférences Système / Réglages Système
-/// (fonctionne sur macOS 12 et antérieurs via System Preferences,
-///  et sur macOS 13+ via System Settings grâce à la redirection du .prefPane).
-#[cfg(target_os = "macos")]
-fn bluetooth_open_settings_impl() {
+/// Ouvre les Réglages Système → Wi-Fi (macOS 13+).
+/// Sur macOS 12 et antérieurs, le schéma x-apple.systempreferences est redirigé automatiquement.
+fn wifi_open_settings_impl() {
     let _ = std::process::Command::new("open")
-        .arg("/System/Library/PreferencePanes/Bluetooth.prefPane")
+        .arg("x-apple.systempreferences:com.apple.wifi")
         .spawn();
 }
-
-// ── Autres plateformes (Linux…) ───────────────────────────────────────────────
-
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn bluetooth_check_impl() -> serde_json::Value {
-    serde_json::json!({ "available": false, "enabled": false })
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn bluetooth_open_settings_impl() {}
 
 pub fn run() {
     tauri::Builder::default()
@@ -101,10 +65,13 @@ pub fn run() {
         // (en dev, Tauri utilise directement devUrl = http://localhost:1420)
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .setup(|app| {
+            // Mode Mac Keychain protégé (wrapped_mac_db_key.bin présent) : DB ouverte après Touch ID ou mot de passe.
             // Mode iPhone (wrapped_db_key.bin présent) : la DB sera ouverte après auth.
             // Mode legacy (pas de bundle) : ouverture immédiate avec la clé du keyring.
-            let conn_opt = if db::has_wrapped_key(app.handle()) {
-                None
+            let conn_opt = if db::has_mac_wrapped_key(app.handle()) {
+                None  // mode Secure Enclave Mac : DB ouverte après Touch ID
+            } else if db::has_wrapped_key(app.handle()) {
+                None  // mode iPhone : DB ouverte après auth iPhone
             } else {
                 let conn = db::open_and_migrate(app.handle(), None)
                     .map_err(|e| tauri::Error::Io(std::io::Error::new(
@@ -125,11 +92,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ping,
-            bluetooth_check,
-            bluetooth_open_settings,
+            wifi_check,
+            wifi_open_settings,
             db::init_db,
             auth_iphone::session_check,
             auth_iphone::iphone_logout,
+            auth_mac::mac_auth_available,
+            auth_mac::mac_auth_start,
+            auth_mac::mac_se_activate,
             commands::etablissement::etablissement_list,
             commands::etablissement::etablissement_get,
             commands::etablissement::etablissement_create,

@@ -49,7 +49,8 @@ pub fn iphone_logout(
     *session.authenticated.lock() = false;
     // En mode iPhone (wrapped_db_key.bin présent) : fermer la connexion DB
     // pour que les données soient inaccessibles jusqu'à la prochaine auth.
-    if crate::db::has_wrapped_key(&app) {
+    // En mode Mac SE (wrapped_mac_key.bin présent) : idem.
+    if crate::db::has_wrapped_key(&app) || crate::db::has_mac_wrapped_key(&app) {
         *db.conn.lock() = None;
     }
     Ok(())
