@@ -169,3 +169,13 @@ pub struct CompetenceTravailleurGeneral {
     pub date_peremption: Option<String>,
     pub validated: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalAcces {
+    pub id: i64,
+    pub horodatage: String,
+    pub operation: String,
+    pub entite: String,
+    pub entite_id: Option<i64>,
+    pub champ_nir: i64,
+}

@@ -1,11 +1,12 @@
-﻿use crate::db::DbState;
-use crate::models::Travailleur;
+use crate::db::{DbState, log_acces};
+use crate::models::{Travailleur, JournalAcces};
 use crate::auth_iphone;
 
 #[tauri::command]
 pub async fn travailleur_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
+    log_acces(&conn, "LECTURE", "travailleur", None, true);
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, nom, prenom, sexe, date_naissance, lieu_naissance, pays_naissance, fonction, date_debut_activite, categorie_reglementaire, numero_adeli_rpps, email, telephone, numero_securite_sociale, numero_porteur_dosimetrie_passive, numero_suivi_medical, created_at, updated_at FROM travailleur ORDER BY id")
         .map_err(|e| e.to_string())?;
@@ -45,6 +46,7 @@ pub async fn travailleur_list(session: tauri::State<'_, auth_iphone::SessionStat
 pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
+    log_acces(&conn, "LECTURE", "travailleur", Some(id), true);
     let mut stmt = conn
         .prepare("SELECT id, etablissement_id, nom, prenom, sexe, date_naissance, lieu_naissance, pays_naissance, fonction, date_debut_activite, categorie_reglementaire, numero_adeli_rpps, email, telephone, numero_securite_sociale, numero_porteur_dosimetrie_passive, numero_suivi_medical, created_at, updated_at FROM travailleur WHERE id = ?1")
         .map_err(|e| e.to_string())?;
@@ -134,7 +136,9 @@ pub async fn travailleur_create(
     )
     .map_err(|e| e.to_string())?;
 
-    Ok(conn.last_insert_rowid())
+    let new_id = conn.last_insert_rowid();
+    log_acces(&conn, "CREATION", "travailleur", Some(new_id), numero_securite_sociale.is_some());
+    Ok(new_id)
 }
 
 #[tauri::command]
@@ -159,7 +163,6 @@ pub async fn travailleur_update(
     session: tauri::State<'_, auth_iphone::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    eprintln!("[AUDIT] travailleur_update id={}", id);
     ensure_authenticated(&session)?;
     if let Some(ref nss) = numero_securite_sociale {
         crate::validators::validate_nss(nss)?;
@@ -171,6 +174,7 @@ pub async fn travailleur_update(
         crate::validators::validate_date(d)?;
     }
     let conn = state.get()?;
+    log_acces(&conn, "MODIFICATION", "travailleur", Some(id), numero_securite_sociale.is_some());
     conn.execute(
         "UPDATE travailleur SET etablissement_id = ?1, nom = ?2, prenom = ?3, sexe = ?4, date_naissance = ?5, lieu_naissance = ?6, pays_naissance = ?7, fonction = ?8, date_debut_activite = ?9, categorie_reglementaire = ?10, numero_adeli_rpps = ?11, email = ?12, telephone = ?13, numero_securite_sociale = ?14, numero_porteur_dosimetrie_passive = ?15, numero_suivi_medical = ?16 WHERE id = ?17",
         rusqlite::params![
@@ -200,10 +204,9 @@ pub async fn travailleur_update(
 
 #[tauri::command]
 pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
-    // NOTE: log d'audit non testÃ© unitairement (effet de bord stderr)
-    eprintln!("[AUDIT] travailleur_delete id={}", id);
     ensure_authenticated(&session)?;
     let conn = state.get()?;
+    log_acces(&conn, "SUPPRESSION", "travailleur", Some(id), false);
     conn.execute("DELETE FROM travailleur WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -214,6 +217,31 @@ fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), Strin
         return Err("Non authentifiÃ©".to_string());
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn journal_acces_list(
+    session: tauri::State<'_, auth_iphone::SessionState>,
+    state: tauri::State<'_, DbState>,
+) -> Result<Vec<JournalAcces>, String> {
+    ensure_authenticated(&session)?;
+    let conn = state.get()?;
+    let mut stmt = conn
+        .prepare("SELECT id, horodatage, operation, entite, entite_id, champ_nir FROM journal_acces ORDER BY horodatage DESC LIMIT 500")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| Ok(JournalAcces {
+            id: row.get(0)?,
+            horodatage: row.get(1)?,
+            operation: row.get(2)?,
+            entite: row.get(3)?,
+            entite_id: row.get(4)?,
+            champ_nir: row.get(5)?,
+        }))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 #[cfg(test)]

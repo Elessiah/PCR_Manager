@@ -149,6 +149,8 @@ const MIGRATIONS: &[(i32, &str, &str)] = &[
     (6, "V6__competence_validity_assignments", include_str!("../migrations/V6__competence_validity_assignments.sql")),
     (7, "V7__iphone_auth",            include_str!("../migrations/V7__iphone_auth.sql")),
     (8, "V8__iphone_ka_key",          include_str!("../migrations/V8__iphone_ka_key.sql")),
+    (9, "V9__journal_acces",          include_str!("../migrations/V9__journal_acces.sql")),
+    (10, "V10__registre_traitement",  include_str!("../migrations/V10__registre_traitement.sql")),
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
@@ -177,6 +179,13 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn log_acces(conn: &Connection, operation: &str, entite: &str, entite_id: Option<i64>, champ_nir: bool) {
+    let _ = conn.execute(
+        "INSERT INTO journal_acces (operation, entite, entite_id, champ_nir) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![operation, entite, entite_id, if champ_nir { 1i64 } else { 0i64 }],
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -236,7 +245,9 @@ mod tests {
             "etablissement",
             "habilitation",
             "iphone_pairing",
+            "journal_acces",
             "local_credential",
+            "registre_traitement",
             "travailleur",
             "travailleur_appareil",
             "verification_technique",
