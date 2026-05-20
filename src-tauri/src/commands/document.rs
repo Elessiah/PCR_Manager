@@ -1,6 +1,6 @@
-﻿use crate::db::DbState;
+use crate::db::DbState;
 use crate::models::Document;
-use crate::auth_iphone;
+use crate::auth_totp;
 use std::path::PathBuf;
 use uuid::Uuid;
 use chrono;
@@ -31,7 +31,7 @@ fn delete_document_record(tx: &rusqlite::Transaction, id: i64) -> Result<String,
 }
 
 #[tauri::command]
-pub async fn document_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
+pub async fn document_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Document>, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
@@ -58,7 +58,7 @@ pub async fn document_list(session: tauri::State<'_, auth_iphone::SessionState>,
 }
 
 #[tauri::command]
-pub async fn document_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
+pub async fn document_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Document, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
@@ -90,7 +90,7 @@ pub async fn document_upload(
     type_document: String,
     nom_fichier: String,
     source_path: String,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Document, String> {
     eprintln!("[AUDIT] document_upload source={}", source_path);
@@ -140,7 +140,7 @@ pub async fn document_upload(
 pub async fn document_delete(
     app_handle: tauri::AppHandle,
     id: i64,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] document_delete id={}", id);
@@ -169,7 +169,7 @@ pub async fn document_delete(
 pub async fn document_list_for_entity(
     entity_type: String,
     entity_id: i64,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<Document>, String> {
     ensure_authenticated(&session)?;
@@ -204,7 +204,7 @@ pub async fn document_pick_and_upload(
     entity_id: i64,
     type_document: String,
     replace_document_id: Option<i64>,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Option<Document>, String> {
     ensure_authenticated(&session)?;
@@ -281,7 +281,7 @@ pub async fn document_pick_and_upload(
 pub async fn document_open(
     app_handle: tauri::AppHandle,
     id: i64,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -325,7 +325,7 @@ fn open_with_system_default(_path: &std::path::Path) -> Result<(), String> {
     Err("Ouverture non supportée sur cette plateforme".to_string())
 }
 
-fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifiÃ©".to_string());
     }
@@ -338,13 +338,13 @@ mod tests {
 
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth_iphone::SessionState::new();
+        let session = auth_totp::SessionState::new();
         assert!(ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth_iphone::SessionState::new();
+        let session = auth_totp::SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
     }

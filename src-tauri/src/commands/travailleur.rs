@@ -1,9 +1,9 @@
 use crate::db::{DbState, log_acces};
 use crate::models::{Travailleur, JournalAcces};
-use crate::auth_iphone;
+use crate::auth_totp;
 
 #[tauri::command]
-pub async fn travailleur_list(session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
+pub async fn travailleur_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Travailleur>, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
     log_acces(&conn, "LECTURE", "travailleur", None, true);
@@ -43,7 +43,7 @@ pub async fn travailleur_list(session: tauri::State<'_, auth_iphone::SessionStat
 }
 
 #[tauri::command]
-pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
+pub async fn travailleur_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Travailleur, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
     log_acces(&conn, "LECTURE", "travailleur", Some(id), true);
@@ -98,7 +98,7 @@ pub async fn travailleur_create(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
     ensure_authenticated(&session)?;
@@ -160,7 +160,7 @@ pub async fn travailleur_update(
     numero_securite_sociale: Option<String>,
     numero_porteur_dosimetrie_passive: Option<String>,
     numero_suivi_medical: Option<String>,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -203,7 +203,7 @@ pub async fn travailleur_update(
 }
 
 #[tauri::command]
-pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
+pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
     log_acces(&conn, "SUPPRESSION", "travailleur", Some(id), false);
@@ -212,7 +212,7 @@ pub async fn travailleur_delete(id: i64, session: tauri::State<'_, auth_iphone::
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifiÃ©".to_string());
     }
@@ -221,7 +221,7 @@ fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), Strin
 
 #[tauri::command]
 pub async fn journal_acces_list(
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<JournalAcces>, String> {
     ensure_authenticated(&session)?;

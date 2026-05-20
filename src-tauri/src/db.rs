@@ -34,29 +34,18 @@ fn app_data_dir(app: &tauri::AppHandle) -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Chemin du bundle ECIES (clé DB enveloppée avec la clé publique iPhone).
-/// Son existence indique que l'app est en mode "auth iPhone requise".
-pub fn wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
-    app_data_dir(app).join("wrapped_db_key.bin")
-}
-
-/// Vrai si le bundle ECIES existe (mode auth iPhone activé).
-pub fn has_wrapped_key(app: &tauri::AppHandle) -> bool {
-    wrapped_key_path(app).exists()
-}
-
-/// Chemin du bundle ECIES Mac Secure Enclave.
+/// Chemin du bundle ECIES Mac Keychain.
 pub fn mac_wrapped_key_path(app: &tauri::AppHandle) -> PathBuf {
     app_data_dir(app).join("mac_wrapped_db_key.bin")
 }
 
-/// Vrai si le bundle Mac SE existe (mode Secure Enclave activé).
+/// Vrai si le bundle Mac Keychain existe (mode Mac Keychain activé).
 pub fn has_mac_wrapped_key(app: &tauri::AppHandle) -> bool {
     mac_wrapped_key_path(app).exists()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Gestion de la clé DB (keyring OS — utilisé uniquement en mode legacy)
+// Gestion de la clé DB (keyring OS — mode legacy et mode TOTP)
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn get_or_create_db_key() -> Result<String> {

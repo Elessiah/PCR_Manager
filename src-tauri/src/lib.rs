@@ -1,16 +1,12 @@
 mod db;
-mod auth_iphone;
+mod auth_totp;
 mod auth_mac;
-mod ecies;
 mod models;
 mod commands;
 mod validators;
 
 use tauri::Manager;
 
-/// Port du serveur localhost (production ET dev Vite).
-/// En production, tauri-plugin-localhost sert le frontend depuis http://localhost:1420.
-/// En dev, Vite tourne déjà sur 1420 (le plugin n'est pas utilisé).
 const LOCALHOST_PORT: u16 = 1420;
 
 #[tauri::command]
@@ -18,60 +14,17 @@ fn ping() -> &'static str {
     "pong"
 }
 
-/// Vérifie si le Wi-Fi est présent et activé sur macOS.
-/// Retourne { available: bool, enabled: bool }.
-#[tauri::command]
-fn wifi_check() -> serde_json::Value {
-    wifi_check_impl()
-}
-
-/// Ouvre le panneau Wi-Fi dans les Réglages Système macOS.
-#[tauri::command]
-fn wifi_open_settings() {
-    wifi_open_settings_impl();
-}
-
-// ── macOS ─────────────────────────────────────────────────────────────────────
-
-/// Vérifie l'état Wi-Fi via `networksetup -getairportpower Wi-Fi`.
-/// Sortie attendue : "Wi-Fi Power (en0): On" ou "Wi-Fi Power (en0): Off".
-/// Si l'interface Wi-Fi est absente, la commande échoue → available: false.
-fn wifi_check_impl() -> serde_json::Value {
-    let Ok(output) = std::process::Command::new("networksetup")
-        .args(["-getairportpower", "Wi-Fi"])
-        .output()
-    else {
-        return serde_json::json!({ "available": false, "enabled": false });
-    };
-    let text = String::from_utf8_lossy(&output.stdout);
-    if text.trim().is_empty() {
-        return serde_json::json!({ "available": false, "enabled": false });
-    }
-    let enabled = text.contains(": On");
-    serde_json::json!({ "available": true, "enabled": enabled })
-}
-
-/// Ouvre les Réglages Système → Wi-Fi (macOS 13+).
-/// Sur macOS 12 et antérieurs, le schéma x-apple.systempreferences est redirigé automatiquement.
-fn wifi_open_settings_impl() {
-    let _ = std::process::Command::new("open")
-        .arg("x-apple.systempreferences:com.apple.wifi")
-        .spawn();
-}
-
 pub fn run() {
     tauri::Builder::default()
-        // Sert le frontend depuis http://localhost:LOCALHOST_PORT en production
-        // (en dev, Tauri utilise directement devUrl = http://localhost:1420)
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .setup(|app| {
-            // Mode Mac Keychain protégé (wrapped_mac_db_key.bin présent) : DB ouverte après Touch ID ou mot de passe.
-            // Mode iPhone (wrapped_db_key.bin présent) : la DB sera ouverte après auth.
-            // Mode legacy (pas de bundle) : ouverture immédiate avec la clé du keyring.
+            // Mode Mac Keychain (mac_wrapped_db_key.bin) : DB ouverte après mot de passe macOS.
+            // Mode TOTP (secret dans le Keychain) : DB ouverte après code Google Authenticator.
+            // Mode legacy (première installation) : DB ouverte immédiatement pour permettre l'activation.
             let conn_opt = if db::has_mac_wrapped_key(app.handle()) {
-                None  // mode Secure Enclave Mac : DB ouverte après Touch ID
-            } else if db::has_wrapped_key(app.handle()) {
-                None  // mode iPhone : DB ouverte après auth iPhone
+                None
+            } else if auth_totp::has_totp() {
+                None
             } else {
                 let conn = db::open_and_migrate(app.handle(), None)
                     .map_err(|e| tauri::Error::Io(std::io::Error::new(
@@ -84,19 +37,20 @@ pub fn run() {
             app.manage(db::DbState {
                 conn: parking_lot::Mutex::new(conn_opt),
             });
-
-            app.manage(auth_iphone::SessionState::new());
-            app.manage(auth_iphone::IphoneAuthState::new());
+            app.manage(auth_totp::SessionState::new());
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             ping,
-            wifi_check,
-            wifi_open_settings,
             db::init_db,
-            auth_iphone::session_check,
-            auth_iphone::iphone_logout,
+            auth_totp::session_check,
+            auth_totp::logout,
+            auth_totp::totp_available,
+            auth_totp::totp_setup_start,
+            auth_totp::totp_setup_confirm,
+            auth_totp::totp_login,
+            auth_totp::totp_revoke,
             auth_mac::mac_auth_available,
             auth_mac::mac_auth_start,
             auth_mac::mac_se_activate,
@@ -156,15 +110,6 @@ pub fn run() {
             commands::travailleur_appareil::travailleur_appareil_list,
             commands::travailleur_appareil::travailleur_appareil_add,
             commands::travailleur_appareil::travailleur_appareil_remove,
-            auth_iphone::iphone_network_available,
-            auth_iphone::iphone_has_paired_device,
-            auth_iphone::iphone_pairing_list,
-            auth_iphone::iphone_pairing_revoke,
-            auth_iphone::iphone_pairing_start,
-            auth_iphone::iphone_pairing_poll,
-            auth_iphone::iphone_auth_challenge_start,
-            auth_iphone::iphone_auth_poll,
-            auth_iphone::iphone_cancel_pending
         ])
         .run(tauri::generate_context!())
         .expect("erreur Tauri");

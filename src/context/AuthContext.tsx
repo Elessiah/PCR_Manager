@@ -14,20 +14,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    api.iphoneAuth.sessionCheck()
+    api.totpAuth.sessionCheck()
       .then(result => setIsAuthenticated(result?.authenticated ?? false))
       .catch(() => setIsAuthenticated(false));
   }, []);
 
   const confirmAuth = useCallback(async (): Promise<boolean> => {
-    const result = await api.iphoneAuth.sessionCheck();
+    const result = await api.totpAuth.sessionCheck();
     const authenticated = result?.authenticated ?? false;
     setIsAuthenticated(authenticated);
     return authenticated;
   }, []);
 
   const logout = useCallback(() => {
-    api.iphoneAuth.logout().catch(console.error);
+    api.totpAuth.logout().catch(console.error);
     setIsAuthenticated(false);
   }, []);
 

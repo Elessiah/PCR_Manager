@@ -1,6 +1,6 @@
-﻿use crate::db::DbState;
+use crate::db::DbState;
 use crate::models::{HabilitationStatus, HabilitationDetails, Habilitation};
-use crate::auth_iphone;
+use crate::auth_totp;
 use chrono::NaiveDate;
 
 pub fn desactiver_competences_perimees(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -16,7 +16,7 @@ pub fn desactiver_competences_perimees(conn: &rusqlite::Connection) -> rusqlite:
 }
 
 #[tauri::command]
-pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_, auth_iphone::SessionState>, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
+pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
     ensure_authenticated(&session)?;
     let conn = state.get()?;
 
@@ -115,7 +115,7 @@ pub async fn habilitation_update(
     visite_medicale_date: Option<String>,
     visite_medicale_duree_mois: Option<i64>,
     visite_medicale_date_peremption: Option<String>,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     ensure_authenticated(&session)?;
@@ -141,7 +141,7 @@ pub async fn habilitation_update(
 #[tauri::command]
 pub async fn habilitation_get_for_travailleur(
     travailleur_id: i64,
-    session: tauri::State<'_, auth_iphone::SessionState>,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Habilitation, String> {
     ensure_authenticated(&session)?;
@@ -256,7 +256,7 @@ fn verify_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> ru
     Ok(true)
 }
 
-fn ensure_authenticated(session: &auth_iphone::SessionState) -> Result<(), String> {
+fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
     if !*session.authenticated.lock() {
         return Err("Non authentifiÃ©".to_string());
     }
@@ -313,13 +313,13 @@ mod tests {
 
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth_iphone::SessionState::new();
+        let session = auth_totp::SessionState::new();
         assert!(ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth_iphone::SessionState::new();
+        let session = auth_totp::SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
     }
