@@ -77,7 +77,9 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Import Apple Developer certificate
-        # Skipped if APPLE_CERTIFICATE secret is not configured
+        # Skipped if APPLE_CERTIFICATE secret is not configured.
+        # Also exports signing/notarisation env vars to GITHUB_ENV so that
+        # the build step only receives them when a real certificate is present.
         if: ${{ env.APPLE_CERTIFICATE != '' }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -96,16 +98,13 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           rm -f "$CERTIFICATE_PATH"
+          echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
+          echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> "$GITHUB_ENV"
+          echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
 
       - run: npm ci
       - name: Build universal (with signing if configured)
-        env:
-          # Signing — set these secrets in GitHub repo settings to enable signing
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # Notarisation — requires Apple Developer account
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run tauri:build -- --target universal-apple-darwin
 
       - name: Cleanup keychain
