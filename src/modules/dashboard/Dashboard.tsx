@@ -217,12 +217,16 @@ export default function Dashboard() {
       });
     });
 
+    const formationsDanger = habitationsData.filter(h => !h.status.details.formation_rp_ok).length;
+    const visitesDanger = habitationsData.filter(h => !h.status.details.visite_med_ok).length;
+    const dosimetrieDanger = habitationsData.filter(h => !h.status.details.dosimetries_ok).length;
+
     return {
-      formations: { danger: 0, warn: 0 },
-      visites: { danger: 0, warn: 0 },
+      formations: { danger: formationsDanger, warn: 0 },
+      visites: { danger: visitesDanger, warn: 0 },
       verifications: countByStatus(verificationsList),
       controles: countByStatus(controlesList),
-      dosimetrie: { danger: 0, warn: 0 },
+      dosimetrie: { danger: dosimetrieDanger, warn: 0 },
       competences: { danger: competencesDanger, warn: competencesWarn },
     };
   }, [actions, competencesGeneralesQueries, competenceRefs]);
@@ -446,7 +450,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            <button className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accentDark border border-accentBorder rounded-md">
+            <button onClick={() => qc.invalidateQueries()} className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accentDark border border-accentBorder rounded-md">
               <RefreshCw size={14} />
               Actualiser
             </button>

@@ -29,7 +29,6 @@ parking_lot = "0.12"
 uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.22"
 keyring = "2"
-tauri-plugin-localhost = "2"
 rfd = "0.15"
 aes-gcm = "0.10"
 argon2 = { version = "0.5", features = ["std"] }

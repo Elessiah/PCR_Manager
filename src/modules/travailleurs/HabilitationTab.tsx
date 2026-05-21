@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/ui/Badge';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
@@ -105,7 +106,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       queryClient.invalidateQueries({ queryKey: ['travailleurAppareils', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
     } catch (error) {
-      console.error('Erreur lors du retrait:', error);
+      toast.error('Erreur lors du retrait de l\'appareil');
     }
   };
 
@@ -119,7 +120,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
       setSelectedAppareilIds([]);
     } catch (error) {
-      console.error('Erreur lors de l\'ajout:', error);
+      toast.error('Erreur lors de l\'ajout de l\'appareil');
     }
   };
 

@@ -11,7 +11,6 @@ export function useTauriInvoke() {
       const result = await invoke<T>(command, args)
       return result
     } catch (error) {
-      console.error(`Erreur lors de l'appel Tauri "${command}":`, error)
       throw error
     }
   }, [])

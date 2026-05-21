@@ -303,17 +303,7 @@ export const api = {
     open: (id: number) => invoke<void>('document_open', { id }),
   },
 
-  wifi: {
-    /** Vérifie si le Wi-Fi est présent (available) et activé (enabled) sur macOS. */
-    check: () => invoke<{ available: boolean; enabled: boolean }>('wifi_check'),
-    /** Ouvre le panneau Wi-Fi dans les Réglages Système macOS. */
-    openSettings: () => invoke<void>('wifi_open_settings'),
-  },
-
   data: {
-    export: () => invoke<string>('data_export'),
-    import: (jsonStr: string) =>
-      invoke<{ travailleurs_added: number; appareils_added: number }>('data_import', { jsonStr }),
     exportEncrypted: () =>
       invoke<ExportEncryptedResult>('data_export_encrypted'),
     importEncrypted: (input: { fileB64: string; code: string }) =>

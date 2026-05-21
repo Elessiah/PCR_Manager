@@ -49,9 +49,7 @@ export default function KbisSection({
         fileInputRef.current.value = '';
       }
     },
-    onError: err => {
-      console.error('Upload failed:', err);
-    },
+    onError: () => {},
   });
 
   const validateSiret = (value: string): string | null => {
