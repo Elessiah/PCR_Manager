@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
 import { ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
@@ -54,7 +53,7 @@ export default function Actions() {
   const habilitationQueries = useQueries({
     queries: travailleurs.map((t) => ({
       queryKey: ['habilitation', 'raw', t.id],
-      queryFn: () => invoke<Habilitation>('habilitation_get_for_travailleur', { travailleurId: t.id }),
+      queryFn: () => api.habilitation.getForTravailleur(t.id),
     })),
   });
 

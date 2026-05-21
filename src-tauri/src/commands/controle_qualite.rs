@@ -4,7 +4,7 @@ use crate::auth_totp;
 
 #[tauri::command]
 pub async fn controle_qualite_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<ControleQualite>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations, created_at FROM controle_qualite ORDER BY id")
@@ -35,7 +35,7 @@ pub async fn controle_qualite_list(session: tauri::State<'_, auth_totp::SessionS
 
 #[tauri::command]
 pub async fn controle_qualite_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<ControleQualite, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations, created_at FROM controle_qualite WHERE id = ?1")
@@ -76,7 +76,9 @@ pub async fn controle_qualite_create(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
+    crate::validators::validate_date(&date_echeance)?;
+    if let Some(ref d) = date_realisation { crate::validators::validate_date(d)?; }
     let conn = state.get()?;
     conn.execute(
         "INSERT INTO controle_qualite (appareil_id, type, date_realisation, date_echeance, controle_externe_id, organisme, realise_par, statut, observations)
@@ -113,7 +115,9 @@ pub async fn controle_qualite_update(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
+    crate::validators::validate_date(&date_echeance)?;
+    if let Some(ref d) = date_realisation { crate::validators::validate_date(d)?; }
     let conn = state.get()?;
     conn.execute(
         "UPDATE controle_qualite SET appareil_id = ?1, type = ?2, date_realisation = ?3, date_echeance = ?4, controle_externe_id = ?5, organisme = ?6, realise_par = ?7, statut = ?8, observations = ?9 WHERE id = ?10",
@@ -138,17 +142,10 @@ pub async fn controle_qualite_update(
 #[tauri::command]
 pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] controle_qualite_delete id={}", id);
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM controle_qualite WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
     Ok(())
 }
 

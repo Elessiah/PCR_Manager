@@ -4,7 +4,7 @@ use crate::auth_totp;
 
 #[tauri::command]
 pub async fn verification_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<VerificationTechnique>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations, created_at FROM verification_technique ORDER BY id")
@@ -32,7 +32,7 @@ pub async fn verification_list(session: tauri::State<'_, auth_totp::SessionState
 
 #[tauri::command]
 pub async fn verification_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<VerificationTechnique, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, appareil_id, type, date_realisation, realise_par, organisme, observations, created_at FROM verification_technique WHERE id = ?1")
@@ -67,7 +67,8 @@ pub async fn verification_create(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
+    crate::validators::validate_date(&date_realisation)?;
     let conn = state.get()?;
     conn.execute(
         "INSERT INTO verification_technique (appareil_id, type, date_realisation, realise_par, organisme, observations)
@@ -91,7 +92,8 @@ pub async fn verification_update(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
+    crate::validators::validate_date(&date_realisation)?;
     let conn = state.get()?;
     conn.execute(
         "UPDATE verification_technique SET appareil_id = ?1, type = ?2, date_realisation = ?3, realise_par = ?4, organisme = ?5, observations = ?6 WHERE id = ?7",
@@ -105,17 +107,10 @@ pub async fn verification_update(
 #[tauri::command]
 pub async fn verification_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] verification_delete id={}", id);
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM verification_technique WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
     Ok(())
 }
 
@@ -126,13 +121,13 @@ mod tests {
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
         let session = auth_totp::SessionState::new();
-        assert!(ensure_authenticated(&session).is_err());
+        assert!(auth_totp::ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
         let session = auth_totp::SessionState::new();
         *session.authenticated.lock() = true;
-        assert!(ensure_authenticated(&session).is_ok());
+        assert!(auth_totp::ensure_authenticated(&session).is_ok());
     }
 }

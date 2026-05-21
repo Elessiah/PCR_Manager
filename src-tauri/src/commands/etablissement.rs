@@ -4,7 +4,7 @@ use crate::auth_totp;
 
 #[tauri::command]
 pub async fn etablissement_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<Etablissement>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin, created_at, updated_at FROM etablissement ORDER BY id")
@@ -37,7 +37,7 @@ pub async fn etablissement_list(session: tauri::State<'_, auth_totp::SessionStat
 
 #[tauri::command]
 pub async fn etablissement_get(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Etablissement, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin, created_at, updated_at FROM etablissement WHERE id = ?1")
@@ -81,7 +81,7 @@ pub async fn etablissement_create(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<i64, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     if let Some(ref s) = siret {
         crate::validators::validate_siret(s)?;
     }
@@ -123,7 +123,7 @@ pub async fn etablissement_update(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     if let Some(ref s) = siret {
         crate::validators::validate_siret(s)?;
     }
@@ -152,17 +152,10 @@ pub async fn etablissement_update(
 #[tauri::command]
 pub async fn etablissement_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
     eprintln!("[AUDIT] etablissement_delete id={}", id);
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM etablissement WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
     Ok(())
 }
 
