@@ -284,8 +284,9 @@ fn check_date_within_years(date_str: &str, years: i32) -> bool {
 fn check_date_with_months(date_str: &str, months: i64) -> bool {
     if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         let now = chrono::Local::now().naive_local().date();
-        let days = 30 * months;
-        let threshold = date + chrono::Duration::days(days);
+        let threshold = date
+            .checked_add_months(Months::new(months as u32))
+            .unwrap_or(date);
         now <= threshold
     } else {
         false

@@ -234,8 +234,10 @@ pub async fn competence_general_get_for_travailleur(
 pub async fn appareil_competence_add(
     appareil_id: i64,
     competence_ref_id: i64,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "INSERT OR IGNORE INTO appareil_competence_ref (appareil_id, competence_ref_id) VALUES (?1, ?2)",
@@ -249,8 +251,10 @@ pub async fn appareil_competence_add(
 pub async fn appareil_competence_remove(
     appareil_id: i64,
     competence_ref_id: i64,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "DELETE FROM appareil_competence_ref WHERE appareil_id = ?1 AND competence_ref_id = ?2",

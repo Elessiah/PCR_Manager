@@ -12,7 +12,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { useMidnightRefresh } from '../../hooks/useMidnightRefresh';
-import type { ControleQualite, Habilitation, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
+import type { ControleQualite, Habilitation, HabilitationStatus, CompetenceTravailleurGeneral, CompetenceTravailleur, ImportResultExtended } from '../../types/domain';
 import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap, X } from 'lucide-react';
 
 interface Action {
@@ -108,12 +108,19 @@ export default function Dashboard() {
     })),
   });
 
+  const competencesAppareilQueries = useQueries({
+    queries: travailleurs.map(t => ({
+      queryKey: ['competence', t.id],
+      queryFn: () => api.competence.getForTravailleur(t.id),
+    })),
+  });
+
   const { data: competenceRefs = [], isLoading: loadingCompRefs } = useQuery({
     queryKey: ['competenceRefs'],
     queryFn: () => api.competence.list(),
   });
 
-  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || habilitationRawQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending);
+  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || habilitationRawQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending) || competencesAppareilQueries.some(q => q.isPending);
 
   const habitationsData = useMemo(() => {
     return habilitationQueries.map((q, idx) => ({
@@ -210,25 +217,29 @@ export default function Dashboard() {
     let competencesDanger = 0;
     let competencesWarn = 0;
 
+    const checkCompetenceExpiry = (
+      comp: { validated: number; date_peremption: string | null; competence_ref_id: number }
+    ) => {
+      if (comp.validated !== 1 || !comp.date_peremption) return;
+      const compRef = competenceRefs.find(r => r.id === comp.competence_ref_id);
+      if (!compRef) return;
+      const peremptionDate = new Date(comp.date_peremption);
+      const alerteSeuilDate = new Date(peremptionDate);
+      alerteSeuilDate.setMonth(alerteSeuilDate.getMonth() - compRef.duree_alerte_mois);
+      const today = new Date();
+      if (today > peremptionDate) {
+        competencesDanger++;
+      } else if (today >= alerteSeuilDate) {
+        competencesWarn++;
+      }
+    };
+
     competencesGeneralesQueries.forEach((query) => {
-      const competences = query.data || [];
-      competences.forEach((comp: CompetenceTravailleurGeneral) => {
-        if (comp.validated !== 1 || !comp.date_peremption) return;
+      (query.data || []).forEach((comp: CompetenceTravailleurGeneral) => checkCompetenceExpiry(comp));
+    });
 
-        const compRef = competenceRefs.find(r => r.id === comp.competence_ref_id);
-        if (!compRef) return;
-
-        const peremptionDate = new Date(comp.date_peremption);
-        const alerteSeuilDate = new Date(peremptionDate);
-        alerteSeuilDate.setMonth(alerteSeuilDate.getMonth() - compRef.duree_alerte_mois);
-
-        const today = new Date();
-        if (today > peremptionDate) {
-          competencesDanger++;
-        } else if (today >= alerteSeuilDate) {
-          competencesWarn++;
-        }
-      });
+    competencesAppareilQueries.forEach((query) => {
+      (query.data || []).forEach((comp: CompetenceTravailleur) => checkCompetenceExpiry(comp));
     });
 
     const formationsDanger = habitationsData.filter(
@@ -273,7 +284,7 @@ export default function Dashboard() {
       dosimetrie: { danger: dosimetrieDanger, warn: 0 },
       competences: { danger: competencesDanger, warn: competencesWarn },
     };
-  }, [actions, competencesGeneralesQueries, competenceRefs, habitationsData, habilitationRawQueries]);
+  }, [actions, competencesGeneralesQueries, competencesAppareilQueries, competenceRefs, habitationsData, habilitationRawQueries]);
 
   const habilitationsStats = useMemo(() => {
     const stats = { validee: 0, partielle: 0, non_validee: 0 };
@@ -304,14 +315,10 @@ export default function Dashboard() {
         return;
       }
 
-      const latest = appControles.sort((a, b) =>
-        new Date(b.date_echeance).getTime() - new Date(a.date_echeance).getTime()
-      )[0];
-
-      const status = statusFromDate(latest.date_echeance, 3);
-      if (status === 'valide') stats.valide++;
-      else if (status === 'a_prevoir') stats.a_prevoir++;
-      else stats.en_retard++;
+      const statuses = appControles.map(c => statusFromDate(c.date_echeance, 3));
+      if (statuses.includes('en_retard')) stats.en_retard++;
+      else if (statuses.includes('a_prevoir')) stats.a_prevoir++;
+      else stats.valide++;
     });
 
     return stats;
