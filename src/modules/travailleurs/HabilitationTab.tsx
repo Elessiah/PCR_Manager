@@ -99,6 +99,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     });
     queryClient.invalidateQueries({ queryKey: ['competenceGeneral', travailleurId] });
     queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+    queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
   };
 
   const handleRemoveAppareil = async (appareilId: number) => {
