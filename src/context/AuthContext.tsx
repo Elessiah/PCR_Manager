@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    api.totpAuth.logout().catch(console.error);
+    api.totpAuth.logout().catch(() => {});
     setIsAuthenticated(false);
   }, []);
 

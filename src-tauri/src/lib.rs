@@ -7,8 +7,6 @@ mod validators;
 
 use tauri::Manager;
 
-const LOCALHOST_PORT: u16 = 1420;
-
 #[tauri::command]
 fn ping() -> &'static str {
     "pong"
@@ -16,7 +14,6 @@ fn ping() -> &'static str {
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .setup(|app| {
             // Mode Mac Keychain (mac_wrapped_db_key.bin) : DB ouverte après mot de passe macOS.
             // Mode TOTP (secret dans le Keychain) : DB ouverte après code Google Authenticator.
@@ -64,7 +61,6 @@ pub fn run() {
             commands::travailleur::travailleur_create,
             commands::travailleur::travailleur_update,
             commands::travailleur::travailleur_delete,
-            commands::travailleur::journal_acces_list,
             commands::habilitation::habilitation_compute,
             commands::habilitation::habilitation_update,
             commands::habilitation::habilitation_get_for_travailleur,
@@ -96,8 +92,6 @@ pub fn run() {
             commands::document::document_list_for_entity,
             commands::document::document_pick_and_upload,
             commands::document::document_open,
-            commands::export_import::data_export,
-            commands::export_import::data_import,
             commands::export_import::data_export_encrypted,
             commands::export_import::data_import_encrypted,
             commands::export_import::choose_save_path,

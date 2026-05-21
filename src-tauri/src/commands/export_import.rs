@@ -184,10 +184,35 @@ pub async fn data_export(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
+    // Établissements
+    let mut stmt = conn
+        .prepare("SELECT id, denomination, statut_juridique, siret, adresse, code_postal, ville, telephone, email, site_internet, kbis_chemin FROM etablissement")
+        .map_err(|e| e.to_string())?;
+
+    let etablissements: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok(json!({
+                "id": row.get::<_, i64>(0)?,
+                "denomination": row.get::<_, String>(1)?,
+                "statut_juridique": row.get::<_, Option<String>>(2)?,
+                "siret": row.get::<_, Option<String>>(3)?,
+                "adresse": row.get::<_, Option<String>>(4)?,
+                "code_postal": row.get::<_, Option<String>>(5)?,
+                "ville": row.get::<_, Option<String>>(6)?,
+                "telephone": row.get::<_, Option<String>>(7)?,
+                "email": row.get::<_, Option<String>>(8)?,
+                "site_internet": row.get::<_, Option<String>>(9)?,
+                "kbis_chemin": row.get::<_, Option<String>>(10)?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
     let payload = ExportPayload {
         version: 1,
         exported_at: Utc::now().to_rfc3339(),
-        etablissements: vec![],
+        etablissements,
         travailleurs,
         appareils,
         competences,
@@ -364,7 +389,7 @@ fn format_short_code(code: &str) -> String {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn encrypt_payload(payload: &ExportPayload, code: &str) -> Result<(String, String), String> {
     let json_str = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -403,7 +428,7 @@ fn encrypt_payload(payload: &ExportPayload, code: &str) -> Result<(String, Strin
     Ok((file_b64, code_formatted))
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn decrypt_payload(file_b64: &str, code: &str) -> Result<ExportPayload, String> {
     let file_bytes = general_purpose::STANDARD
         .decode(&file_b64)

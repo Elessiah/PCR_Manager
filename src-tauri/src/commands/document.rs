@@ -259,6 +259,9 @@ pub async fn document_pick_and_upload(
     if !ALLOWED_PICK_EXT.contains(&ext.to_lowercase().as_str()) {
         return Err("Extension de fichier non autorisée".to_string());
     }
+    if std::fs::metadata(&source_path).map(|m| m.len()).unwrap_or(0) > 50 * 1024 * 1024 {
+        return Err("Fichier source trop volumineux (max 50 Mo)".to_string());
+    }
     let uuid_name = format!("{}.{}", Uuid::new_v4(), ext);
     let dest_path = docs_dir.join(&uuid_name);
 

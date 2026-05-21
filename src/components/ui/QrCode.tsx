@@ -17,7 +17,7 @@ export function QrCode({ data, size = 240, className }: QrCodeProps) {
       margin: 2,
       color: { dark: '#000000', light: '#FFFFFF' },
       errorCorrectionLevel: 'M',
-    }).catch(console.error);
+    }).catch(() => {});
   }, [data, size]);
 
   return (
