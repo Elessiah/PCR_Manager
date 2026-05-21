@@ -42,7 +42,7 @@ export default function Actions() {
   });
 
   const { data: controleQualites = [] } = useQuery({
-    queryKey: ['controleQualites'],
+    queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
   });
 
