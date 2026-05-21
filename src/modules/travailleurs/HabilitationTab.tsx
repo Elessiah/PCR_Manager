@@ -45,7 +45,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   });
 
   const { data: competenceRefs = [] } = useQuery({
-    queryKey: ['competence_list'],
+    queryKey: ['competenceRefs'],
     queryFn: () => api.competence.list(),
   });
 
