@@ -7,7 +7,7 @@ pub async fn travailleur_appareil_list(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<i64>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT appareil_id FROM travailleur_appareil WHERE travailleur_id = ?1 ORDER BY appareil_id")
@@ -29,7 +29,7 @@ pub async fn travailleur_appareil_add(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "INSERT OR IGNORE INTO travailleur_appareil (travailleur_id, appareil_id) VALUES (?1, ?2)",
@@ -46,7 +46,7 @@ pub async fn travailleur_appareil_remove(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "DELETE FROM travailleur_appareil WHERE travailleur_id = ?1 AND appareil_id = ?2",
@@ -56,9 +56,3 @@ pub async fn travailleur_appareil_remove(
     Ok(())
 }
 
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
-    Ok(())
-}

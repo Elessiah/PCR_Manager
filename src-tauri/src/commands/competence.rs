@@ -14,7 +14,7 @@ pub async fn competence_ref_create(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<CompetenceRef, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "INSERT INTO competence_ref (libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -37,7 +37,7 @@ pub async fn competence_ref_update(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute(
         "UPDATE competence_ref SET libelle = ?1, ordre = ?2, description = ?3, propre_appareil = ?4, duree_validite_mois = ?5, duree_alerte_mois = ?6 WHERE id = ?7",
@@ -53,7 +53,7 @@ pub async fn competence_ref_delete(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM competence_ref WHERE id = ?1", rusqlite::params![id])
         .map_err(|e| e.to_string())?;
@@ -62,7 +62,7 @@ pub async fn competence_ref_delete(
 
 #[tauri::command]
 pub async fn competence_list(session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<Vec<CompetenceRef>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, libelle, ordre, description, propre_appareil, duree_validite_mois, duree_alerte_mois FROM competence_ref ORDER BY ordre")
@@ -98,7 +98,7 @@ pub async fn competence_set(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     eprintln!("[AUDIT] competence_set travailleur_id={} appareil_id={}", travailleur_id, appareil_id);
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     let date_peremption = if validated == 1 {
@@ -131,7 +131,7 @@ pub async fn competence_get_for_travailleur(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleur>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, travailleur_id, appareil_id, competence_ref_id, date_validation, validated, date_peremption FROM competence_travailleur WHERE travailleur_id = ?1 ORDER BY id")
@@ -169,7 +169,7 @@ pub async fn competence_general_set(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     let date_peremption = if validated == 1 {
@@ -202,7 +202,7 @@ pub async fn competence_general_get_for_travailleur(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<CompetenceTravailleurGeneral>, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare("SELECT id, travailleur_id, competence_ref_id, date_validation, date_peremption, validated FROM competence_travailleur_general WHERE travailleur_id = ?1 ORDER BY id")
@@ -282,13 +282,6 @@ pub async fn appareil_competence_list(
     Ok(ids)
 }
 
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
-    Ok(())
-}
-
 fn calc_date_peremption(conn: &rusqlite::Connection, competence_ref_id: i64, date_validation: &str) -> Result<Option<String>, String> {
     let mut stmt = conn
         .prepare("SELECT duree_validite_mois FROM competence_ref WHERE id = ?1")
@@ -323,14 +316,14 @@ mod tests {
     #[test]
     fn test_ensure_authenticated_when_false_returns_err() {
         let session = auth_totp::SessionState::new();
-        assert!(ensure_authenticated(&session).is_err());
+        assert!(auth_totp::ensure_authenticated(&session).is_err());
     }
 
     #[test]
     fn test_ensure_authenticated_when_true_returns_ok() {
         let session = auth_totp::SessionState::new();
         *session.authenticated.lock() = true;
-        assert!(ensure_authenticated(&session).is_ok());
+        assert!(auth_totp::ensure_authenticated(&session).is_ok());
     }
 
     #[test]
