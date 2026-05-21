@@ -7,12 +7,7 @@ import { useCallback } from 'react'
  */
 export function useTauriInvoke() {
   return useCallback(async <T,>(command: string, args?: Record<string, unknown>): Promise<T> => {
-    try {
-      const result = await invoke<T>(command, args)
-      return result
-    } catch (error) {
-      throw error
-    }
+    return invoke<T>(command, args)
   }, [])
 }
 

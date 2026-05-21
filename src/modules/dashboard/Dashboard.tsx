@@ -217,9 +217,9 @@ export default function Dashboard() {
       });
     });
 
-    const formationsDanger = habitationsData.filter(h => !h.status.details.formation_rp_ok).length;
-    const visitesDanger = habitationsData.filter(h => !h.status.details.visite_med_ok).length;
-    const dosimetrieDanger = habitationsData.filter(h => !h.status.details.dosimetries_ok).length;
+    const formationsDanger = habitationsData.filter(h => !h.status.details?.formation_rp_ok).length;
+    const visitesDanger = habitationsData.filter(h => !h.status.details?.visite_med_ok).length;
+    const dosimetrieDanger = habitationsData.filter(h => !h.status.details?.dosimetries_ok).length;
 
     return {
       formations: { danger: formationsDanger, warn: 0 },
@@ -229,7 +229,7 @@ export default function Dashboard() {
       dosimetrie: { danger: dosimetrieDanger, warn: 0 },
       competences: { danger: competencesDanger, warn: competencesWarn },
     };
-  }, [actions, competencesGeneralesQueries, competenceRefs]);
+  }, [actions, competencesGeneralesQueries, competenceRefs, habitationsData]);
 
   const habilitationsStats = useMemo(() => {
     const stats = { validee: 0, partielle: 0, non_validee: 0 };
