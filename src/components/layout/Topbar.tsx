@@ -25,7 +25,7 @@ export default function Topbar() {
   });
 
   const { data: controleQualites = [] } = useQuery<ControleQualite[]>({
-    queryKey: ['controleQualites'],
+    queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
     staleTime: 60_000,
   });
@@ -53,8 +53,16 @@ export default function Topbar() {
     const items: { label: string; detail: string; path: string }[] = [];
 
     verifications.forEach((v) => {
+      let years: number;
+      if (v.type_ === 'annuelle_interne') {
+        years = 1;
+      } else if (v.type_ === 'triennale_externe') {
+        years = 3;
+      } else {
+        return;
+      }
       const deadline = new Date(v.date_realisation);
-      deadline.setFullYear(deadline.getFullYear() + 1);
+      deadline.setFullYear(deadline.getFullYear() + years);
       const deadlineStr = deadline.toISOString().split('T')[0];
       if (statusFromDate(deadlineStr) === 'en_retard') {
         items.push({

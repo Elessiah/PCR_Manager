@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/ui/Badge';
+import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
@@ -129,57 +130,58 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     return new Date(dateStr).toLocaleDateString('fr-FR');
   };
 
-  const calculateExpirationDate = (visitDate: string, months: number): string => {
-    const date = new Date(visitDate);
-    date.setMonth(date.getMonth() + months);
-    return date.toISOString().split('T')[0];
+  const boolVariant = (ok: boolean): 'ok' | 'danger' => ok ? 'ok' : 'danger';
+
+  const visitStatusLabels: Record<string, string> = {
+    valide: 'Validé',
+    a_prevoir: 'À prévoir',
+    en_retard: 'Invalide',
+    non_applicable: 'Non renseigné',
   };
 
-  const getVisiteMedicaleStatus = () => {
-    const today = new Date();
-    let expirationDate: Date | null = null;
-
-    if (habilitation.visite_medicale_date_peremption) {
-      expirationDate = new Date(habilitation.visite_medicale_date_peremption);
-    } else if (habilitation.visite_medicale_date && habilitation.visite_medicale_duree_mois) {
-      const calculated = calculateExpirationDate(
-        habilitation.visite_medicale_date,
-        habilitation.visite_medicale_duree_mois
-      );
-      expirationDate = new Date(calculated);
+  const visitDeadline = (() => {
+    if (habilitation.visite_medicale_date_peremption) return habilitation.visite_medicale_date_peremption;
+    if (habilitation.visite_medicale_date) {
+      const d = new Date(habilitation.visite_medicale_date);
+      if (habilitation.visite_medicale_duree_mois) {
+        d.setMonth(d.getMonth() + habilitation.visite_medicale_duree_mois);
+      } else {
+        d.setFullYear(d.getFullYear() + 1);
+      }
+      return d.toISOString().split('T')[0];
     }
-
-    if (!expirationDate) return { status: 'Non renseigné', variant: 'neutral' as const };
-    if (today <= expirationDate) return { status: 'Validé', variant: 'ok' as const };
-    return { status: 'En retard', variant: 'danger' as const };
-  };
-
-  const visiteMedicaleStatus = getVisiteMedicaleStatus();
+    return null;
+  })();
+  const visitStatus = statusFromDate(visitDeadline, 3);
 
   const habItems = [
     {
       id: 'dosimetries',
       icon: Activity,
       title: 'Dosimétries',
-      ok: details.dosimetries_ok,
+      variant: boolVariant(details.dosimetries_ok),
+      label: details.dosimetries_ok ? 'Validé' : 'Invalide',
     },
     {
       id: 'formationRpTravailleur',
       icon: GraduationCap,
       title: 'Formation RP travailleurs',
-      ok: details.formation_rp_ok,
+      variant: boolVariant(details.formation_rp_ok),
+      label: details.formation_rp_ok ? 'Validé' : 'Invalide',
     },
     {
       id: 'formationRpPatient',
       icon: GraduationCap,
       title: 'Formation RP patients',
-      ok: details.formation_rp_patients_ok,
+      variant: boolVariant(details.formation_rp_patients_ok),
+      label: details.formation_rp_patients_ok ? 'Validé' : 'Invalide',
     },
     {
       id: 'visiteMedicale',
       icon: Activity,
       title: 'Visite médicale',
-      ok: visiteMedicaleStatus.variant === 'ok',
+      variant: statusToBadgeVariant[visitStatus],
+      label: visitStatusLabels[visitStatus],
     },
   ];
   return (
@@ -212,9 +214,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={item.ok ? 'ok' : 'neutral'}>
-                  {item.ok ? 'Validé' : 'Non validé'}
-                </Badge>
+                <Badge variant={item.variant}>{item.label}</Badge>
               </div>
             </div>
           ))}
