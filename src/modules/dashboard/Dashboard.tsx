@@ -96,7 +96,7 @@ export default function Dashboard() {
 
   const competencesGeneralesQueries = useQueries({
     queries: travailleurs.map(t => ({
-      queryKey: ['competencesGenerales', t.id],
+      queryKey: ['competenceGeneral', t.id],
       queryFn: () => api.competence.generalGetForTravailleur(t.id),
     })),
   });
@@ -224,7 +224,9 @@ export default function Dashboard() {
       });
     });
 
-    const formationsDanger = habitationsData.filter(h => !h.status.details?.formation_rp_ok).length;
+    const formationsDanger = habitationsData.filter(
+      h => !h.status.details?.formation_rp_ok || !h.status.details?.formation_rp_patients_ok
+    ).length;
     const visitesDanger = habitationsData.filter(h => !h.status.details?.visite_med_ok).length;
     const dosimetrieDanger = habitationsData.filter(h => !h.status.details?.dosimetries_ok).length;
 
@@ -375,11 +377,15 @@ export default function Dashboard() {
           setImportFile(null);
           setImportCode('');
 
-          // Invalider les requêtes
+          // Invalider toutes les requêtes impactées par l'import
           await qc.invalidateQueries({ queryKey: ['travailleurs'] });
           await qc.invalidateQueries({ queryKey: ['appareils'] });
           await qc.invalidateQueries({ queryKey: ['verifications'] });
           await qc.invalidateQueries({ queryKey: ['controles'] });
+          await qc.invalidateQueries({ queryKey: ['habilitation'] });
+          await qc.invalidateQueries({ queryKey: ['habilitationRaw'] });
+          await qc.invalidateQueries({ queryKey: ['competenceGeneral'] });
+          await qc.invalidateQueries({ queryKey: ['travailleurAppareils'] });
         } catch (err) {
           setImportError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
         } finally {

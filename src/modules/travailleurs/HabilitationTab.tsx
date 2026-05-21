@@ -98,6 +98,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     });
     queryClient.invalidateQueries({ queryKey: ['competenceGeneral', travailleurId] });
     queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+    queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
   };
 
   const handleRemoveAppareil = async (appareilId: number) => {
@@ -179,7 +180,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       id: 'visiteMedicale',
       icon: Activity,
       title: 'Visite médicale',
-      ok: visiteMedicaleStatus.variant === 'ok',
+      ok: details.visite_med_ok,
     },
   ];
   return (

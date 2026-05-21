@@ -27,7 +27,7 @@ export default function TravailleurFiche() {
   });
 
   const { data: habStatus } = useQuery({
-    queryKey: ['habilitation', id],
+    queryKey: ['habilitation', Number(id)],
     queryFn: () => api.habilitation.compute(Number(id!)),
     enabled: !!id,
   });
