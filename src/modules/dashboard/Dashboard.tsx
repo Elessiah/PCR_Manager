@@ -12,7 +12,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { useMidnightRefresh } from '../../hooks/useMidnightRefresh';
-import type { ControleQualite, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
+import type { ControleQualite, Habilitation, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
 import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap, X } from 'lucide-react';
 
 interface Action {
@@ -66,31 +66,38 @@ export default function Dashboard() {
   const { data: travailleurs = [], isLoading: loadingTrav } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
-    refetchInterval: 60_000,
+    refetchOnMount: 'always',
   });
 
   const { data: appareils = [], isLoading: loadingApp } = useQuery({
     queryKey: ['appareils'],
     queryFn: () => api.appareil.list(),
-    refetchInterval: 60_000,
+    refetchOnMount: 'always',
   });
 
   const { data: verifications = [], isLoading: loadingVerif } = useQuery({
     queryKey: ['verifications'],
     queryFn: () => api.verification.list(),
-    refetchInterval: 60_000,
+    refetchOnMount: 'always',
   });
 
   const { data: controles = [], isLoading: loadingControle } = useQuery({
     queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
-    refetchInterval: 60_000,
+    refetchOnMount: 'always',
   });
 
   const habilitationQueries = useQueries({
     queries: travailleurs.map(t => ({
       queryKey: ['habilitation', t.id],
       queryFn: () => api.habilitation.compute(t.id),
+    })),
+  });
+
+  const habilitationRawQueries = useQueries({
+    queries: travailleurs.map(t => ({
+      queryKey: ['habilitation', 'raw', t.id],
+      queryFn: () => api.habilitation.getForTravailleur(t.id),
     })),
   });
 
@@ -106,7 +113,7 @@ export default function Dashboard() {
     queryFn: () => api.competence.list(),
   });
 
-  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending);
+  const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || habilitationRawQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending);
 
   const habitationsData = useMemo(() => {
     return habilitationQueries.map((q, idx) => ({
@@ -230,15 +237,43 @@ export default function Dashboard() {
     const visitesDanger = habitationsData.filter(h => !h.status.details?.visite_med_ok).length;
     const dosimetrieDanger = habitationsData.filter(h => !h.status.details?.dosimetries_ok).length;
 
+    let formationsWarn = 0;
+    let visitesWarn = 0;
+
+    habilitationRawQueries.forEach((q) => {
+      const hab = q.data as Habilitation | undefined;
+      if (!hab) return;
+
+      if (hab.formation_rp_travailleurs_date) {
+        const d = new Date(hab.formation_rp_travailleurs_date);
+        d.setFullYear(d.getFullYear() + 3);
+        if (statusFromDate(d.toISOString().split('T')[0], 3) === 'a_prevoir') formationsWarn++;
+      }
+
+      let visitDeadline: string | null = null;
+      if (hab.visite_medicale_date_peremption) {
+        visitDeadline = hab.visite_medicale_date_peremption;
+      } else if (hab.visite_medicale_date) {
+        const d = new Date(hab.visite_medicale_date);
+        if (hab.visite_medicale_duree_mois) {
+          d.setMonth(d.getMonth() + hab.visite_medicale_duree_mois);
+        } else {
+          d.setFullYear(d.getFullYear() + 1);
+        }
+        visitDeadline = d.toISOString().split('T')[0];
+      }
+      if (visitDeadline && statusFromDate(visitDeadline, 3) === 'a_prevoir') visitesWarn++;
+    });
+
     return {
-      formations: { danger: formationsDanger, warn: 0 },
-      visites: { danger: visitesDanger, warn: 0 },
+      formations: { danger: formationsDanger, warn: formationsWarn },
+      visites: { danger: visitesDanger, warn: visitesWarn },
       verifications: countByStatus(verificationsList),
       controles: countByStatus(controlesList),
       dosimetrie: { danger: dosimetrieDanger, warn: 0 },
       competences: { danger: competencesDanger, warn: competencesWarn },
     };
-  }, [actions, competencesGeneralesQueries, competenceRefs, habitationsData]);
+  }, [actions, competencesGeneralesQueries, competenceRefs, habitationsData, habilitationRawQueries]);
 
   const habilitationsStats = useMemo(() => {
     const stats = { validee: 0, partielle: 0, non_validee: 0 };
@@ -283,12 +318,12 @@ export default function Dashboard() {
   }, [appareils, controles]);
 
   const kpiInRetard = useMemo(() => {
-    return actions.filter(a => statusFromDate(a.deadline, 1) === 'en_retard').length;
-  }, [actions]);
+    return Object.values(alertCategories).reduce((sum, cat) => sum + cat.danger, 0);
+  }, [alertCategories]);
 
   const kpiAPrevoir = useMemo(() => {
-    return actions.filter(a => statusFromDate(a.deadline, 3) === 'a_prevoir').length;
-  }, [actions]);
+    return Object.values(alertCategories).reduce((sum, cat) => sum + cat.warn, 0);
+  }, [alertCategories]);
 
   const todayFormatted = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit',

@@ -192,7 +192,7 @@ export default function Actions() {
   const allActions = buildActions();
 
   const countByStatus = (status: string): number => {
-    return allActions.filter(a => statusFromDate(a.deadline) === status).length;
+    return allActions.filter(a => statusFromDate(a.deadline, 3) === status).length;
   };
 
   const countByCategorie = (categorie: ActionCategory): number => {
@@ -210,7 +210,7 @@ export default function Actions() {
   };
 
   const statusLabel = (deadline: string | null): string => {
-    const status = statusFromDate(deadline);
+    const status = statusFromDate(deadline, 3);
     const labels: Record<string, string> = {
       en_retard: 'Invalide',
       a_prevoir: 'À prévoir',
@@ -253,7 +253,7 @@ export default function Actions() {
   const filtered = allActions.filter((action) => {
     if (filter === 'tout') return true;
 
-    const status = statusFromDate(action.deadline);
+    const status = statusFromDate(action.deadline, 3);
     if (filter === 'en_retard') return status === 'en_retard';
     if (filter === 'a_venir') return status === 'a_prevoir';
     if (filter === 'controle') return action.categorie === 'controle';
@@ -265,8 +265,8 @@ export default function Actions() {
 
   // Tri: en_retard d'abord, puis par deadline croissant
   filtered.sort((a, b) => {
-    const statusA = statusFromDate(a.deadline);
-    const statusB = statusFromDate(b.deadline);
+    const statusA = statusFromDate(a.deadline, 3);
+    const statusB = statusFromDate(b.deadline, 3);
 
     const statusOrder: Record<string, number> = {
       en_retard: 0,
@@ -335,7 +335,7 @@ export default function Actions() {
               </TR>
             ) : (
               filtered.map((action) => {
-                const status = statusFromDate(action.deadline);
+                const status = statusFromDate(action.deadline, 3);
                 const statusVariant = statusToBadgeVariant[status];
                 return (
                   <TR

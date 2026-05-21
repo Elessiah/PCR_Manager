@@ -229,10 +229,10 @@ describe('Actions', () => {
     expect(enRetardButton?.textContent).toContain('3');
 
     const aVenirButton = buttons.find((btn) => btn.textContent?.includes('À venir'));
-    // statusFromDate uses alertMonths=1 by default:
-    // Vérification 2 (2026-06-15) → a_prevoir (within 1 month of today)
-    // Contrôle 2 (2027-10-15) → valide (too far, not within 1 month alert window)
-    // Visite méd. 1 Jean Dupont (2026-06-01) → a_prevoir (within 1 month)
+    // statusFromDate uses alertMonths=3 (90 jours):
+    // Vérification 2 (2026-06-15) → a_prevoir (within 3 months of today)
+    // Contrôle 2 (2027-10-15) → valide (too far, not within 3-month alert window)
+    // Visite méd. 1 Jean Dupont (2026-06-01) → a_prevoir (within 3 months)
     // Total à venir = 2
     expect(aVenirButton?.textContent).toContain('2');
   });
