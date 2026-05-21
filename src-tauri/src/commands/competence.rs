@@ -257,6 +257,13 @@ pub async fn appareil_competence_remove(
         rusqlite::params![appareil_id, competence_ref_id],
     )
     .map_err(|e| e.to_string())?;
+    // Supprime les validations des travailleurs pour cet appareil+compétence
+    // (la compétence n'étant plus requise, ces enregistrements n'ont plus de sens)
+    conn.execute(
+        "DELETE FROM competence_travailleur WHERE appareil_id = ?1 AND competence_ref_id = ?2",
+        rusqlite::params![appareil_id, competence_ref_id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -347,5 +354,78 @@ mod tests {
         let result = calc_date_peremption(&conn, 1, "2026-01-15").unwrap();
 
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_suppression_competence_ref_cascade_competence_travailleur() {
+        let conn = setup_db();
+
+        let etab_id = {
+            conn.execute("INSERT INTO etablissement (denomination) VALUES (?1)", rusqlite::params!["Test"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let trav_id = {
+            conn.execute("INSERT INTO travailleur (etablissement_id, nom, prenom) VALUES (?1, ?2, ?3)", rusqlite::params![etab_id, "A", "B"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let app_id = {
+            conn.execute("INSERT INTO appareil (etablissement_id, designation) VALUES (?1, ?2)", rusqlite::params![etab_id, "App"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let comp_id = 1i64;
+
+        conn.execute(
+            "INSERT INTO competence_travailleur (travailleur_id, appareil_id, competence_ref_id, validated) VALUES (?1, ?2, ?3, 1)",
+            rusqlite::params![trav_id, app_id, comp_id],
+        ).unwrap();
+
+        let count_before: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM competence_travailleur WHERE competence_ref_id = ?1",
+            rusqlite::params![comp_id], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count_before, 1);
+
+        conn.execute("DELETE FROM competence_ref WHERE id = ?1", rusqlite::params![comp_id]).unwrap();
+
+        let count_after: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM competence_travailleur WHERE competence_ref_id = ?1",
+            rusqlite::params![comp_id], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count_after, 0, "La suppression de competence_ref doit cascader vers competence_travailleur");
+    }
+
+    #[test]
+    fn test_retrait_competence_appareil_supprime_validations_travailleur() {
+        let conn = setup_db();
+
+        let etab_id = {
+            conn.execute("INSERT INTO etablissement (denomination) VALUES (?1)", rusqlite::params!["Test"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let trav_id = {
+            conn.execute("INSERT INTO travailleur (etablissement_id, nom, prenom) VALUES (?1, ?2, ?3)", rusqlite::params![etab_id, "A", "B"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let app_id = {
+            conn.execute("INSERT INTO appareil (etablissement_id, designation) VALUES (?1, ?2)", rusqlite::params![etab_id, "App"]).unwrap();
+            conn.last_insert_rowid()
+        };
+        let comp_id = 1i64;
+
+        conn.execute("INSERT INTO appareil_competence_ref (appareil_id, competence_ref_id) VALUES (?1, ?2)", rusqlite::params![app_id, comp_id]).unwrap();
+        conn.execute(
+            "INSERT INTO competence_travailleur (travailleur_id, appareil_id, competence_ref_id, validated) VALUES (?1, ?2, ?3, 1)",
+            rusqlite::params![trav_id, app_id, comp_id],
+        ).unwrap();
+
+        // Simule appareil_competence_remove
+        conn.execute("DELETE FROM appareil_competence_ref WHERE appareil_id = ?1 AND competence_ref_id = ?2", rusqlite::params![app_id, comp_id]).unwrap();
+        conn.execute("DELETE FROM competence_travailleur WHERE appareil_id = ?1 AND competence_ref_id = ?2", rusqlite::params![app_id, comp_id]).unwrap();
+
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM competence_travailleur WHERE appareil_id = ?1 AND competence_ref_id = ?2",
+            rusqlite::params![app_id, comp_id], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count, 0, "Le retrait d'une compétence d'un appareil doit supprimer les validations associées");
     }
 }
