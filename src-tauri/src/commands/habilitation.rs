@@ -1,7 +1,7 @@
 use crate::db::DbState;
 use crate::models::{HabilitationStatus, HabilitationDetails, Habilitation};
 use crate::auth_totp;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Months};
 
 pub fn desactiver_competences_perimees(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     conn.execute(
@@ -117,6 +117,12 @@ pub async fn habilitation_update(
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
     auth_totp::ensure_authenticated(&session)?;
+    if let Some(ref d) = dosimetrie_passive_date { crate::validators::validate_date(d)?; }
+    if let Some(ref d) = dosimetrie_operationnelle_date { crate::validators::validate_date(d)?; }
+    if let Some(ref d) = formation_rp_travailleurs_date { crate::validators::validate_date(d)?; }
+    if let Some(ref d) = formation_rp_patients_date { crate::validators::validate_date(d)?; }
+    if let Some(ref d) = visite_medicale_date { crate::validators::validate_date(d)?; }
+    if let Some(ref d) = visite_medicale_date_peremption { crate::validators::validate_date(d)?; }
     let conn = state.get()?;
 
     conn.execute(
@@ -266,7 +272,9 @@ fn check_date_not_expired(date_str: &str) -> bool {
 fn check_date_within_years(date_str: &str, years: i32) -> bool {
     if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         let now = chrono::Local::now().naive_local().date();
-        let threshold = date + chrono::Duration::days(365 * years as i64);
+        let threshold = date
+            .checked_add_months(Months::new(12 * years as u32))
+            .unwrap_or(date);
         now <= threshold
     } else {
         false

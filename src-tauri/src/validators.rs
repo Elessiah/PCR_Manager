@@ -7,7 +7,7 @@ pub fn validate_siret(s: &str) -> Result<(), String> {
 }
 
 pub fn validate_nss(s: &str) -> Result<(), String> {
-    if s.len() == 15 && s.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if s.len() == 15 && s.chars().all(|c| c.is_ascii_digit()) {
         Ok(())
     } else {
         Err("NSS invalide".to_string())
@@ -56,6 +56,11 @@ mod tests {
     #[test]
     fn nss_too_long() {
         assert!(validate_nss("1234567890123456").is_err());
+    }
+
+    #[test]
+    fn nss_non_digit() {
+        assert!(validate_nss("12345678901234A").is_err());
     }
 
     #[test]

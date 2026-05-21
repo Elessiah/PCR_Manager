@@ -141,7 +141,6 @@ pub async fn controle_qualite_update(
 
 #[tauri::command]
 pub async fn controle_qualite_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
-    eprintln!("[AUDIT] controle_qualite_delete id={}", id);
     auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM controle_qualite WHERE id = ?1", [id])

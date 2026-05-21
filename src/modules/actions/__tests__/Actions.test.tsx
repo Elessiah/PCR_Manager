@@ -224,8 +224,9 @@ describe('Actions', () => {
     const buttons = screen.getAllByRole('button');
     const enRetardButton = buttons.find((btn) => btn.textContent?.includes('En retard'));
 
-    // Vérification 1 (2022), Contrôle 1 (2024), Formation 1 (2026-01-01), Visite 2 (2025-12-15) en retard = 4 actions
-    expect(enRetardButton?.textContent).toContain('4');
+    // Vérification 1 (2022, +1yr=2023), Contrôle 1 (2024-01-01), Visite 2 (peremption 2025-12-15) en retard = 3 actions
+    // Formation Jean Dupont (2025-01-01 + 3ans = 2028-01-01) → valide, non en retard
+    expect(enRetardButton?.textContent).toContain('3');
 
     const aVenirButton = buttons.find((btn) => btn.textContent?.includes('À venir'));
     // statusFromDate uses alertMonths=1 by default:

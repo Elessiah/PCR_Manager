@@ -106,7 +106,6 @@ pub async fn verification_update(
 
 #[tauri::command]
 pub async fn verification_delete(id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<(), String> {
-    eprintln!("[AUDIT] verification_delete id={}", id);
     auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     conn.execute("DELETE FROM verification_technique WHERE id = ?1", [id])
