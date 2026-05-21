@@ -143,12 +143,14 @@ CREATE TABLE IF NOT EXISTS competence_travailleur (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     travailleur_id    INTEGER NOT NULL REFERENCES travailleur(id)    ON DELETE CASCADE,
     appareil_id       INTEGER NOT NULL REFERENCES appareil(id)       ON DELETE CASCADE,
-    competence_ref_id INTEGER NOT NULL REFERENCES competence_ref(id),
+    competence_ref_id INTEGER NOT NULL REFERENCES competence_ref(id) ON DELETE CASCADE,
     date_validation   TEXT,
     validated         INTEGER NOT NULL DEFAULT 0 CHECK(validated IN (0, 1)),
     date_peremption   TEXT,
     UNIQUE(travailleur_id, appareil_id, competence_ref_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_ct_travailleur ON competence_travailleur(travailleur_id);
 
 -- ------------------------------------------------------------
 -- COMPÉTENCES GÉNÉRALES (indépendantes de l'appareil)

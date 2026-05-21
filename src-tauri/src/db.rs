@@ -130,6 +130,38 @@ const SEED_DEMO: &str = include_str!("seed_demo.sql");
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     conn.execute_batch(SCHEMA).context("Échec de l'initialisation du schéma")?;
+
+    // Migration 1 : ajoute ON DELETE CASCADE sur competence_travailleur.competence_ref_id
+    // SQLite ne supporte pas ALTER COLUMN : on recrée la table dans une transaction.
+    let user_version: i64 = conn
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    if user_version < 1 {
+        let tx = conn.transaction().context("Migration 1 : begin")?;
+        tx.execute_batch(
+            "DROP TABLE IF EXISTS competence_travailleur_v2;
+             CREATE TABLE competence_travailleur_v2 (
+                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                 travailleur_id    INTEGER NOT NULL REFERENCES travailleur(id)    ON DELETE CASCADE,
+                 appareil_id       INTEGER NOT NULL REFERENCES appareil(id)       ON DELETE CASCADE,
+                 competence_ref_id INTEGER NOT NULL REFERENCES competence_ref(id) ON DELETE CASCADE,
+                 date_validation   TEXT,
+                 validated         INTEGER NOT NULL DEFAULT 0 CHECK(validated IN (0, 1)),
+                 date_peremption   TEXT,
+                 UNIQUE(travailleur_id, appareil_id, competence_ref_id)
+             );
+             INSERT INTO competence_travailleur_v2 SELECT * FROM competence_travailleur;
+             DROP TABLE competence_travailleur;
+             ALTER TABLE competence_travailleur_v2 RENAME TO competence_travailleur;
+             CREATE INDEX IF NOT EXISTS idx_ct_travailleur ON competence_travailleur(travailleur_id);",
+        )
+        .context("Migration 1 : recréation de competence_travailleur avec ON DELETE CASCADE")?;
+        tx.pragma_update(None, "user_version", 1i64)
+            .context("Migration 1 : user_version")?;
+        tx.commit().context("Migration 1 : commit")?;
+    }
+
     let is_empty: bool = conn
         .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
         .unwrap_or(0) == 0;

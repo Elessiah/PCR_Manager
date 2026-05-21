@@ -191,8 +191,13 @@ function DeleteConfirmModal({ competence, onClose }: { competence: CompetenceRef
         <h2 className="text-[16px] font-semibold">Supprimer la compétence ?</h2>
         <p className="text-textSoft text-[14px]">
           <strong>{competence.libelle}</strong> sera supprimée définitivement.
-          Les validations de compétences des travailleurs associées seront également supprimées.
+          Les validations des travailleurs associées à cette compétence seront également supprimées.
         </p>
+        {deleteMut.isError && (
+          <p className="text-danger text-[13px] bg-dangerBg border border-dangerBorder rounded px-3 py-2">
+            Erreur : impossible de supprimer cette compétence.
+          </p>
+        )}
         <div className="flex gap-2 justify-end">
           <Button variant="ghost" onClick={onClose}>Annuler</Button>
           <Button
