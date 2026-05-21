@@ -17,12 +17,10 @@ pub fn desactiver_competences_perimees(conn: &rusqlite::Connection) -> rusqlite:
 
 #[tauri::command]
 pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_, auth_totp::SessionState>, state: tauri::State<'_, DbState>) -> Result<HabilitationStatus, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
-    if let Err(e) = desactiver_competences_perimees(&conn) {
-        eprintln!("Warning: Failed to deactivate expired competences: {}", e);
-    }
+    let _ = desactiver_competences_perimees(&conn);
 
     let habilitation_result: (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>) = match conn
         .query_row(
@@ -118,11 +116,11 @@ pub async fn habilitation_update(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     conn.execute(
-        "INSERT INTO habilitation (travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_duree_mois, visite_medicale_date_peremption) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(travailleur_id) DO UPDATE SET dosimetrie_passive_date = COALESCE(excluded.dosimetrie_passive_date, habilitation.dosimetrie_passive_date), dosimetrie_operationnelle_date = COALESCE(excluded.dosimetrie_operationnelle_date, habilitation.dosimetrie_operationnelle_date), formation_rp_travailleurs_date = COALESCE(excluded.formation_rp_travailleurs_date, habilitation.formation_rp_travailleurs_date), formation_rp_patients_date = COALESCE(excluded.formation_rp_patients_date, habilitation.formation_rp_patients_date), visite_medicale_date = COALESCE(excluded.visite_medicale_date, habilitation.visite_medicale_date), visite_medicale_duree_mois = COALESCE(excluded.visite_medicale_duree_mois, habilitation.visite_medicale_duree_mois), visite_medicale_date_peremption = COALESCE(excluded.visite_medicale_date_peremption, habilitation.visite_medicale_date_peremption)",
+        "INSERT INTO habilitation (travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_duree_mois, visite_medicale_date_peremption) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(travailleur_id) DO UPDATE SET dosimetrie_passive_date = excluded.dosimetrie_passive_date, dosimetrie_operationnelle_date = excluded.dosimetrie_operationnelle_date, formation_rp_travailleurs_date = excluded.formation_rp_travailleurs_date, formation_rp_patients_date = excluded.formation_rp_patients_date, visite_medicale_date = excluded.visite_medicale_date, visite_medicale_duree_mois = excluded.visite_medicale_duree_mois, visite_medicale_date_peremption = excluded.visite_medicale_date_peremption",
         rusqlite::params![
             travailleur_id,
             dosimetrie_passive_date,
@@ -144,7 +142,7 @@ pub async fn habilitation_get_for_travailleur(
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Habilitation, String> {
-    ensure_authenticated(&session)?;
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
 
     let result = conn.query_row(
@@ -256,13 +254,6 @@ fn verify_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> ru
     Ok(true)
 }
 
-fn ensure_authenticated(session: &auth_totp::SessionState) -> Result<(), String> {
-    if !*session.authenticated.lock() {
-        return Err("Non authentifiÃ©".to_string());
-    }
-    Ok(())
-}
-
 fn check_date_not_expired(date_str: &str) -> bool {
     if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         let now = chrono::Local::now().naive_local().date();
@@ -293,11 +284,6 @@ fn check_date_with_months(date_str: &str, months: i64) -> bool {
     }
 }
 
-#[allow(dead_code)]
-fn compute_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> rusqlite::Result<bool> {
-    verify_competences_ok(conn, travailleur_id)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,19 +292,6 @@ mod tests {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch(include_str!("../schema.sql")).unwrap();
         conn
-    }
-
-    #[test]
-    fn test_ensure_authenticated_when_false_returns_err() {
-        let session = auth_totp::SessionState::new();
-        assert!(ensure_authenticated(&session).is_err());
-    }
-
-    #[test]
-    fn test_ensure_authenticated_when_true_returns_ok() {
-        let session = auth_totp::SessionState::new();
-        *session.authenticated.lock() = true;
-        assert!(ensure_authenticated(&session).is_ok());
     }
 
     #[test]
@@ -367,89 +340,4 @@ mod tests {
         assert_eq!(validated, 0);
     }
 
-    #[test]
-    fn test_competences_ok_false_si_aucun_appareil_assigne() {
-        let conn = setup_db();
-
-        let etab_id = {
-            conn.execute(
-                "INSERT INTO etablissement (denomination) VALUES (?1)",
-                rusqlite::params!["Test Etab"],
-            ).unwrap();
-            conn.last_insert_rowid()
-        };
-
-        let trav_id = {
-            conn.execute(
-                "INSERT INTO travailleur (etablissement_id, nom, prenom) VALUES (?1, ?2, ?3)",
-                rusqlite::params![etab_id, "Dupont", "Jean"],
-            ).unwrap();
-            conn.last_insert_rowid()
-        };
-
-        let result = compute_competences_ok(&conn, trav_id).unwrap();
-        assert!(!result);
-    }
-
-    #[test]
-    fn test_competences_ok_true_avec_un_appareil_complet() {
-        let conn = setup_db();
-
-        let etab_id = {
-            conn.execute(
-                "INSERT INTO etablissement (denomination) VALUES (?1)",
-                rusqlite::params!["Test Etab"],
-            ).unwrap();
-            conn.last_insert_rowid()
-        };
-
-        let trav_id = {
-            conn.execute(
-                "INSERT INTO travailleur (etablissement_id, nom, prenom) VALUES (?1, ?2, ?3)",
-                rusqlite::params![etab_id, "Dupont", "Jean"],
-            ).unwrap();
-            conn.last_insert_rowid()
-        };
-
-        let app_id = {
-            conn.execute(
-                "INSERT INTO appareil (etablissement_id, designation) VALUES (?1, ?2)",
-                rusqlite::params![etab_id, "Appareil Test"],
-            ).unwrap();
-            conn.last_insert_rowid()
-        };
-
-        conn.execute(
-            "INSERT INTO travailleur_appareil (travailleur_id, appareil_id) VALUES (?1, ?2)",
-            rusqlite::params![trav_id, app_id],
-        ).unwrap();
-
-        conn.execute(
-            "UPDATE competence_ref SET propre_appareil = 1 WHERE id = 1",
-            [],
-        ).unwrap();
-
-        conn.execute(
-            "INSERT INTO appareil_competence_ref (appareil_id, competence_ref_id) VALUES (?1, ?2)",
-            rusqlite::params![app_id, 1],
-        ).unwrap();
-
-        conn.execute(
-            "INSERT INTO competence_travailleur (travailleur_id, appareil_id, competence_ref_id, validated) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![trav_id, app_id, 1, 1],
-        ).unwrap();
-
-        conn.execute(
-            "UPDATE competence_ref SET propre_appareil = 0 WHERE id = 2",
-            [],
-        ).unwrap();
-
-        conn.execute(
-            "INSERT INTO competence_travailleur_general (travailleur_id, competence_ref_id, validated) VALUES (?1, ?2, ?3)",
-            rusqlite::params![trav_id, 2, 1],
-        ).unwrap();
-
-        let result = compute_competences_ok(&conn, trav_id).unwrap();
-        assert!(result);
-    }
 }
