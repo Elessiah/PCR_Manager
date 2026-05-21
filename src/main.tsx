@@ -7,7 +7,14 @@ import { AuthProvider } from './context/AuthContext'
 import { Toaster } from 'sonner'
 import './index.css'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: true,
+    },
+  },
+})
 
 function Root() {
   useEffect(() => {

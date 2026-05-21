@@ -11,6 +11,7 @@ import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
+import { useMidnightRefresh } from '../../hooks/useMidnightRefresh';
 import type { ControleQualite, HabilitationStatus, CompetenceTravailleurGeneral, ImportResultExtended } from '../../types/domain';
 import { RefreshCw, FileCheck, CheckCircle, ShieldCheck, Activity, Zap, Database, ChevronDown, GraduationCap, X } from 'lucide-react';
 
@@ -30,6 +31,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const dataMenuRef = useRef<HTMLDivElement>(null);
+
+  useMidnightRefresh();
 
   // Data menu dropdown
   const [dataMenuOpen, setDataMenuOpen] = useState(false);
@@ -63,21 +66,25 @@ export default function Dashboard() {
   const { data: travailleurs = [], isLoading: loadingTrav } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
+    refetchInterval: 60_000,
   });
 
   const { data: appareils = [], isLoading: loadingApp } = useQuery({
     queryKey: ['appareils'],
     queryFn: () => api.appareil.list(),
+    refetchInterval: 60_000,
   });
 
   const { data: verifications = [], isLoading: loadingVerif } = useQuery({
     queryKey: ['verifications'],
     queryFn: () => api.verification.list(),
+    refetchInterval: 60_000,
   });
 
   const { data: controles = [], isLoading: loadingControle } = useQuery({
     queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
+    refetchInterval: 60_000,
   });
 
   const habilitationQueries = useQueries({
@@ -471,7 +478,7 @@ export default function Dashboard() {
           label="À prévoir"
           value={kpiAPrevoir}
           tone="warn"
-          chip={<Badge variant="warn">90 jours</Badge>}
+          chip={<Badge variant="warn">{kpiAPrevoir} action{kpiAPrevoir !== 1 ? 's' : ''}</Badge>}
           footer="Échéances dans les 3 mois"
         />
         <KpiTile

@@ -288,7 +288,8 @@ pub async fn data_export_encrypted(
         .prepare(
             "SELECT id, travailleur_id, dosimetrie_passive_date, \
              dosimetrie_operationnelle_date, formation_rp_travailleurs_date, \
-             formation_rp_patients_date, visite_medicale_date FROM habilitation",
+             formation_rp_patients_date, visite_medicale_date, \
+             visite_medicale_date_peremption, visite_medicale_duree_mois FROM habilitation",
         )
         .map_err(|e| e.to_string())?;
 
@@ -302,6 +303,8 @@ pub async fn data_export_encrypted(
                 "formation_rp_travailleurs_date": row.get::<_, Option<String>>(4)?,
                 "formation_rp_patients_date": row.get::<_, Option<String>>(5)?,
                 "visite_medicale_date": row.get::<_, Option<String>>(6)?,
+                "visite_medicale_date_peremption": row.get::<_, Option<String>>(7)?,
+                "visite_medicale_duree_mois": row.get::<_, Option<i64>>(8)?,
             }))
         })
         .map_err(|e| e.to_string())?
@@ -681,8 +684,9 @@ pub async fn data_import_encrypted(
         let rows = tx.execute(
             "INSERT OR IGNORE INTO habilitation \
              (id, travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, \
-              formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date) \
-             VALUES (?1,?2,?3,?4,?5,?6,?7)",
+              formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, \
+              visite_medicale_date_peremption, visite_medicale_duree_mois) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
             rusqlite::params![
                 h["id"].as_i64(),
                 h["travailleur_id"].as_i64(),
@@ -691,6 +695,8 @@ pub async fn data_import_encrypted(
                 h["formation_rp_travailleurs_date"].as_str(),
                 h["formation_rp_patients_date"].as_str(),
                 h["visite_medicale_date"].as_str(),
+                h["visite_medicale_date_peremption"].as_str(),
+                h["visite_medicale_duree_mois"].as_i64(),
             ],
         ).map_err(|e| e.to_string())?;
         habilitations_added += rows;

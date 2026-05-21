@@ -131,11 +131,11 @@ export default function Actions() {
       const hab = habilitations.get(travailleur.id);
       if (!hab) return;
 
-      // Formation RP: date_formation + 1 an
+      // Formation RP travailleurs: validité 3 ans (CDC §5)
       if (hab.formation_rp_travailleurs_date) {
         const formationDate = new Date(hab.formation_rp_travailleurs_date);
         const deadline = new Date(formationDate);
-        deadline.setFullYear(deadline.getFullYear() + 1);
+        deadline.setFullYear(deadline.getFullYear() + 3);
 
         actions.push({
           id: `formation-${travailleur.id}`,
@@ -150,11 +150,27 @@ export default function Actions() {
         });
       }
 
-      // Visite médicale: date_visite_medicale + 1 an
-      if (hab.visite_medicale_date) {
+      // Visite médicale: date_peremption explicite > durée en mois > +1 an par défaut
+      if (hab.visite_medicale_date_peremption) {
+        actions.push({
+          id: `visite_med-${travailleur.id}`,
+          categorie: 'visite_med',
+          libelle: 'Visite médicale',
+          deadline: hab.visite_medicale_date_peremption,
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      } else if (hab.visite_medicale_date) {
         const visitDate = new Date(hab.visite_medicale_date);
         const deadline = new Date(visitDate);
-        deadline.setFullYear(deadline.getFullYear() + 1);
+        if (hab.visite_medicale_duree_mois) {
+          deadline.setMonth(deadline.getMonth() + hab.visite_medicale_duree_mois);
+        } else {
+          deadline.setFullYear(deadline.getFullYear() + 1);
+        }
 
         actions.push({
           id: `visite_med-${travailleur.id}`,
