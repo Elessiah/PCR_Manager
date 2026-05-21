@@ -121,7 +121,7 @@ export default function ControlesQualiteSection({ appareilId }: ControlesQualite
         {internes.length > 0 && (
           <div className="space-y-2">
             {internes.map((controle, idx) => {
-              const status = statusFromDate(controle.date_echeance);
+              const status = statusFromDate(controle.date_echeance, 3);
               const isLast = idx === internes.length - 1;
               let typeLabel = '';
               let alertLabel = '';

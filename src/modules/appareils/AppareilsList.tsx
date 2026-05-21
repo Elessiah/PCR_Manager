@@ -201,9 +201,12 @@ export default function AppareilsList() {
   const getNextVerificationDue = (appareilId: number, type: string) => {
     const latest = getLatestVerification(appareilId, type);
     if (!latest) return null;
-    const daysToAdd = type === 'annuelle_interne' ? 365 : 1095;
     const next = new Date(latest.date_realisation);
-    next.setDate(next.getDate() + daysToAdd);
+    if (type === 'annuelle_interne') {
+      next.setFullYear(next.getFullYear() + 1);
+    } else {
+      next.setFullYear(next.getFullYear() + 3);
+    }
     return next.toISOString().split('T')[0];
   };
 
@@ -211,7 +214,7 @@ export default function AppareilsList() {
     const annual = getNextVerificationDue(appareilId, 'annuelle_interne');
     const triennial = getNextVerificationDue(appareilId, 'triennale_externe');
     const earliest = [annual, triennial].filter(Boolean).sort()[0];
-    return statusFromDate(earliest);
+    return statusFromDate(earliest, 3);
   };
 
   const getNextControleQualite = (appareilId: number) => {
@@ -225,7 +228,7 @@ export default function AppareilsList() {
 
   const getControleQualiteStatus = (appareilId: number) => {
     const next = getNextControleQualite(appareilId);
-    return statusFromDate(next);
+    return statusFromDate(next, 3);
   };
 
   const statusLabel = (status: string) => {

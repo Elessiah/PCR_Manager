@@ -219,28 +219,31 @@ export default function AppareilFiche() {
   const getNextDue = (type: string) => {
     const latest = getLatestVerif(type);
     if (!latest) return null;
-    const daysToAdd = type === 'annuelle_interne' ? 365 : 1095;
     const next = new Date(latest.date_realisation);
-    next.setDate(next.getDate() + daysToAdd);
+    if (type === 'annuelle_interne') {
+      next.setFullYear(next.getFullYear() + 1);
+    } else {
+      next.setFullYear(next.getFullYear() + 3);
+    }
     return next.toISOString().split('T')[0];
   };
 
   const annuelleLatest = getLatestVerif('annuelle_interne');
   const annuelleNext = getNextDue('annuelle_interne');
-  const annuelleStatus = statusFromDate(annuelleNext);
+  const annuelleStatus = statusFromDate(annuelleNext, 3);
 
   const triennaleLatest = getLatestVerif('triennale_externe');
   const triennaleNext = getNextDue('triennale_externe');
-  const triennaleStatus = statusFromDate(triennaleNext);
+  const triennaleStatus = statusFromDate(triennaleNext, 3);
 
   const externe = appareilControles.find(c => c.type_ === 'externe');
   const internes = appareilControles
     .filter(c => c.type_ === 'partiel_interne' || c.type_ === 'complet_interne')
     .sort((a, b) => new Date(a.date_echeance).getTime() - new Date(b.date_echeance).getTime());
 
-  const statutGlobalStatus = [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance))].includes('en_retard')
+  const statutGlobalStatus = [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance, 3))].includes('en_retard')
     ? 'en_retard'
-    : [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance))].includes('a_prevoir')
+    : [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance, 3))].includes('a_prevoir')
     ? 'a_prevoir'
     : 'valide';
 
@@ -341,7 +344,7 @@ export default function AppareilFiche() {
             {internes.length > 0 && (
               <div className="space-y-2">
                 {internes.map((controle, idx) => {
-                  const status = statusFromDate(controle.date_echeance);
+                  const status = statusFromDate(controle.date_echeance, 3);
                   const isLast = idx === internes.length - 1;
                   let typeLabel = '';
                   let alertLabel = '';

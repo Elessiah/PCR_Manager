@@ -62,19 +62,22 @@ export default function VerificationsSection({ appareilId }: VerificationsSectio
   const getNextDue = (type: string) => {
     const latest = getLatest(type);
     if (!latest) return null;
-    const daysToAdd = type === 'annuelle_interne' ? 365 : 1095;
     const next = new Date(latest.date_realisation);
-    next.setDate(next.getDate() + daysToAdd);
+    if (type === 'annuelle_interne') {
+      next.setFullYear(next.getFullYear() + 1);
+    } else {
+      next.setFullYear(next.getFullYear() + 3);
+    }
     return next.toISOString().split('T')[0];
   };
 
   const annuelleLatest = getLatest('annuelle_interne');
   const annuelleNext = getNextDue('annuelle_interne');
-  const annuelleStatus = statusFromDate(annuelleNext);
+  const annuelleStatus = statusFromDate(annuelleNext, 3);
 
   const triennaleLatest = getLatest('triennale_externe');
   const triennaleNext = getNextDue('triennale_externe');
-  const triennaleStatus = statusFromDate(triennaleNext);
+  const triennaleStatus = statusFromDate(triennaleNext, 3);
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '-';
