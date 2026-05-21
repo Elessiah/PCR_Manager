@@ -42,7 +42,7 @@ export default function Actions() {
   });
 
   const { data: controleQualites = [] } = useQuery({
-    queryKey: ['controleQualites'],
+    queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
   });
 
@@ -175,41 +175,6 @@ export default function Actions() {
   };
 
   const allActions = buildActions();
-
-  const filteredActions = allActions.filter((action) => {
-    if (filter === 'tout') return true;
-
-    const status = statusFromDate(action.deadline);
-    if (filter === 'en_retard') return status === 'en_retard';
-    if (filter === 'a_venir') return status === 'a_prevoir';
-    if (filter === 'controle') return action.categorie === 'controle';
-    if (filter === 'formation') return action.categorie === 'formation';
-    if (filter === 'visite_med') return action.categorie === 'visite_med';
-
-    return true;
-  });
-
-  // Tri: en_retard d'abord, puis par deadline croissant
-  filteredActions.sort((a, b) => {
-    const statusA = statusFromDate(a.deadline);
-    const statusB = statusFromDate(b.deadline);
-
-    const statusOrder: Record<string, number> = {
-      en_retard: 0,
-      a_prevoir: 1,
-      valide: 2,
-      non_applicable: 3,
-    };
-
-    const orderDiff = (statusOrder[statusA] ?? 99) - (statusOrder[statusB] ?? 99);
-    if (orderDiff !== 0) return orderDiff;
-
-    if (a.deadline && b.deadline) {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-    }
-
-    return 0;
-  });
 
   const countByStatus = (status: string): number => {
     return allActions.filter(a => statusFromDate(a.deadline) === status).length;
