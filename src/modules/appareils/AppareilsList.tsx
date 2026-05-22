@@ -21,6 +21,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
   const [lieuUtilisation, setLieuUtilisation] = useState('');
   const [utilisationPartagee, setUtilisationPartagee] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -45,6 +46,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAttempted(true);
     if (!designation.trim()) return;
     setMutationError(null);
     mutation.mutate();
@@ -66,8 +68,10 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
               onChange={e => setDesignation(e.target.value)}
               placeholder="Ex : Tube radiogène"
               autoFocus
-              required
             />
+            {attempted && !designation.trim() && (
+              <p className="text-xs text-danger">La désignation est obligatoire.</p>
+            )}
           </Field>
           <Field>
             <Label htmlFor="marque">Marque</Label>
@@ -151,7 +155,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
             <Button
               type="submit"
               variant="primary"
-              disabled={mutation.isPending || !designation.trim()}
+              disabled={mutation.isPending}
             >
               {mutation.isPending ? 'Enregistrement…' : 'Ajouter'}
             </Button>

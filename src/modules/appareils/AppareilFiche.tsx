@@ -55,6 +55,7 @@ export default function AppareilFiche() {
   const [showCQModal, setShowCQModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editAttempted, setEditAttempted] = useState(false);
   const [editFormData, setEditFormData] = useState({
     designation: '',
     marque: '',
@@ -178,6 +179,9 @@ export default function AppareilFiche() {
       queryClient.invalidateQueries({ queryKey: ['appareils'] });
       setShowEditModal(false);
     },
+    onError: () => {
+      // erreur affichée via updateAppareilMutation.isError dans la modale
+    },
   });
 
   const openEditModal = () => {
@@ -194,6 +198,7 @@ export default function AppareilFiche() {
       tensionNominaleKv: appareil.tension_nominale_kv?.toString() ?? '',
       intensiteMaximaleMa: appareil.intensite_maximale_ma?.toString() ?? '',
     });
+    setEditAttempted(false);
     setShowEditModal(true);
   };
 
@@ -568,6 +573,9 @@ export default function AppareilFiche() {
                   placeholder="Ex : Tube radiogène"
                   autoFocus
                 />
+                {editAttempted && !editFormData.designation.trim() && (
+                  <p className="text-xs text-danger">La désignation est obligatoire.</p>
+                )}
               </Field>
               <Field>
                 <Label>Marque</Label>
@@ -656,12 +664,23 @@ export default function AppareilFiche() {
                   placeholder="Ex : 500"
                 />
               </Field>
+              {updateAppareilMutation.isError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                  {updateAppareilMutation.error instanceof Error
+                    ? updateAppareilMutation.error.message
+                    : 'Erreur lors de la modification.'}
+                </div>
+              )}
               <div className="flex gap-2 justify-end pt-2">
                 <Button variant="ghost" onClick={() => setShowEditModal(false)}>Annuler</Button>
                 <Button
                   variant="primary"
-                  onClick={() => updateAppareilMutation.mutate()}
-                  disabled={updateAppareilMutation.isPending || !editFormData.designation.trim()}
+                  onClick={() => {
+                    setEditAttempted(true);
+                    if (!editFormData.designation.trim()) return;
+                    updateAppareilMutation.mutate();
+                  }}
+                  disabled={updateAppareilMutation.isPending}
                 >
                   {updateAppareilMutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
                 </Button>

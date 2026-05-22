@@ -165,6 +165,7 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
   const [numeroPorteurDosimetriePassive, setNumeroPorteurDosimetriePassive] = useState(travailleur.numero_porteur_dosimetrie_passive ?? '');
   const [numeroSuiviMedical, setNumeroSuiviMedical] = useState(travailleur.numero_suivi_medical ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: () => api.travailleur.update({
@@ -192,6 +193,7 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAttempted(true);
     if (!nom.trim() || !prenom.trim()) return;
     setError(null);
     mutate();
@@ -203,8 +205,20 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
         <h2 className="text-lg font-semibold mb-4">Modifier le travailleur</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field><Label>Nom *</Label><Input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" /></Field>
-            <Field><Label>Prénom *</Label><Input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Jean" /></Field>
+            <Field>
+              <Label>Nom *</Label>
+              <Input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" />
+              {attempted && !nom.trim() && (
+                <p className="text-xs text-danger">Le nom est obligatoire.</p>
+              )}
+            </Field>
+            <Field>
+              <Label>Prénom *</Label>
+              <Input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Jean" />
+              {attempted && !prenom.trim() && (
+                <p className="text-xs text-danger">Le prénom est obligatoire.</p>
+              )}
+            </Field>
             <Field>
               <Label>Sexe</Label>
               <Select value={sexe} onChange={e => setSexe(e.target.value)}>
@@ -246,7 +260,7 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
           {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">{error}</div>}
           <div className="flex gap-3 justify-end pt-2">
             <Button variant="ghost" type="button" onClick={onClose}>Annuler</Button>
-            <Button variant="primary" type="submit" disabled={!nom.trim() || !prenom.trim() || isPending}>
+            <Button variant="primary" type="submit" disabled={isPending}>
               {isPending ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
           </div>

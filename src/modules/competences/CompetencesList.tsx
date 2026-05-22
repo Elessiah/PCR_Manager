@@ -21,6 +21,8 @@ function CompetenceModal({
   nextOrdre: number;
 }) {
   const qc = useQueryClient();
+  const [attempted, setAttempted] = useState(false);
+  const [mutError, setMutError] = useState<string | null>(null);
   const [libelle, setLibelle] = useState(mode.type === 'edit' ? mode.competence.libelle : '');
   const [description, setDescription] = useState(mode.type === 'edit' ? mode.competence.description ?? '' : '');
   const [propreAppareil, setPropreAppareil] = useState(
@@ -60,6 +62,7 @@ function CompetenceModal({
       dureeAlerteMois: permanente ? 0 : Number(alerteMois),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['competences'] }); onClose(); },
+    onError: (err: unknown) => setMutError(err instanceof Error ? err.message : 'Erreur lors de la création.'),
   });
   const updateMut = useMutation({
     mutationFn: () => {
@@ -75,13 +78,16 @@ function CompetenceModal({
       });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['competences'] }); onClose(); },
+    onError: (err: unknown) => setMutError(err instanceof Error ? err.message : 'Erreur lors de la modification.'),
   });
 
   const isPending = createMut.isPending || updateMut.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAttempted(true);
     if (!isValid()) return;
+    setMutError(null);
     if (mode.type === 'create') createMut.mutate();
     else updateMut.mutate();
   };
@@ -105,6 +111,9 @@ function CompetenceModal({
               placeholder="Ex : Mise sous tension de l'appareil"
               autoFocus
             />
+            {attempted && !libelle.trim() && (
+              <p className="text-xs text-danger">Le libellé est obligatoire.</p>
+            )}
           </Field>
           <Field>
             <Label htmlFor="description">Description (facultative)</Label>
@@ -149,6 +158,9 @@ function CompetenceModal({
                 onChange={e => setDureeMois(e.target.value)}
                 min={1}
               />
+              {attempted && (isNaN(Number(dureeMois)) || Number(dureeMois) < 1) && (
+                <p className="text-xs text-danger">La durée doit être d'au moins 1 mois.</p>
+              )}
             </Field>
           )}
           <Field>
@@ -162,10 +174,25 @@ function CompetenceModal({
               disabled={permanente}
               max={permanente ? undefined : Number(dureeMois)}
             />
+            {attempted && !permanente && (
+              <>
+                {(isNaN(Number(alerteMois)) || Number(alerteMois) < 1) && (
+                  <p className="text-xs text-danger">L'alerte doit être d'au moins 1 mois.</p>
+                )}
+                {Number(alerteMois) >= 1 && Number(alerteMois) > Number(dureeMois) && (
+                  <p className="text-xs text-danger">L'alerte ne peut pas dépasser la durée de validité ({dureeMois} mois).</p>
+                )}
+              </>
+            )}
           </Field>
+          {mutError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+              {mutError}
+            </div>
+          )}
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-            <Button type="submit" variant="primary" disabled={isPending || !isValid()}>
+            <Button type="submit" variant="primary" disabled={isPending}>
               {isPending ? 'Enregistrement…' : mode.type === 'create' ? 'Ajouter' : 'Enregistrer'}
             </Button>
           </div>

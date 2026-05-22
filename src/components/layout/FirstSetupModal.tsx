@@ -17,6 +17,7 @@ const STATUTS_JURIDIQUES = [
 
 export default function FirstSetupModal() {
   const queryClient = useQueryClient();
+  const [attempted, setAttempted] = useState(false);
   const [formData, setFormData] = useState({
     denomination: '',
     statut_juridique: null as string | null,
@@ -83,6 +84,7 @@ export default function FirstSetupModal() {
           noValidate
           onSubmit={e => {
             e.preventDefault();
+            setAttempted(true);
             if (!formData.denomination.trim()) return;
             updateMutation.mutate();
           }}
@@ -99,6 +101,9 @@ export default function FirstSetupModal() {
               value={formData.denomination}
               onChange={e => handleChange('denomination', e.target.value)}
             />
+            {attempted && !formData.denomination.trim() && (
+              <p className="text-xs text-danger">La dénomination est obligatoire pour continuer.</p>
+            )}
           </Field>
 
           <Field>
@@ -192,19 +197,12 @@ export default function FirstSetupModal() {
             />
           </Field>
 
-          {!formData.denomination.trim() && (
-            <p className="text-xs text-textMuted text-center">
-              La dénomination est obligatoire pour continuer.
-            </p>
-          )}
-
           <Button
             type="submit"
             variant="primary"
             className="w-full mt-2"
             disabled={
             updateMutation.isPending ||
-            !formData.denomination.trim() ||
             (!!formData.siret && formData.siret.length !== 14)
           }
           >
