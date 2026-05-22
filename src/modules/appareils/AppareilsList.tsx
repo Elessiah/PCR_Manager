@@ -155,7 +155,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
             <Button
               type="submit"
               variant="primary"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || !designation.trim()}
             >
               {mutation.isPending ? 'Enregistrement…' : 'Ajouter'}
             </Button>

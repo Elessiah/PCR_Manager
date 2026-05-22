@@ -293,7 +293,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
             <Button
               variant="primary"
               type="submit"
-              disabled={isPending}
+              disabled={isPending || !canSubmit}
             >
               {isPending ? 'Création...' : 'Ajouter'}
             </Button>
