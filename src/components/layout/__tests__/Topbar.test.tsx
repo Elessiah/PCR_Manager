@@ -43,6 +43,7 @@ describe('Topbar', () => {
           { id: 1, appareil_id: 1, type_: 'externe', date_echeance: futureDate.toISOString().split('T')[0] },
         ]);
       }
+      if (command === 'travailleur_list') return Promise.resolve([]);
       if (command === 'travailleur_get') {
         return Promise.resolve({
           id: 1,
@@ -242,6 +243,7 @@ describe('Topbar', () => {
         ]);
       }
       if (command === 'controle_qualite_list') return Promise.resolve([]);
+      if (command === 'travailleur_list') return Promise.resolve([]);
       return Promise.resolve({});
     });
 
@@ -307,6 +309,7 @@ describe('Topbar', () => {
       if (command === 'controle_qualite_list') {
         return Promise.resolve([]);
       }
+      if (command === 'travailleur_list') return Promise.resolve([]);
       if (command === 'travailleur_get') {
         return Promise.resolve({
           id: 1,
