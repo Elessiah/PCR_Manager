@@ -1,10 +1,10 @@
 import { LayoutDashboard, Building2, Users, Wrench, ListChecks, BookOpen, LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { statusFromDate } from '../../lib/status';
-import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite } from '../../types/domain';
+import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite, Habilitation } from '../../types/domain';
 
 interface NavItem {
   to: string;
@@ -62,6 +62,13 @@ export default function Sidebar() {
     staleTime: 60_000,
   });
 
+  const habilitationQueries = useQueries({
+    queries: travailleurs.map((t) => ({
+      queryKey: ['habilitation', 'raw', t.id],
+      queryFn: () => api.habilitation.getForTravailleur(t.id),
+    })),
+  });
+
   const countRetardActions = () => {
     let count = 0;
 
@@ -84,6 +91,36 @@ export default function Sidebar() {
     controleQualites.forEach((cq) => {
       if (statusFromDate(cq.date_echeance) === 'en_retard') {
         count++;
+      }
+    });
+
+    const habMap = new Map<number, Habilitation>();
+    habilitationQueries.forEach((q, idx) => {
+      if (q.data && travailleurs[idx]) {
+        habMap.set(travailleurs[idx].id, q.data);
+      }
+    });
+
+    travailleurs.forEach((t) => {
+      const hab = habMap.get(t.id);
+      if (!hab) return;
+
+      if (hab.formation_rp_travailleurs_date) {
+        const deadline = new Date(hab.formation_rp_travailleurs_date);
+        deadline.setFullYear(deadline.getFullYear() + 3);
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
+      }
+
+      if (hab.visite_medicale_date_peremption) {
+        if (statusFromDate(hab.visite_medicale_date_peremption) === 'en_retard') count++;
+      } else if (hab.visite_medicale_date) {
+        const deadline = new Date(hab.visite_medicale_date);
+        if (hab.visite_medicale_duree_mois) {
+          deadline.setMonth(deadline.getMonth() + hab.visite_medicale_duree_mois);
+        } else {
+          deadline.setFullYear(deadline.getFullYear() + 1);
+        }
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
       }
     });
 
