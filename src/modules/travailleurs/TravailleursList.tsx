@@ -144,6 +144,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (input: {
@@ -168,6 +169,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAttempted(true);
     if (!canSubmit) return;
     setMutationError(null);
     mutate({
@@ -199,6 +201,9 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setNom(e.target.value)}
               placeholder="Dupont"
             />
+            {attempted && !nom.trim() && (
+              <p className="text-xs text-danger">Le nom est obligatoire.</p>
+            )}
           </Field>
 
           <Field>
@@ -210,6 +215,9 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPrenom(e.target.value)}
               placeholder="Jean"
             />
+            {attempted && !prenom.trim() && (
+              <p className="text-xs text-danger">Le prénom est obligatoire.</p>
+            )}
           </Field>
 
           <Field>
@@ -285,7 +293,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
             <Button
               variant="primary"
               type="submit"
-              disabled={!canSubmit || isPending}
+              disabled={isPending}
             >
               {isPending ? 'Création...' : 'Ajouter'}
             </Button>

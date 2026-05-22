@@ -636,12 +636,15 @@ function VisiteMedicaleModeduree({
   return (
     <div className="space-y-4">
       <Field>
-        <Label>Date de visite</Label>
+        <Label>Date de visite <span className="text-danger">*</span></Label>
         <Input
           type="date"
           value={visitDate}
           onChange={(e) => setVisitDate(e.target.value)}
         />
+        {!visitDate && (
+          <p className="text-xs text-textMuted">La date de visite est requise pour enregistrer.</p>
+        )}
       </Field>
 
       <Field>
@@ -710,21 +713,27 @@ function VisiteMedicaleModeDateDirecte({
   return (
     <div className="space-y-4">
       <Field>
-        <Label>Date de visite</Label>
+        <Label>Date de visite <span className="text-danger">*</span></Label>
         <Input
           type="date"
           value={visitDate}
           onChange={(e) => setVisitDate(e.target.value)}
         />
+        {!visitDate && (
+          <p className="text-xs text-textMuted">La date de visite est requise.</p>
+        )}
       </Field>
 
       <Field>
-        <Label>Date de péremption</Label>
+        <Label>Date de péremption <span className="text-danger">*</span></Label>
         <Input
           type="date"
           value={expirationDate}
           onChange={(e) => setExpirationDate(e.target.value)}
         />
+        {!expirationDate && (
+          <p className="text-xs text-textMuted">La date de péremption est requise.</p>
+        )}
       </Field>
 
       <Button
