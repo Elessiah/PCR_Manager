@@ -194,20 +194,20 @@ describe('Actions', () => {
   it('should display filter pills with numeric counters', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load (total = 7)
+    // Wait for habilitation-based actions to load (total = 8)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('7');
+      expect(toutButton?.textContent).toContain('8');
     });
 
     // Vérifie que les pills affichent les compteurs
-    // 2 vérifications + 2 contrôles + 1 formation + 2 visites médicales = 7 actions au total
+    // 1 vérification + 2 contrôles + 3 formations + 2 visites médicales = 8 actions au total
     const buttons = screen.getAllByRole('button');
     const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
     const controleButton = buttons.find((btn) => btn.textContent?.includes('Contrôle'));
 
-    expect(toutButton?.textContent).toContain('7');
+    expect(toutButton?.textContent).toContain('8');
     expect(controleButton?.textContent).toContain('2');
   });
 
@@ -218,15 +218,17 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('7');
+      expect(toutButton?.textContent).toContain('8');
     });
 
     const buttons = screen.getAllByRole('button');
     const enRetardButton = buttons.find((btn) => btn.textContent?.includes('En retard'));
 
-    // Vérification 1 (2022, +1yr=2023), Contrôle 1 (2024-01-01), Visite 2 (peremption 2025-12-15) en retard = 3 actions
-    // Formation Jean Dupont (2025-01-01 + 3ans = 2028-01-01) → valide, non en retard
-    expect(enRetardButton?.textContent).toContain('3');
+    // Vérification 1 (2022) est dédupliquée — seule la vérification 2 (2025-06-15) reste → a_prevoir
+    // Contrôle 1 (2024-01-01) → en_retard
+    // Visite 2 Marie Martin (peremption 2025-12-15) → en_retard
+    // Total en retard = 2
+    expect(enRetardButton?.textContent).toContain('2');
 
     const aVenirButton = buttons.find((btn) => btn.textContent?.includes('À venir'));
     // statusFromDate uses alertMonths=3 (90 jours):
@@ -318,29 +320,30 @@ describe('Actions', () => {
       expect(screen.getByText(/Actions/i)).toBeInTheDocument();
     });
 
-    // Travailleur 2 has formation_rp_travailleurs_date = null, so no Formation action should be generated
+    // Travailleur 2 has formation_rp_travailleurs_date = null → pas de formation travailleurs
+    // mais formation_rp_patients_date est renseignée → une formation patients est générée
     const rows = screen.getAllByRole('row');
-    const marioFormationRows = rows.filter(row =>
-      row.textContent?.includes('Formation radioprotection') && row.textContent?.includes('Marie Martin')
+    const marioTravailleursRows = rows.filter(row =>
+      row.textContent?.includes('Formation radioprotection travailleurs') && row.textContent?.includes('Marie Martin')
     );
-    expect(marioFormationRows.length).toBe(0);
+    expect(marioTravailleursRows.length).toBe(0);
   });
 
   it('should count Formation actions in pills', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation data to be loaded (total should be 7 once all loaded)
+    // Wait for habilitation data to be loaded (total should be 8 once all loaded)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const formationButton = buttons.find((btn) => btn.textContent?.includes('Formation'));
-      expect(formationButton?.textContent).toContain('1');
+      expect(formationButton?.textContent).toContain('3');
     });
 
     const buttons = screen.getAllByRole('button');
     const formationButton = buttons.find((btn) => btn.textContent?.includes('Formation'));
 
-    // Should have 1 Formation action (travailleur 1 has formation_rp_travailleurs_date)
-    expect(formationButton?.textContent).toContain('1');
+    // 3 Formation actions: travailleurs Jean Dupont + patients Jean Dupont + patients Marie Martin
+    expect(formationButton?.textContent).toContain('3');
   });
 
   it('should count Visite medicale actions in pills', async () => {
@@ -367,8 +370,8 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      // 2 verifications + 2 controles + 1 formation + 2 visite_medicale = 7 total
-      expect(toutButton?.textContent).toContain('7');
+      // 1 vérification (dédupliquée) + 2 contrôles + 3 formations + 2 visites médicales = 8 total
+      expect(toutButton?.textContent).toContain('8');
     });
   });
 
@@ -385,9 +388,11 @@ describe('Actions', () => {
 
     await waitFor(() => {
       const rows = screen.getAllByRole('row');
-      // Header + 1 Formation action
-      expect(rows.length).toBe(2);
-      expect(rows[1].textContent).toContain('Formation radioprotection');
+      // Header + 3 Formation actions (travailleurs Jean, patients Jean, patients Marie)
+      expect(rows.length).toBe(4);
+      for (let i = 1; i <= 3; i++) {
+        expect(rows[i].textContent).toContain('Formation radioprotection');
+      }
     });
   });
 
@@ -418,7 +423,7 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('7');
+      expect(toutButton?.textContent).toContain('8');
     });
 
     // Check that Formation badge (span) appears in table rows — span elements carry bg-neutralBg
