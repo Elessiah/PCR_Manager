@@ -435,12 +435,16 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           {appareilsAssignes.length === 0 ? (
             <div className="text-sm text-textMuted">Aucun appareil assigné — assignez-en via la section « Appareils assignés ».</div>
           ) : (
-            appareilsAssignes.map((appareil) => (
-              <CompetencesAppareilSubsheet
-                key={appareil.id}
-                appareilId={appareil.id}
-                travailleurId={travailleurId}
-              />
+            appareilsAssignes.map((appareil, idx) => (
+              <div key={appareil.id} className={idx > 0 ? 'border-t border-border pt-4' : ''}>
+                <div className="text-[12px] font-semibold text-textMuted uppercase tracking-wide mb-3">
+                  {appareil.designation}
+                </div>
+                <CompetencesAppareilSubsheet
+                  appareilId={appareil.id}
+                  travailleurId={travailleurId}
+                />
+              </div>
             ))
           )}
         </CardBody>

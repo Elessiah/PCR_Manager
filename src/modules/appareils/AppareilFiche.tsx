@@ -729,7 +729,7 @@ function CompetencesRequises({ appareilId }: { appareilId: number }) {
   });
 
   const { data: linkedIds = [] } = useQuery({
-    queryKey: ['appareil_competences', appareilId],
+    queryKey: ['appareilCompetences', appareilId],
     queryFn: () => api.appareil.competenceList(appareilId),
     staleTime: 0,
   });
@@ -739,13 +739,13 @@ function CompetencesRequises({ appareilId }: { appareilId: number }) {
   const addMut = useMutation({
     mutationFn: (competenceRefId: number) =>
       api.appareil.competenceAdd(appareilId, competenceRefId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareilCompetences', appareilId] }),
   });
 
   const removeMut = useMutation({
     mutationFn: (competenceRefId: number) =>
       api.appareil.competenceRemove(appareilId, competenceRefId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareil_competences', appareilId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appareilCompetences', appareilId] }),
   });
 
   const toggle = (competenceRefId: number, isLinked: boolean) => {
