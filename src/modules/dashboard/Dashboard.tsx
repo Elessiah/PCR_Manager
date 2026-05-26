@@ -63,34 +63,39 @@ export default function Dashboard() {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, []);
 
-  const { data: travailleurs = [], isLoading: loadingTrav } = useQuery({
+  const { data: travailleurs = [], isLoading: loadingTrav, isError: errorTrav } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
     refetchOnMount: 'always',
+    retry: 1,
   });
 
   const { data: appareils = [], isLoading: loadingApp } = useQuery({
     queryKey: ['appareils'],
     queryFn: () => api.appareil.list(),
     refetchOnMount: 'always',
+    retry: 1,
   });
 
   const { data: verifications = [], isLoading: loadingVerif } = useQuery({
     queryKey: ['verifications'],
     queryFn: () => api.verification.list(),
     refetchOnMount: 'always',
+    retry: 1,
   });
 
   const { data: controles = [], isLoading: loadingControle } = useQuery({
     queryKey: ['controles'],
     queryFn: () => api.controleQualite.list(),
     refetchOnMount: 'always',
+    retry: 1,
   });
 
   const habilitationQueries = useQueries({
     queries: travailleurs.map(t => ({
       queryKey: ['habilitation', t.id],
       queryFn: () => api.habilitation.compute(t.id),
+      retry: 1,
     })),
   });
 
@@ -98,6 +103,7 @@ export default function Dashboard() {
     queries: travailleurs.map(t => ({
       queryKey: ['habilitation', 'raw', t.id],
       queryFn: () => api.habilitation.getForTravailleur(t.id),
+      retry: 1,
     })),
   });
 
@@ -105,6 +111,7 @@ export default function Dashboard() {
     queries: travailleurs.map(t => ({
       queryKey: ['competenceGeneral', t.id],
       queryFn: () => api.competence.generalGetForTravailleur(t.id),
+      retry: 1,
     })),
   });
 
@@ -112,12 +119,14 @@ export default function Dashboard() {
     queries: travailleurs.map(t => ({
       queryKey: ['competence', t.id],
       queryFn: () => api.competence.getForTravailleur(t.id),
+      retry: 1,
     })),
   });
 
   const { data: competenceRefs = [], isLoading: loadingCompRefs } = useQuery({
     queryKey: ['competenceRefs'],
     queryFn: () => api.competence.list(),
+    retry: 1,
   });
 
   const isLoading = loadingTrav || loadingApp || loadingVerif || loadingControle || loadingCompRefs || habilitationQueries.some(q => q.isPending) || habilitationRawQueries.some(q => q.isPending) || competencesGeneralesQueries.some(q => q.isPending) || competencesAppareilQueries.some(q => q.isPending);
@@ -443,6 +452,24 @@ export default function Dashboard() {
 
   if (isLoading) {
     return <div className="text-textMuted text-sm">Chargement des données...</div>;
+  }
+
+  if (errorTrav) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="text-danger text-sm font-semibold">Base de données inaccessible</div>
+        <div className="text-textMuted text-xs max-w-sm">
+          La connexion à la base de données a échoué. Vérifiez que vous êtes bien authentifié,
+          puis rechargez l'application.
+        </div>
+        <button
+          onClick={() => qc.invalidateQueries()}
+          className="px-4 py-2 text-xs font-semibold bg-accent text-white rounded-md hover:bg-accentDark"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   }
 
   const topActions = actions.slice(0, 8);

@@ -1,7 +1,7 @@
 {
   "productName": "PCR Manager",
-  "version": "0.1.0",
-  "identifier": "com.pcrmanager.app",
+  "version": "0.1.2",
+  "identifier": "PCRManager",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: asset: https://asset.localhost; connect-src 'self'"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: asset: https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
