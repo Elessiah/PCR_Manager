@@ -69,7 +69,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     );
   }
 
-  const details = habStatus.details;
   const appareilsAssignes = appareils.filter(a => travailleurAppareils.includes(a.id));
   const assignedSet = new Set(travailleurAppareils);
   const availableAppareils = appareils.filter(
@@ -139,8 +138,6 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     if (!dateStr) return 'Non validé';
     return new Date(dateStr).toLocaleDateString('fr-FR');
   };
-
-  const boolVariant = (ok: boolean): 'ok' | 'danger' => ok ? 'ok' : 'danger';
 
   const visitStatusLabels: Record<string, string> = {
     valide: 'À jour',
