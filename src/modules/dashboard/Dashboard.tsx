@@ -260,12 +260,9 @@ export default function Dashboard() {
       (query.data || []).forEach((comp: CompetenceTravailleur) => checkCompetenceExpiry(comp));
     });
 
-    const formationsDanger = habitationsData.filter(
-      h => !h.status.details?.formation_rp_ok || !h.status.details?.formation_rp_patients_ok
-    ).length;
-    const visitesDanger = habitationsData.filter(h => !h.status.details?.visite_med_ok).length;
-    const dosimetrieDanger = habitationsData.filter(h => !h.status.details?.dosimetries_ok).length;
-
+    let formationsDanger = 0;
+    let visitesDanger = 0;
+    let dosimetrieDanger = 0;
     let formationsWarn = 0;
     let visitesWarn = 0;
 
@@ -276,7 +273,15 @@ export default function Dashboard() {
       if (hab.formation_rp_travailleurs_date) {
         const d = new Date(hab.formation_rp_travailleurs_date);
         d.setFullYear(d.getFullYear() + 3);
-        if (statusFromDate(d.toISOString().split('T')[0], 3) === 'a_prevoir') formationsWarn++;
+        const s = statusFromDate(d.toISOString().split('T')[0], 3);
+        if (s === 'en_retard') formationsDanger++;
+        else if (s === 'a_prevoir') formationsWarn++;
+      }
+
+      if (hab.formation_rp_patients_date) {
+        const d = new Date(hab.formation_rp_patients_date);
+        d.setFullYear(d.getFullYear() + 7);
+        if (statusFromDate(d.toISOString().split('T')[0]) === 'en_retard') formationsDanger++;
       }
 
       let visitDeadline: string | null = null;
@@ -291,7 +296,23 @@ export default function Dashboard() {
         }
         visitDeadline = d.toISOString().split('T')[0];
       }
-      if (visitDeadline && statusFromDate(visitDeadline, 3) === 'a_prevoir') visitesWarn++;
+      if (visitDeadline) {
+        const s = statusFromDate(visitDeadline, 3);
+        if (s === 'en_retard') visitesDanger++;
+        else if (s === 'a_prevoir') visitesWarn++;
+      }
+
+      if (hab.dosimetrie_passive_date) {
+        const d = new Date(hab.dosimetrie_passive_date);
+        d.setFullYear(d.getFullYear() + 2);
+        if (statusFromDate(d.toISOString().split('T')[0]) === 'en_retard') dosimetrieDanger++;
+      }
+
+      if (hab.dosimetrie_operationnelle_date) {
+        const d = new Date(hab.dosimetrie_operationnelle_date);
+        d.setFullYear(d.getFullYear() + 2);
+        if (statusFromDate(d.toISOString().split('T')[0]) === 'en_retard') dosimetrieDanger++;
+      }
     });
 
     return {

@@ -112,6 +112,12 @@ export default function Sidebar() {
         if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
       }
 
+      if (hab.formation_rp_patients_date) {
+        const deadline = new Date(hab.formation_rp_patients_date);
+        deadline.setFullYear(deadline.getFullYear() + 7);
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
+      }
+
       if (hab.visite_medicale_date_peremption) {
         if (statusFromDate(hab.visite_medicale_date_peremption) === 'en_retard') count++;
       } else if (hab.visite_medicale_date) {
