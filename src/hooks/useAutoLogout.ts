@@ -53,29 +53,35 @@ export function useAutoLogout(logout: () => void, isAuthenticated: boolean): voi
     }, TICK_MS);
 
     // Détection minimize via les événements de focus Tauri.
+    // Protégé par try/catch : getCurrentWindow() lance une TypeError en mode
+    // browser pur (window.__TAURI_INTERNALS__ absent), ce qui est attendu en dev.
     let unlisten: (() => void) | undefined;
 
-    getCurrentWindow()
-      .onFocusChanged(async ({ payload: focused }: { payload: boolean }) => {
-        if (!active) return;
+    try {
+      getCurrentWindow()
+        .onFocusChanged(async ({ payload: focused }: { payload: boolean }) => {
+          if (!active) return;
 
-        if (focused) {
-          const wasMinimizedAt   = minimizedAtRef.current;
-          minimizedAtRef.current = null;
-          sleepAccumRef.current  = 0;
-          lastTickRef.current    = Date.now();
+          if (focused) {
+            const wasMinimizedAt   = minimizedAtRef.current;
+            minimizedAtRef.current = null;
+            sleepAccumRef.current  = 0;
+            lastTickRef.current    = Date.now();
 
-          if (wasMinimizedAt !== null && Date.now() - wasMinimizedAt >= MINIMIZED_TIMEOUT_MS) {
-            doLogout();
+            if (wasMinimizedAt !== null && Date.now() - wasMinimizedAt >= MINIMIZED_TIMEOUT_MS) {
+              doLogout();
+            }
+          } else {
+            const minimized = await getCurrentWindow().isMinimized();
+            if (minimized && minimizedAtRef.current === null) {
+              minimizedAtRef.current = Date.now();
+            }
           }
-        } else {
-          const minimized = await getCurrentWindow().isMinimized();
-          if (minimized && minimizedAtRef.current === null) {
-            minimizedAtRef.current = Date.now();
-          }
-        }
-      })
-      .then((fn: () => void) => { unlisten = fn; });
+        })
+        .then((fn: () => void) => { unlisten = fn; });
+    } catch {
+      // Mode browser sans contexte Tauri — détection de minimisation indisponible.
+    }
 
     return () => {
       active = false;
