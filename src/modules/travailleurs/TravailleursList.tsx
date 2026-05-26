@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -29,6 +29,17 @@ export default function TravailleursList() {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<HabilitationFilter>('tous');
   const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        setShowAdd(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const { data: travailleurs = [] } = useQuery({
     queryKey: ['travailleurs'],
     queryFn: () => api.travailleur.list(),
@@ -139,6 +150,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [sexe, setSexe] = useState('');
+  const [dateNaissance, setDateNaissance] = useState('');
   const [fonction, setFonction] = useState('');
   const [categorieReglementaire, setCategorieReglementaire] = useState('');
   const [email, setEmail] = useState('');
@@ -151,6 +163,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
       nom: string;
       prenom: string;
       sexe?: string | null;
+      dateNaissance?: string | null;
       fonction?: string | null;
       categorieReglementaire?: string | null;
       email?: string | null;
@@ -176,6 +189,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
       nom: nom.trim(),
       prenom: prenom.trim(),
       sexe: sexe || null,
+      dateNaissance: dateNaissance || null,
       fonction: fonction || null,
       categorieReglementaire: categorieReglementaire || null,
       email: email || null,
@@ -200,6 +214,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               placeholder="Dupont"
+              autoFocus
             />
             {attempted && !nom.trim() && (
               <p className="text-xs text-danger">Le nom est obligatoire.</p>
@@ -235,14 +250,28 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           </Field>
 
           <Field>
-            <Label htmlFor="fonction">Fonction</Label>
+            <Label htmlFor="dateNaissance">Date de naissance</Label>
             <Input
+              id="dateNaissance"
+              type="date"
+              value={dateNaissance}
+              onChange={(e) => setDateNaissance(e.target.value)}
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="fonction">Fonction</Label>
+            <Select
               id="fonction"
-              type="text"
               value={fonction}
               onChange={(e) => setFonction(e.target.value)}
-              placeholder="Technicien"
-            />
+            >
+              <option value="">— Sélectionner —</option>
+              <option value="Cardiologue">Cardiologue</option>
+              <option value="Cardiologue_liberal">Cardiologue libéral</option>
+              <option value="MERM">MERM</option>
+              <option value="Infirmier">Infirmier</option>
+            </Select>
           </Field>
 
           <Field>
@@ -290,13 +319,15 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
             <Button variant="ghost" type="button" onClick={onClose}>
               Annuler
             </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={isPending || !canSubmit}
-            >
-              {isPending ? 'Création...' : 'Ajouter'}
-            </Button>
+            <div onClick={() => { if (!canSubmit) setAttempted(true); }}>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isPending || !canSubmit}
+              >
+                {isPending ? 'Création...' : 'Ajouter'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

@@ -111,12 +111,12 @@ describe('TravailleursList - Add Modal', () => {
 
     const nomInput = screen.getByPlaceholderText('Dupont')
     const prenomInput = screen.getByPlaceholderText('Jean')
-    const fonctionInput = screen.getByPlaceholderText('Technicien')
+    const fonctionSelect = screen.getByRole('combobox', { name: /Fonction/i })
     const submitButton = screen.getByRole('button', { name: /Ajouter$/i })
 
     await userEvent.type(nomInput, 'Dupont')
     await userEvent.type(prenomInput, 'Jean')
-    await userEvent.type(fonctionInput, 'Technicien')
+    await userEvent.selectOptions(fonctionSelect, 'Cardiologue')
     await userEvent.click(submitButton)
 
     await waitFor(() => {
@@ -126,7 +126,7 @@ describe('TravailleursList - Add Modal', () => {
           etablissementId: 1,
           nom: 'Dupont',
           prenom: 'Jean',
-          fonction: 'Technicien',
+          fonction: 'Cardiologue',
         })
       )
     })
