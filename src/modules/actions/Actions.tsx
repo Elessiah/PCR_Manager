@@ -11,8 +11,8 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Dot } from '../../components/ui/Dot';
 
-type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'formation' | 'controle' | 'visite_med';
-type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med';
+type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'formation' | 'controle' | 'visite_med' | 'dosimetrie';
+type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med' | 'dosimetrie';
 
 interface Action {
   id: string;
@@ -178,6 +178,40 @@ export default function Actions() {
         });
       }
 
+      // Dosimétrie passive: validité 2 ans
+      if (hab.dosimetrie_passive_date) {
+        const d = new Date(hab.dosimetrie_passive_date);
+        d.setFullYear(d.getFullYear() + 2);
+        actions.push({
+          id: `dosimetrie_passive-${travailleur.id}`,
+          categorie: 'dosimetrie',
+          libelle: 'Dosimétrie passive',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+
+      // Dosimétrie opérationnelle: validité 2 ans
+      if (hab.dosimetrie_operationnelle_date) {
+        const d = new Date(hab.dosimetrie_operationnelle_date);
+        d.setFullYear(d.getFullYear() + 2);
+        actions.push({
+          id: `dosimetrie_op-${travailleur.id}`,
+          categorie: 'dosimetrie',
+          libelle: 'Dosimétrie opérationnelle',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+
       // Visite médicale: date_peremption explicite > durée en mois > +1 an par défaut
       if (hab.visite_medicale_date_peremption) {
         actions.push({
@@ -233,6 +267,7 @@ export default function Actions() {
       controle: 'Contrôle',
       formation: 'Formation',
       visite_med: 'Visite médicale',
+      dosimetrie: 'Dosimétrie',
     };
     return labels[categorie];
   };
@@ -276,6 +311,7 @@ export default function Actions() {
     { value: 'formation' as FilterValue, label: 'Formation', count: countByCategorie('formation') },
     { value: 'controle' as FilterValue, label: 'Contrôle', count: countByCategorie('controle') },
     { value: 'visite_med' as FilterValue, label: 'Visite méd.', count: countByCategorie('visite_med') },
+    { value: 'dosimetrie' as FilterValue, label: 'Dosimétrie', count: countByCategorie('dosimetrie') },
   ];
 
   const filtered = allActions.filter((action) => {
@@ -287,6 +323,7 @@ export default function Actions() {
     if (filter === 'controle') return action.categorie === 'controle';
     if (filter === 'formation') return action.categorie === 'formation';
     if (filter === 'visite_med') return action.categorie === 'visite_med';
+    if (filter === 'dosimetrie') return action.categorie === 'dosimetrie';
 
     return true;
   });

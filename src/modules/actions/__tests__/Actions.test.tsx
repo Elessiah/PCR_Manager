@@ -194,49 +194,49 @@ describe('Actions', () => {
   it('should display filter pills with numeric counters', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load (total = 8)
+    // Wait for habilitation-based actions to load (total = 12)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('8');
+      expect(toutButton?.textContent).toContain('12');
     });
 
-    // Vérifie que les pills affichent les compteurs
-    // 1 vérification + 2 contrôles + 3 formations + 2 visites médicales = 8 actions au total
+    // 1 vérif + 2 contrôles + 3 formations + 2 visites médicales + 2 dosimétrie passive + 2 dosimétrie op = 12
     const buttons = screen.getAllByRole('button');
     const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
     const controleButton = buttons.find((btn) => btn.textContent?.includes('Contrôle'));
 
-    expect(toutButton?.textContent).toContain('8');
+    expect(toutButton?.textContent).toContain('12');
     expect(controleButton?.textContent).toContain('2');
   });
 
   it('should update filter counters when filtering', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load (Jean Dupont appears in Formation/Visite rows)
+    // Wait for habilitation-based actions to load
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('8');
+      expect(toutButton?.textContent).toContain('12');
     });
 
     const buttons = screen.getAllByRole('button');
     const enRetardButton = buttons.find((btn) => btn.textContent?.includes('En retard'));
 
-    // Vérification 1 (2022) est dédupliquée — seule la vérification 2 (2025-06-15) reste → a_prevoir
     // Contrôle 1 (2024-01-01) → en_retard
-    // Visite 2 Marie Martin (peremption 2025-12-15) → en_retard
-    // Total en retard = 2
-    expect(enRetardButton?.textContent).toContain('2');
+    // Visite Marie Martin (peremption 2025-12-15) → en_retard
+    // Dosimétrie passive Jean Dupont (2024-01-15 + 2y = 2026-01-15) → en_retard
+    // Dosimétrie op Jean Dupont (2024-02-15 + 2y = 2026-02-15) → en_retard
+    // Total en retard = 4
+    expect(enRetardButton?.textContent).toContain('4');
 
     const aVenirButton = buttons.find((btn) => btn.textContent?.includes('À venir'));
-    // statusFromDate uses alertMonths=3 (90 jours):
-    // Vérification 2 (2026-06-15) → a_prevoir (within 3 months of today)
-    // Contrôle 2 (2027-10-15) → valide (too far, not within 3-month alert window)
-    // Visite méd. 1 Jean Dupont (2026-06-01) → a_prevoir (within 3 months)
-    // Total à venir = 2
-    expect(aVenirButton?.textContent).toContain('2');
+    // Vérification 2 (2026-06-15) → a_prevoir
+    // Visite Jean Dupont (peremption 2026-06-01) → a_prevoir
+    // Dosimétrie passive Marie Martin (2024-06-15 + 2y = 2026-06-15) → a_prevoir
+    // Dosimétrie op Marie Martin (2024-07-15 + 2y = 2026-07-15) → a_prevoir
+    // Total à venir = 4
+    expect(aVenirButton?.textContent).toContain('4');
   });
 
   it('should filter actions by "En retard" status', async () => {
@@ -370,8 +370,8 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      // 1 vérification (dédupliquée) + 2 contrôles + 3 formations + 2 visites médicales = 8 total
-      expect(toutButton?.textContent).toContain('8');
+      // 1 vérif + 2 contrôles + 3 formations + 2 visites méd + 2 dosimétrie passive + 2 dosimétrie op = 12
+      expect(toutButton?.textContent).toContain('12');
     });
   });
 
@@ -423,7 +423,7 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('8');
+      expect(toutButton?.textContent).toContain('12');
     });
 
     // Check that Formation badge (span) appears in table rows — span elements carry bg-neutralBg
