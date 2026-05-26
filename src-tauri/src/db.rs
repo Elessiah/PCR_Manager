@@ -162,6 +162,14 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
         tx.commit().context("Migration 1 : commit")?;
     }
 
+    // Production : garantit qu'une ligne établissement id=1 existe (requise par FirstSetupModal).
+    // Non exécuté en debug car le seed_demo insère lui-même la ligne avec INSERT OR IGNORE.
+    #[cfg(not(debug_assertions))]
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO etablissement (id, denomination) VALUES (1, '');",
+    )
+    .context("Initialisation établissement id=1")?;
+
     let is_empty: bool = conn
         .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
         .unwrap_or(0) == 0;
