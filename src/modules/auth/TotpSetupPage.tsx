@@ -22,17 +22,12 @@ export default function TotpSetupPage() {
       .catch(e => { setError(e instanceof Error ? e.message : String(e)); setStep('error'); });
   }, []);
 
-  const handleCodeInput = useCallback((value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 6);
-    setCode(digits);
-  }, []);
-
-  const confirm = useCallback(async () => {
-    if (code.length !== 6) return;
+  const submitCode = useCallback(async (codeValue: string) => {
+    if (codeValue.length !== 6) return;
     setVerifying(true);
     setError(null);
     try {
-      await api.totpAuth.setupConfirm(code);
+      await api.totpAuth.setupConfirm(codeValue);
       const ok = await confirmAuth();
       if (ok) navigate('/', { replace: true });
       else navigate('/login', { replace: true });
@@ -42,7 +37,13 @@ export default function TotpSetupPage() {
     } finally {
       setVerifying(false);
     }
-  }, [code, confirmAuth, navigate]);
+  }, [confirmAuth, navigate]);
+
+  const handleCodeInput = useCallback((value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    setCode(digits);
+    if (digits.length === 6) submitCode(digits);
+  }, [submitCode]);
 
   if (step === 'loading') {
     return (
@@ -102,13 +103,14 @@ export default function TotpSetupPage() {
             maxLength={6}
             value={code}
             onChange={e => handleCodeInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submitCode(code)}
             disabled={verifying}
             placeholder="000000"
             autoFocus
             className="w-full text-center text-3xl tracking-[0.5em] font-mono py-3 px-4 rounded-lg bg-surface2 border border-border text-text disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/50"
           />
           <button
-            onClick={confirm}
+            onClick={() => submitCode(code)}
             disabled={code.length !== 6 || verifying}
             className="w-full py-3 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >

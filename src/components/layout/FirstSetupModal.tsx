@@ -66,7 +66,7 @@ export default function FirstSetupModal() {
   };
 
   if (isLoading) return null;
-  if (!etablissement || etablissement.denomination !== 'Cabinet Cardio Démo') return null;
+  if (etablissement && etablissement.denomination !== 'Cabinet Cardio Démo') return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
