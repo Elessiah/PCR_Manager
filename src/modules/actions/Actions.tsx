@@ -240,7 +240,7 @@ export default function Actions() {
   const statusLabel = (deadline: string | null): string => {
     const status = statusFromDate(deadline, 3);
     const labels: Record<string, string> = {
-      en_retard: 'Invalide',
+      en_retard: 'En retard',
       a_prevoir: 'À prévoir',
       valide: 'À jour',
       non_applicable: 'N/A',

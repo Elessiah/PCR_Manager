@@ -31,6 +31,12 @@ function CompetenceModal({
   const [permanente, setPermanente] = useState(
     mode.type === 'edit' ? mode.competence.duree_validite_mois === null : false
   );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
   const [dureeMois, setDureeMois] = useState(
     mode.type === 'edit' && mode.competence.duree_validite_mois !== null
       ? String(mode.competence.duree_validite_mois)
@@ -254,6 +260,14 @@ export default function CompetencesList() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'n') { e.preventDefault(); setModal({ type: 'create' }); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const { data: competences = [], isLoading, error } = useQuery({
     queryKey: ['competences'],
     queryFn: () => api.competence.list(),
@@ -285,7 +299,7 @@ export default function CompetencesList() {
         title="Bibliothèque de compétences"
         sub="Gérez les compétences radioprotection de votre établissement"
         actions={
-          <Button variant="primary" onClick={() => setModal({ type: 'create' })} className="inline-flex items-center gap-1.5">
+          <Button variant="primary" onClick={() => setModal({ type: 'create' })} title="Ajouter une compétence (CTRL+N)" className="inline-flex items-center gap-1.5">
             <Plus size={14} />
             Ajouter une compétence
           </Button>

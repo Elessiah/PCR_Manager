@@ -179,7 +179,7 @@ describe('HabilitationTab and Competences', () => {
     }
   })
 
-  it('should verify all 4 habilitation items are present', async () => {
+  it('should verify all 5 habilitation items are present', async () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
@@ -190,7 +190,8 @@ describe('HabilitationTab and Competences', () => {
       await user.click(habiltationTab)
       await screen.findByText('Items d\'habilitation')
       expect(screen.getByText('Formation RP travailleurs')).toBeInTheDocument()
-      expect(screen.getByText('Dosimétries')).toBeInTheDocument()
+      expect(screen.getByText('Dosimétrie passive')).toBeInTheDocument()
+      expect(screen.getByText('Dosimétrie opérationnelle')).toBeInTheDocument()
       expect(screen.getByText('Formation RP patients')).toBeInTheDocument()
       expect(screen.getByText('Visite médicale')).toBeInTheDocument()
     }

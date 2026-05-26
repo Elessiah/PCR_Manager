@@ -156,7 +156,7 @@ describe('TravailleurFiche', () => {
     await screen.findByText('Items d\'habilitation')
   })
 
-  it('should display 4 habilitation items', async () => {
+  it('should display 5 habilitation items', async () => {
     const user = userEvent.setup()
     renderWithProviders(<TravailleurFiche />, { route: '/travailleurs/1' })
 
@@ -164,7 +164,8 @@ describe('TravailleurFiche', () => {
     await user.click(habilitationTab)
 
     await screen.findByText('Formation RP travailleurs')
-    expect(screen.getByText('Dosimétries')).toBeInTheDocument()
+    expect(screen.getByText('Dosimétrie passive')).toBeInTheDocument()
+    expect(screen.getByText('Dosimétrie opérationnelle')).toBeInTheDocument()
     expect(screen.getByText('Formation RP patients')).toBeInTheDocument()
     expect(screen.getByText('Visite médicale')).toBeInTheDocument()
   })
