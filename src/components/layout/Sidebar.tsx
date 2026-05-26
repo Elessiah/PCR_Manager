@@ -14,7 +14,8 @@ interface NavItem {
   countVariant?: 'accent' | 'danger';
 }
 
-function getInitials(denomination: string): string {
+function getInitials(denomination: string | null | undefined): string {
+  if (!denomination) return '?';
   return denomination
     .split(' ')
     .map(word => word[0])

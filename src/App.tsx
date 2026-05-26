@@ -13,7 +13,8 @@ import LoginPage from './modules/auth/LoginPage';
 import TotpSetupPage from './modules/auth/TotpSetupPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
+  if (isAuthLoading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
