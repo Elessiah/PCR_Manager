@@ -49,8 +49,11 @@ pub async fn habilitation_compute(travailleur_id: i64, session: tauri::State<'_,
 
     let (dosim_passive, dosim_op, form_rp_workers, form_rp_patients, visite_med_date, visite_med_date_peremption, visite_med_duree_mois) = habilitation;
 
-    // dosimetries_ok: passive ET opérationnelle toutes deux renseignées
-    let dosimetries_ok = dosim_passive.is_some() && dosim_op.is_some();
+    // dosimetries_ok: passive ET opérationnelle toutes deux dans les 2 ans
+    let dosimetries_ok = match (&dosim_passive, &dosim_op) {
+        (Some(p), Some(o)) => check_date_within_years(p, 2) && check_date_within_years(o, 2),
+        _ => false,
+    };
 
     // formation_rp_ok: formation_rp_travailleurs_date dans les 3 ans (CDC §5)
     let formation_rp_ok = if let Some(date_str) = &form_rp_workers {

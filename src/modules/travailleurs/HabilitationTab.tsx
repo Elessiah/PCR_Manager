@@ -80,7 +80,16 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const handleUpdateHabilitation = async (input: Parameters<typeof api.habilitation.update>[0]) => {
     try {
       setIsLoadingUpdate(true);
-      await api.habilitation.update(input);
+      await api.habilitation.update({
+        dosimetriePassiveDate: habilitation.dosimetrie_passive_date,
+        dosimetrieOperationnelleDate: habilitation.dosimetrie_operationnelle_date,
+        formationRpTravailleursDate: habilitation.formation_rp_travailleurs_date,
+        formationRpPatientsDate: habilitation.formation_rp_patients_date,
+        visiteMedicaleDate: habilitation.visite_medicale_date,
+        visiteMedicaleDureeMois: habilitation.visite_medicale_duree_mois,
+        visiteMedicaleDatePeremption: habilitation.visite_medicale_date_peremption,
+        ...input, // override with the specific field(s) being saved; includes travailleurId
+      });
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
       setEditingModal(null);
@@ -134,9 +143,9 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const boolVariant = (ok: boolean): 'ok' | 'danger' => ok ? 'ok' : 'danger';
 
   const visitStatusLabels: Record<string, string> = {
-    valide: 'Validé',
+    valide: 'À jour',
     a_prevoir: 'À prévoir',
-    en_retard: 'Invalide',
+    en_retard: 'En retard',
     non_applicable: 'Non renseigné',
   };
 
@@ -155,27 +164,71 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   })();
   const visitStatus = statusFromDate(visitDeadline, 3);
 
+  const addYears = (dateStr: string | null | undefined, years: number): string | null => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    d.setFullYear(d.getFullYear() + years);
+    return d.toISOString().split('T')[0];
+  };
+
+  const passiveDeadline = addYears(habilitation.dosimetrie_passive_date, 2);
+  const passiveStatus = statusFromDate(passiveDeadline, 1);
+
+  const operationnelleDeadline = addYears(habilitation.dosimetrie_operationnelle_date, 2);
+  const operationnelleStatus = statusFromDate(operationnelleDeadline, 1);
+
+  const dosStatusLabels: Record<string, string> = {
+    valide: 'À jour',
+    a_prevoir: 'À prévoir',
+    en_retard: 'En retard',
+    non_applicable: 'Non renseigné',
+  };
+
+  const formRpTravDeadline = habilitation.formation_rp_travailleurs_date
+    ? addYears(habilitation.formation_rp_travailleurs_date, 3)
+    : null;
+  const formRpTravStatus = statusFromDate(formRpTravDeadline, 1);
+
+  const formRpPatDeadline = habilitation.formation_rp_patients_date
+    ? addYears(habilitation.formation_rp_patients_date, 7)
+    : null;
+  const formRpPatStatus = statusFromDate(formRpPatDeadline, 1);
+
+  const formStatusLabels: Record<string, string> = {
+    valide: 'À jour',
+    a_prevoir: 'À prévoir',
+    en_retard: 'En retard',
+    non_applicable: 'Non renseigné',
+  };
+
   const habItems = [
     {
       id: 'dosimetries',
       icon: Activity,
-      title: 'Dosimétries',
-      variant: boolVariant(details.dosimetries_ok),
-      label: details.dosimetries_ok ? 'Validé' : 'Invalide',
+      title: 'Dosimétrie passive',
+      variant: statusToBadgeVariant[passiveStatus],
+      label: dosStatusLabels[passiveStatus],
+    },
+    {
+      id: 'dosimetries_op',
+      icon: Activity,
+      title: 'Dosimétrie opérationnelle',
+      variant: statusToBadgeVariant[operationnelleStatus],
+      label: dosStatusLabels[operationnelleStatus],
     },
     {
       id: 'formationRpTravailleur',
       icon: GraduationCap,
       title: 'Formation RP travailleurs',
-      variant: boolVariant(details.formation_rp_ok),
-      label: details.formation_rp_ok ? 'Validé' : 'Invalide',
+      variant: statusToBadgeVariant[formRpTravStatus],
+      label: formStatusLabels[formRpTravStatus],
     },
     {
       id: 'formationRpPatient',
       icon: GraduationCap,
       title: 'Formation RP patients',
-      variant: boolVariant(details.formation_rp_patients_ok),
-      label: details.formation_rp_patients_ok ? 'Validé' : 'Invalide',
+      variant: statusToBadgeVariant[formRpPatStatus],
+      label: formStatusLabels[formRpPatStatus],
     },
     {
       id: 'visiteMedicale',
@@ -195,7 +248,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           {habItems.map((item, i) => (
             <div
               key={item.id}
-              onClick={() => setEditingModal(item.id as EditModalType)}
+              onClick={() => setEditingModal(item.id === 'dosimetries_op' ? 'dosimetries' : item.id as EditModalType)}
               className={`flex items-center gap-3.5 px-4 py-3.5 cursor-pointer hover:bg-surface2 transition-colors ${i < habItems.length - 1 ? 'border-b border-border' : ''}`}
             >
               <div className="w-8 h-8 flex items-center justify-center">
@@ -204,11 +257,8 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
               <div className="flex-1">
                 <div className="font-medium">{item.title}</div>
                 <div className="text-xs text-textMuted mt-0.5">
-                  {item.id === 'dosimetries' && (
-                    <>
-                      Passive: {formatDate(habilitation.dosimetrie_passive_date)} • Opérationnelle: {formatDate(habilitation.dosimetrie_operationnelle_date)}
-                    </>
-                  )}
+                  {item.id === 'dosimetries' && formatDate(habilitation.dosimetrie_passive_date)}
+                  {item.id === 'dosimetries_op' && formatDate(habilitation.dosimetrie_operationnelle_date)}
                   {item.id === 'formationRpTravailleur' && formatDate(habilitation.formation_rp_travailleurs_date)}
                   {item.id === 'formationRpPatient' && formatDate(habilitation.formation_rp_patients_date)}
                   {item.id === 'visiteMedicale' && formatDate(habilitation.visite_medicale_date)}
@@ -473,6 +523,13 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
     }
   }, [isOpen, habilitation?.dosimetrie_passive_date, habilitation?.dosimetrie_operationnelle_date]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
   const handleSave = async () => {
     await onSave({
       travailleurId,
@@ -551,6 +608,13 @@ function EditModalFormationRp({
       setDate(currentDate);
     }
   }, [isOpen, type, habilitation?.formation_rp_travailleurs_date, habilitation?.formation_rp_patients_date]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
 
   const handleSave = async () => {
     const input: Parameters<typeof api.habilitation.update>[0] = {
@@ -762,6 +826,13 @@ function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoad
       setMode(habilitation?.visite_medicale_date_peremption ? 'dateDirecte' : 'duree');
     }
   }, [isOpen, habilitation?.visite_medicale_date_peremption]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

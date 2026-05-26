@@ -82,7 +82,7 @@ export default function TravailleursList() {
       <PageHead
         title="Travailleurs"
         sub={`${travailleurs.length} personnes suivies`}
-        actions={<Button variant="primary" onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2"><Plus size={14}/> Ajouter un travailleur</Button>}
+        actions={<Button variant="primary" onClick={() => setShowAdd(true)} title="Ajouter un travailleur (CTRL+N)" className="inline-flex items-center gap-2"><Plus size={14}/> Ajouter un travailleur</Button>}
       />
 
       <div className="flex items-center gap-2.5">
@@ -157,6 +157,12 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const [telephone, setTelephone] = useState('');
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (input: {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -22,6 +22,12 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
   const [utilisationPartagee, setUtilisationPartagee] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -170,6 +176,15 @@ export default function AppareilsList() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'n') { e.preventDefault(); setShowAdd(true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const { data: appareils = [] } = useQuery({
     queryKey: ['appareils'],
     queryFn: () => api.appareil.list(),
@@ -242,7 +257,7 @@ export default function AppareilsList() {
       case 'a_prevoir':
         return 'À prévoir';
       case 'en_retard':
-        return 'Invalide';
+        return 'En retard';
       case 'non_applicable':
         return 'N/A';
       default:
@@ -260,6 +275,7 @@ export default function AppareilsList() {
             variant="primary"
             className="inline-flex items-center gap-2"
             onClick={() => setShowAdd(true)}
+            title="Ajouter un appareil (CTRL+N)"
           >
             <Plus size={14} />
             Ajouter un appareil
