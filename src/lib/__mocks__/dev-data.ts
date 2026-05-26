@@ -1,5 +1,5 @@
 // Mock invoke handler — uniquement actif en mode browser sans backend Tauri.
-// Store stateful en mémoire : supporte create/update/delete pour les tests E2E.
+// Store stateful + persistance sessionStorage : survit aux navigations Puppeteer.
 // Auth bypass : session_check retourne toujours { authenticated: true }.
 
 import type {
@@ -15,11 +15,9 @@ import type {
   CompetenceTravailleurGeneral,
 } from '../../types/domain';
 
-// ── Générateur d'id ───────────────────────────────────────────────────────────
-let nextId = 100;
-const newId = () => nextId++;
-
 // ── Stores ────────────────────────────────────────────────────────────────────
+
+let nextId = 100;
 
 const etablissements: Etablissement[] = [
   {
@@ -40,27 +38,15 @@ const etablissements: Etablissement[] = [
 ];
 
 const travailleurs: Travailleur[] = [];
-
-// Map travailleurId → Habilitation
 const habilitationsMap = new Map<number, Habilitation>();
-
 const appareils: Appareil[] = [];
 const verifications: VerificationTechnique[] = [];
 const controles: ControleQualite[] = [];
-
-// Map travailleurId → Set<appareilId>
 const travailleurAppareils = new Map<number, Set<number>>();
-
-// Map `${tid}_${aid}_${cid}` → CompetenceTravailleur
 const competencesTravailleur = new Map<string, CompetenceTravailleur>();
-
-// Map `${tid}_${cid}` → CompetenceTravailleurGeneral
 const competencesTravailleurGeneral = new Map<string, CompetenceTravailleurGeneral>();
-
-// Map appareilId → Set<competenceRefId>
 const appareilCompetenceRefs = new Map<number, Set<number>>();
 
-// 9 compétences de référence initiales (schema.sql)
 const competenceRefs: CompetenceRef[] = [
   { id: 1, libelle: "Mise sous tension de l'appareil",               ordre: 1, description: null, propre_appareil: 1, duree_validite_mois: null, duree_alerte_mois: 3 },
   { id: 2, libelle: "Mise en marche de l'appareil",                  ordre: 2, description: null, propre_appareil: 1, duree_validite_mois: null, duree_alerte_mois: 3 },
@@ -73,7 +59,69 @@ const competenceRefs: CompetenceRef[] = [
   { id: 9, libelle: 'Compétence 9',                                   ordre: 9, description: null, propre_appareil: 1, duree_validite_mois: null, duree_alerte_mois: 3 },
 ];
 
-// ── Helpers calcul habilitation (miroir de habilitation.rs) ───────────────────
+// ── Persistance sessionStorage ────────────────────────────────────────────────
+
+const STORAGE_KEY = 'pcr-dev-mock-store';
+
+function saveStore(): void {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      nextId,
+      etablissements,
+      travailleurs,
+      habilitations: Array.from(habilitationsMap.entries()),
+      appareils,
+      verifications,
+      controles,
+      travailleurAppareils: Array.from(travailleurAppareils.entries()).map(([k, v]) => [k, Array.from(v)]),
+      competencesTravailleur: Array.from(competencesTravailleur.entries()),
+      competencesTravailleurGeneral: Array.from(competencesTravailleurGeneral.entries()),
+      appareilCompetenceRefs: Array.from(appareilCompetenceRefs.entries()).map(([k, v]) => [k, Array.from(v)]),
+      competenceRefs,
+    }));
+  } catch { /* storage indisponible (SSR, test) */ }
+}
+
+function loadStore(): void {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw) as Record<string, unknown>;
+
+    nextId = (data.nextId as number) ?? 100;
+
+    const replace = <T>(arr: T[], src: T[]) => { arr.length = 0; arr.push(...src); };
+
+    replace(etablissements, data.etablissements as Etablissement[]);
+    replace(travailleurs, data.travailleurs as Travailleur[]);
+    replace(appareils, data.appareils as Appareil[]);
+    replace(verifications, data.verifications as VerificationTechnique[]);
+    replace(controles, data.controles as ControleQualite[]);
+    replace(competenceRefs, data.competenceRefs as CompetenceRef[]);
+
+    habilitationsMap.clear();
+    for (const [k, v] of (data.habilitations as [number, Habilitation][])) habilitationsMap.set(k, v);
+
+    travailleurAppareils.clear();
+    for (const [k, v] of (data.travailleurAppareils as [number, number[]][])) travailleurAppareils.set(k, new Set(v));
+
+    competencesTravailleur.clear();
+    for (const [k, v] of (data.competencesTravailleur as [string, CompetenceTravailleur][])) competencesTravailleur.set(k, v);
+
+    competencesTravailleurGeneral.clear();
+    for (const [k, v] of (data.competencesTravailleurGeneral as [string, CompetenceTravailleurGeneral][])) competencesTravailleurGeneral.set(k, v);
+
+    appareilCompetenceRefs.clear();
+    for (const [k, v] of (data.appareilCompetenceRefs as [number, number[]][])) appareilCompetenceRefs.set(k, new Set(v));
+  } catch { /* JSON corrompu ou store absent */ }
+}
+
+// Chargement au démarrage du module
+loadStore();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const newId = () => nextId++;
 
 function checkDateWithinYears(dateStr: string, years: number): boolean {
   const date = new Date(dateStr);
@@ -99,7 +147,6 @@ function checkDateWithMonths(dateStr: string, months: number): boolean {
 
 function computeHabilitation(travailleurId: number): HabilitationStatus {
   const hab = habilitationsMap.get(travailleurId);
-
   if (!hab) {
     return {
       statut: 'non_validee',
@@ -114,12 +161,10 @@ function computeHabilitation(travailleurId: number): HabilitationStatus {
     checkDateWithinYears(hab.dosimetrie_operationnelle_date, 2);
 
   const formation_rp_ok = hab.formation_rp_travailleurs_date != null
-    ? checkDateWithinYears(hab.formation_rp_travailleurs_date, 3)
-    : false;
+    ? checkDateWithinYears(hab.formation_rp_travailleurs_date, 3) : false;
 
   const formation_rp_patients_ok = hab.formation_rp_patients_date != null
-    ? checkDateWithinYears(hab.formation_rp_patients_date, 7)
-    : false;
+    ? checkDateWithinYears(hab.formation_rp_patients_date, 7) : false;
 
   let visite_med_ok: boolean;
   if (hab.visite_medicale_date_peremption != null) {
@@ -132,7 +177,6 @@ function computeHabilitation(travailleurId: number): HabilitationStatus {
     visite_med_ok = false;
   }
 
-  // Compétences : miroir de verify_competences_ok()
   const appareilIds = travailleurAppareils.get(travailleurId) ?? new Set<number>();
   let competences_ok = false;
   if (appareilIds.size > 0) {
@@ -145,8 +189,7 @@ function computeHabilitation(travailleurId: number): HabilitationStatus {
       }
     }
     if (competences_ok) {
-      const generalComps = competenceRefs.filter(c => c.propre_appareil === 0);
-      for (const comp of generalComps) {
+      for (const comp of competenceRefs.filter(c => c.propre_appareil === 0)) {
         const ctg = competencesTravailleurGeneral.get(`${travailleurId}_${comp.id}`);
         if (!ctg || ctg.validated !== 1) { competences_ok = false; break; }
       }
@@ -203,6 +246,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         updated_at: new Date().toISOString(),
       };
       etablissements.push(etab);
+      saveStore();
       return etab.id as T;
     }
     case 'etablissement_update': {
@@ -222,6 +266,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
           kbis_chemin: (a?.kbisChemin as string | null) ?? null,
           updated_at: new Date().toISOString(),
         };
+        saveStore();
       }
       return undefined as T;
     }
@@ -254,6 +299,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         updated_at: new Date().toISOString(),
       };
       travailleurs.push(t);
+      saveStore();
       return t.id as T;
     }
     case 'travailleur_update': {
@@ -278,6 +324,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
           numero_suivi_medical: (a?.numeroSuiviMedical as string | null) ?? null,
           updated_at: new Date().toISOString(),
         };
+        saveStore();
       }
       return undefined as T;
     }
@@ -287,6 +334,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       if (idx >= 0) travailleurs.splice(idx, 1);
       habilitationsMap.delete(id);
       travailleurAppareils.delete(id);
+      saveStore();
       return undefined as T;
     }
 
@@ -297,14 +345,10 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       if (hab) return hab as T;
       return {
         id: 0, travailleur_id: tId,
-        dosimetrie_passive_date: null,
-        dosimetrie_operationnelle_date: null,
-        formation_rp_travailleurs_date: null,
-        formation_rp_patients_date: null,
-        visite_medicale_date: null,
-        visite_medicale_date_peremption: null,
-        visite_medicale_duree_mois: null,
-        updated_at: '',
+        dosimetrie_passive_date: null, dosimetrie_operationnelle_date: null,
+        formation_rp_travailleurs_date: null, formation_rp_patients_date: null,
+        visite_medicale_date: null, visite_medicale_date_peremption: null,
+        visite_medicale_duree_mois: null, updated_at: '',
       } as T;
     }
     case 'habilitation_compute':
@@ -324,6 +368,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         visite_medicale_duree_mois: (a?.visiteMedicaleDureeMois as number | null) ?? null,
         updated_at: new Date().toISOString(),
       });
+      saveStore();
       return undefined as T;
     }
 
@@ -350,6 +395,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         updated_at: new Date().toISOString(),
       };
       appareils.push(ap);
+      saveStore();
       return ap.id as T;
     }
     case 'appareil_update': {
@@ -369,6 +415,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
           intensite_maximale_ma: (a?.intensiteMaximaleMa as number | null) ?? null,
           updated_at: new Date().toISOString(),
         };
+        saveStore();
       }
       return undefined as T;
     }
@@ -376,6 +423,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       const id = a?.id as number;
       const idx = appareils.findIndex(ap => ap.id === id);
       if (idx >= 0) appareils.splice(idx, 1);
+      saveStore();
       return undefined as T;
     }
 
@@ -393,6 +441,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         duree_alerte_mois: (a?.dureeAlerteMois as number) ?? 3,
       };
       competenceRefs.push(comp);
+      saveStore();
       return comp as T;
     }
     case 'competence_ref_update': {
@@ -407,12 +456,14 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
           duree_validite_mois: (a?.dureeValiditeMois as number | null) ?? null,
           duree_alerte_mois: (a?.dureeAlerteMois as number) ?? 3,
         };
+        saveStore();
       }
       return undefined as T;
     }
     case 'competence_ref_delete': {
       const idx = competenceRefs.findIndex(c => c.id === a?.id);
       if (idx >= 0) competenceRefs.splice(idx, 1);
+      saveStore();
       return undefined as T;
     }
 
@@ -433,10 +484,11 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         validated: (a?.validated as number) ?? 0,
         date_peremption: null,
       });
+      saveStore();
       return undefined as T;
     }
 
-    // ── Compétences travailleur générales ───────────────────────────────────
+    // ── Compétences générales ───────────────────────────────────────────────
     case 'competence_general_get_for_travailleur': {
       const tId = a?.travailleurId as number;
       return Array.from(competencesTravailleurGeneral.values()).filter(ct => ct.travailleur_id === tId) as T;
@@ -452,6 +504,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         date_peremption: null,
         validated: (a?.validated as number) ?? 0,
       });
+      saveStore();
       return undefined as T;
     }
 
@@ -465,11 +518,13 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       const aId = a?.appareilId as number;
       if (!travailleurAppareils.has(tId)) travailleurAppareils.set(tId, new Set());
       travailleurAppareils.get(tId)!.add(aId);
+      saveStore();
       return undefined as T;
     }
     case 'travailleur_appareil_remove': {
       const tId = a?.travailleurId as number;
       travailleurAppareils.get(tId)?.delete(a?.appareilId as number);
+      saveStore();
       return undefined as T;
     }
 
@@ -483,11 +538,13 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       const cId = a?.competenceRefId as number;
       if (!appareilCompetenceRefs.has(aId)) appareilCompetenceRefs.set(aId, new Set());
       appareilCompetenceRefs.get(aId)!.add(cId);
+      saveStore();
       return undefined as T;
     }
     case 'appareil_competence_remove': {
       const aId = a?.appareilId as number;
       appareilCompetenceRefs.get(aId)?.delete(a?.competenceRefId as number);
+      saveStore();
       return undefined as T;
     }
 
@@ -508,25 +565,21 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         created_at: new Date().toISOString(),
       };
       verifications.push(v);
+      saveStore();
       return v.id as T;
     }
     case 'verification_update': {
       const idx = verifications.findIndex(v => v.id === a?.id);
       if (idx >= 0) {
-        verifications[idx] = {
-          ...verifications[idx],
-          type_: a?.type as string,
-          date_realisation: a?.dateRealisation as string,
-          realise_par: (a?.realisePar as string | null) ?? null,
-          organisme: (a?.organisme as string | null) ?? null,
-          observations: (a?.observations as string | null) ?? null,
-        };
+        verifications[idx] = { ...verifications[idx], type_: a?.type as string, date_realisation: a?.dateRealisation as string, realise_par: (a?.realisePar as string | null) ?? null, organisme: (a?.organisme as string | null) ?? null, observations: (a?.observations as string | null) ?? null };
+        saveStore();
       }
       return undefined as T;
     }
     case 'verification_delete': {
       const idx = verifications.findIndex(v => v.id === a?.id);
       if (idx >= 0) verifications.splice(idx, 1);
+      saveStore();
       return undefined as T;
     }
 
@@ -550,27 +603,21 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         created_at: new Date().toISOString(),
       };
       controles.push(c);
+      saveStore();
       return c.id as T;
     }
     case 'controle_qualite_update': {
       const idx = controles.findIndex(c => c.id === a?.id);
       if (idx >= 0) {
-        controles[idx] = {
-          ...controles[idx],
-          type_: a?.type as string,
-          date_realisation: (a?.dateRealisation as string | null) ?? null,
-          date_echeance: a?.dateEcheance as string,
-          organisme: (a?.organisme as string | null) ?? null,
-          realise_par: (a?.realisePar as string | null) ?? null,
-          statut: (a?.statut as string) ?? 'effectue',
-          observations: (a?.observations as string | null) ?? null,
-        };
+        controles[idx] = { ...controles[idx], type_: a?.type as string, date_realisation: (a?.dateRealisation as string | null) ?? null, date_echeance: a?.dateEcheance as string, organisme: (a?.organisme as string | null) ?? null, realise_par: (a?.realisePar as string | null) ?? null, statut: (a?.statut as string) ?? 'effectue', observations: (a?.observations as string | null) ?? null };
+        saveStore();
       }
       return undefined as T;
     }
     case 'controle_qualite_delete': {
       const idx = controles.findIndex(c => c.id === a?.id);
       if (idx >= 0) controles.splice(idx, 1);
+      saveStore();
       return undefined as T;
     }
 
@@ -584,11 +631,7 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
     case 'data_export_encrypted':
       return { code: 'DEV-0000', file_b64: btoa('{}') } as T;
     case 'data_import_encrypted':
-      return {
-        travailleurs_added: 0, appareils_added: 0, competences_added: 0,
-        habilitations_added: 0, etablissements_added: 0,
-        verifications_added: 0, controles_added: 0,
-      } as T;
+      return { travailleurs_added: 0, appareils_added: 0, competences_added: 0, habilitations_added: 0, etablissements_added: 0, verifications_added: 0, controles_added: 0 } as T;
 
     default:
       console.warn(`[dev-mock] commande non gérée : ${cmd}`, args);
