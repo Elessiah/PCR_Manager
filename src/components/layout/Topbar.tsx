@@ -120,6 +120,42 @@ export default function Topbar() {
         }
       }
 
+      if (hab.formation_rp_patients_date) {
+        const deadline = new Date(hab.formation_rp_patients_date);
+        deadline.setFullYear(deadline.getFullYear() + 7);
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') {
+          items.push({
+            label: `Formation RP patients — ${name}`,
+            detail: `Échue le ${deadline.toLocaleDateString('fr-FR')}`,
+            path: `/travailleurs/${t.id}`,
+          });
+        }
+      }
+
+      if (hab.dosimetrie_passive_date) {
+        const deadline = new Date(hab.dosimetrie_passive_date);
+        deadline.setFullYear(deadline.getFullYear() + 2);
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') {
+          items.push({
+            label: `Dosimétrie passive — ${name}`,
+            detail: `Échue le ${deadline.toLocaleDateString('fr-FR')}`,
+            path: `/travailleurs/${t.id}`,
+          });
+        }
+      }
+
+      if (hab.dosimetrie_operationnelle_date) {
+        const deadline = new Date(hab.dosimetrie_operationnelle_date);
+        deadline.setFullYear(deadline.getFullYear() + 2);
+        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') {
+          items.push({
+            label: `Dosimétrie opérationnelle — ${name}`,
+            detail: `Échue le ${deadline.toLocaleDateString('fr-FR')}`,
+            path: `/travailleurs/${t.id}`,
+          });
+        }
+      }
+
       if (hab.visite_medicale_date_peremption) {
         if (statusFromDate(hab.visite_medicale_date_peremption) === 'en_retard') {
           items.push({
