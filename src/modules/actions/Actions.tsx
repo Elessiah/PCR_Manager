@@ -68,8 +68,17 @@ export default function Actions() {
     const actions: Action[] = [];
     const appareilMap = new Map(appareils.map(a => [a.id, a]));
 
-    // Vérifications techniques: date_realisation + période = deadline
+    // Vérifications techniques: seulement la plus récente par (appareil, type)
+    const latestVerifMap = new Map<string, typeof verifications[0]>();
     verifications.forEach((v) => {
+      const key = `${v.appareil_id}:${v.type_}`;
+      const existing = latestVerifMap.get(key);
+      if (!existing || new Date(v.date_realisation) > new Date(existing.date_realisation)) {
+        latestVerifMap.set(key, v);
+      }
+    });
+
+    latestVerifMap.forEach((v) => {
       const appareil = appareilMap.get(v.appareil_id);
       if (!appareil) return;
 
@@ -140,7 +149,26 @@ export default function Actions() {
         actions.push({
           id: `formation-${travailleur.id}`,
           categorie: 'formation',
-          libelle: 'Formation radioprotection',
+          libelle: 'Formation radioprotection travailleurs',
+          deadline: deadline.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+
+      // Formation RP patients: validité 7 ans
+      if (hab.formation_rp_patients_date) {
+        const formationDate = new Date(hab.formation_rp_patients_date);
+        const deadline = new Date(formationDate);
+        deadline.setFullYear(deadline.getFullYear() + 7);
+
+        actions.push({
+          id: `formation_patients-${travailleur.id}`,
+          categorie: 'formation',
+          libelle: 'Formation radioprotection patients',
           deadline: deadline.toISOString().split('T')[0],
           cible: {
             type: 'travailleur',
