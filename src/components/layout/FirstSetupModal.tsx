@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
@@ -17,6 +17,9 @@ const STATUTS_JURIDIQUES = [
 
 export default function FirstSetupModal() {
   const queryClient = useQueryClient();
+
+  // isDone = true : l'utilisateur a validé pendant cette session → reste fermé
+  const [isDone, setIsDone] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [formData, setFormData] = useState({
     denomination: '',
@@ -35,6 +38,22 @@ export default function FirstSetupModal() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Pré-remplissage depuis la DB (autres champs que denomination, qui doit être saisi par l'utilisateur)
+  useEffect(() => {
+    if (etablissement) {
+      setFormData(prev => ({
+        ...prev,
+        statut_juridique: etablissement.statut_juridique,
+        siret: etablissement.siret,
+        adresse: etablissement.adresse,
+        code_postal: etablissement.code_postal,
+        ville: etablissement.ville,
+        telephone: etablissement.telephone,
+        email: etablissement.email,
+      }));
+    }
+  }, [etablissement]);
+
   const updateMutation = useMutation({
     mutationFn: () =>
       api.etablissement.update({
@@ -49,7 +68,10 @@ export default function FirstSetupModal() {
         email: formData.email,
       }),
     onSuccess: () => {
+      // Fermeture immédiate + feedback, sans attendre le refetch de la query
+      setIsDone(true);
       queryClient.invalidateQueries({ queryKey: ['etablissement'] });
+      toast.success('Établissement configuré avec succès !');
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -65,6 +87,8 @@ export default function FirstSetupModal() {
     handleChange('siret', cleaned || null);
   };
 
+  // Priorité : isDone > isLoading > données
+  if (isDone) return null;
   if (isLoading) return null;
   if (etablissement && etablissement.denomination !== 'Cabinet Cardio Démo') return null;
 
@@ -202,9 +226,9 @@ export default function FirstSetupModal() {
             variant="primary"
             className="w-full mt-2"
             disabled={
-            updateMutation.isPending ||
-            (!!formData.siret && formData.siret.length !== 14)
-          }
+              updateMutation.isPending ||
+              (!!formData.siret && formData.siret.length !== 14)
+            }
           >
             {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer et continuer'}
           </Button>
