@@ -89,12 +89,12 @@ mod macos {
 	use std::ptr;
 
 	#[link(name = "CoreFoundation", kind = "framework")]
-	extern "C" {
+	unsafe extern "C" {
 		static kCFBooleanTrue: *const c_void;
 	}
 
 	#[link(name = "Security", kind = "framework")]
-	extern "C" {
+	unsafe extern "C" {
 		// Constants
 		static kSecAttrKeyType: *const c_void;
 		static kSecAttrKeyTypeECSECPrimeRandom: *const c_void;
