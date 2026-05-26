@@ -323,7 +323,7 @@ export default function Dashboard() {
       dosimetrie: { danger: dosimetrieDanger, warn: 0 },
       competences: { danger: competencesDanger, warn: competencesWarn },
     };
-  }, [actions, competencesGeneralesQueries, competencesAppareilQueries, competenceRefs, habitationsData, habilitationRawQueries]);
+  }, [actions, competencesGeneralesQueries, competencesAppareilQueries, competenceRefs, habilitationRawQueries]);
 
   const habilitationsStats = useMemo(() => {
     const stats = { validee: 0, partielle: 0, non_validee: 0 };
