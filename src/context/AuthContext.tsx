@@ -4,6 +4,7 @@ import { useAutoLogout } from '../hooks/useAutoLogout';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   confirmAuth: () => Promise<boolean>;
   logout: () => void;
 }
@@ -12,11 +13,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     api.totpAuth.sessionCheck()
       .then(result => setIsAuthenticated(result?.authenticated ?? false))
-      .catch(() => setIsAuthenticated(false));
+      .catch(() => setIsAuthenticated(false))
+      .finally(() => setIsAuthLoading(false));
   }, []);
 
   const confirmAuth = useCallback(async (): Promise<boolean> => {
@@ -34,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useAutoLogout(logout, isAuthenticated);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, confirmAuth, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAuthLoading, confirmAuth, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Edit, Save } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
@@ -21,6 +22,7 @@ const STATUTS_JURIDIQUES = [
 export default function Etablissement() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState<{ denomination?: string }>({});
   const [formData, setFormData] = useState({
     denomination: '',
     statut_juridique: null as string | null,
@@ -92,11 +94,15 @@ export default function Etablissement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['etablissement'] });
       setIsEditing(false);
+      toast.success('Établissement mis à jour avec succès');
     },
   });
 
   const handleChange = (field: string, value: string | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'denomination') {
+      setErrors(prev => ({ ...prev, denomination: undefined }));
+    }
   };
 
   const handleCancel = () => {
@@ -113,10 +119,16 @@ export default function Etablissement() {
         site_internet: etablissement.site_internet,
       });
     }
+    setErrors({});
     setIsEditing(false);
   };
 
   const handleSave = () => {
+    if (!formData.denomination.trim()) {
+      setErrors({ denomination: 'La dénomination est obligatoire' });
+      return;
+    }
+    setErrors({});
     updateMutation.mutate();
   };
 
@@ -193,10 +205,16 @@ export default function Etablissement() {
             <Field className="col-span-2">
               <Label>Dénomination / raison sociale</Label>
               {isEditing ? (
-                <Input
-                  value={formData.denomination}
-                  onChange={e => handleChange('denomination', e.target.value)}
-                />
+                <>
+                  <Input
+                    value={formData.denomination}
+                    onChange={e => handleChange('denomination', e.target.value)}
+                    className={errors.denomination ? 'border-danger' : ''}
+                  />
+                  {errors.denomination && (
+                    <p className="text-xs text-danger mt-1">{errors.denomination}</p>
+                  )}
+                </>
               ) : (
                 <div className="px-3 py-2 bg-surface2 border border-border rounded text-sm text-text">
                   {formData.denomination || '—'}
@@ -394,7 +412,7 @@ export default function Etablissement() {
                   </div>
                 )}
               </div>
-              {isEditing && !kbisDoc && (
+              {!kbisDoc && (
                 <Button
                   size="sm"
                   variant="primary"
@@ -404,7 +422,7 @@ export default function Etablissement() {
                   {pickUploadMutation.isPending ? 'Chargement…' : 'Charger le PDF'}
                 </Button>
               )}
-              {isEditing && kbisDoc && (
+              {kbisDoc && (
                 <Button
                   size="sm"
                   variant="default"

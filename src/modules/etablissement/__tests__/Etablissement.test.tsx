@@ -89,10 +89,7 @@ describe('Etablissement', () => {
       expect(screen.getByText('Clinique Saint-Louis')).toBeInTheDocument();
     });
 
-    const modifierButton = screen.getByText('Modifier');
-    fireEvent.click(modifierButton);
-
-    // Sans document KBIS, le mode édition affiche "Charger le PDF"
+    // "Charger le PDF" est visible même hors mode édition
     await waitFor(() => {
       expect(screen.getByText('Charger le PDF')).toBeInTheDocument();
     });
@@ -122,17 +119,10 @@ describe('Etablissement', () => {
       expect(screen.getByText('Clinique Saint-Louis')).toBeInTheDocument();
     });
 
-    // "Ouvrir" est visible même hors mode édition
+    // "Ouvrir" et "Remplacer" sont visibles même hors mode édition
     await waitFor(() => {
       expect(screen.getByText('kbis.pdf')).toBeInTheDocument();
       expect(screen.getByText('Ouvrir')).toBeInTheDocument();
-    });
-
-    // En mode édition, "Remplacer" apparaît aussi
-    const modifierButton = screen.getByText('Modifier');
-    fireEvent.click(modifierButton);
-
-    await waitFor(() => {
       expect(screen.getByText('Remplacer')).toBeInTheDocument();
     });
   });
