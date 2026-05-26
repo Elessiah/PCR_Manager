@@ -15,7 +15,7 @@ interface HabilitationTabProps {
   travailleurId: number;
 }
 
-type EditModalType = 'dosimetries' | 'formationRpTravailleur' | 'formationRpPatient' | 'visiteMedicale' | null;
+type EditModalType = 'dosimetries' | 'dosimetries_op' | 'formationRpTravailleur' | 'formationRpPatient' | 'visiteMedicale' | null;
 type VisiteMedicaleMode = 'duree' | 'dateDirecte';
 
 export default function HabilitationTab({ travailleurId }: HabilitationTabProps) {
@@ -245,7 +245,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           {habItems.map((item, i) => (
             <div
               key={item.id}
-              onClick={() => setEditingModal(item.id === 'dosimetries_op' ? 'dosimetries' : item.id as EditModalType)}
+              onClick={() => setEditingModal(item.id as EditModalType)}
               className={`flex items-center gap-3.5 px-4 py-3.5 cursor-pointer hover:bg-surface2 transition-colors ${i < habItems.length - 1 ? 'border-b border-border' : ''}`}
             >
               <div className="w-8 h-8 flex items-center justify-center">
@@ -270,14 +270,24 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       </Card>
 
       {habilitation && (
-        <EditModalDosimetries
-          isOpen={editingModal === 'dosimetries'}
-          habilitation={habilitation}
-          onClose={() => setEditingModal(null)}
-          onSave={handleUpdateHabilitation}
-          isLoading={isLoadingUpdate}
-          travailleurId={travailleurId}
-        />
+        <>
+          <EditModalDosimetries
+            isOpen={editingModal === 'dosimetries'}
+            habilitation={habilitation}
+            onClose={() => setEditingModal(null)}
+            onSave={handleUpdateHabilitation}
+            isLoading={isLoadingUpdate}
+            travailleurId={travailleurId}
+          />
+          <EditModalDosimetriesOp
+            isOpen={editingModal === 'dosimetries_op'}
+            habilitation={habilitation}
+            onClose={() => setEditingModal(null)}
+            onSave={handleUpdateHabilitation}
+            isLoading={isLoadingUpdate}
+            travailleurId={travailleurId}
+          />
+        </>
       )}
 
       {habilitation && (
@@ -511,14 +521,12 @@ interface EditModalProps {
 
 function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
   const [passiveDate, setPassiveDate] = useState('');
-  const [operationnelleDate, setOperationnelleDate] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setPassiveDate(habilitation?.dosimetrie_passive_date || '');
-      setOperationnelleDate(habilitation?.dosimetrie_operationnelle_date || '');
     }
-  }, [isOpen, habilitation?.dosimetrie_passive_date, habilitation?.dosimetrie_operationnelle_date]);
+  }, [isOpen, habilitation?.dosimetrie_passive_date]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -531,6 +539,65 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
     await onSave({
       travailleurId,
       dosimetriePassiveDate: passiveDate || null,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-surface rounded-lg shadow-lg w-96 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Dosimétrie passive</h2>
+          <button onClick={onClose} className="text-textMuted hover:text-text">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <Field>
+            <Label>Date de validation</Label>
+            <Input
+              type="date"
+              value={passiveDate}
+              onChange={(e) => setPassiveDate(e.target.value)}
+            />
+            <p className="text-xs text-textMuted mt-1">Renouvellement tous les 2 ans</p>
+          </Field>
+
+          <div className="flex gap-2 justify-end mt-6">
+            <Button variant="ghost" onClick={onClose} disabled={isLoading}>
+              Annuler
+            </Button>
+            <Button variant="primary" onClick={handleSave} disabled={isLoading}>
+              {isLoading ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
+  const [operationnelleDate, setOperationnelleDate] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setOperationnelleDate(habilitation?.dosimetrie_operationnelle_date || '');
+    }
+  }, [isOpen, habilitation?.dosimetrie_operationnelle_date]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
+  const handleSave = async () => {
+    await onSave({
+      travailleurId,
       dosimetrieOperationnelleDate: operationnelleDate || null,
     });
   };
@@ -541,7 +608,7 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-lg w-96 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Éditer Dosimétries</h2>
+          <h2 className="text-lg font-semibold">Dosimétrie opérationnelle</h2>
           <button onClick={onClose} className="text-textMuted hover:text-text">
             <X className="w-5 h-5" />
           </button>
@@ -549,21 +616,13 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
 
         <div className="space-y-4">
           <Field>
-            <Label>Dosimétrie passive</Label>
-            <Input
-              type="date"
-              value={passiveDate}
-              onChange={(e) => setPassiveDate(e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <Label>Dosimétrie opérationnelle</Label>
+            <Label>Date de validation</Label>
             <Input
               type="date"
               value={operationnelleDate}
               onChange={(e) => setOperationnelleDate(e.target.value)}
             />
+            <p className="text-xs text-textMuted mt-1">Renouvellement tous les 2 ans</p>
           </Field>
 
           <div className="flex gap-2 justify-end mt-6">

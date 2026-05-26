@@ -150,7 +150,16 @@ export default function Dashboard() {
     const actionsList: Action[] = [];
     const appareilMap = new Map(appareils.map(a => [a.id, a]));
 
+    const latestVerifMap = new Map<string, typeof verifications[0]>();
     verifications.forEach((v) => {
+      const key = `${v.appareil_id}:${v.type_}`;
+      const existing = latestVerifMap.get(key);
+      if (!existing || new Date(v.date_realisation) > new Date(existing.date_realisation)) {
+        latestVerifMap.set(key, v);
+      }
+    });
+
+    latestVerifMap.forEach((v) => {
       const appareil = appareilMap.get(v.appareil_id);
       if (!appareil) return;
 
