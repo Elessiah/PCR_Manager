@@ -261,9 +261,10 @@ export default function AppareilFiche() {
     .filter(c => c.type_ === 'partiel_interne' || c.type_ === 'complet_interne')
     .sort((a, b) => new Date(a.date_echeance).getTime() - new Date(b.date_echeance).getTime());
 
-  const statutGlobalStatus = [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance, 3))].includes('en_retard')
+  const pendingInternes = internes.filter(c => c.statut !== 'realise');
+  const statutGlobalStatus = [annuelleStatus, triennaleStatus, ...pendingInternes.map(c => statusFromDate(c.date_echeance, 3))].includes('en_retard')
     ? 'en_retard'
-    : [annuelleStatus, triennaleStatus, ...internes.map(c => statusFromDate(c.date_echeance, 3))].includes('a_prevoir')
+    : [annuelleStatus, triennaleStatus, ...pendingInternes.map(c => statusFromDate(c.date_echeance, 3))].includes('a_prevoir')
     ? 'a_prevoir'
     : 'valide';
 

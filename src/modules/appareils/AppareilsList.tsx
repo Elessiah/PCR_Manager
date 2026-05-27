@@ -237,7 +237,7 @@ export default function AppareilsList() {
   };
 
   const getNextControleQualite = (appareilId: number) => {
-    const internes = controles.filter(c => c.appareil_id === appareilId && c.type_ !== 'externe');
+    const internes = controles.filter(c => c.appareil_id === appareilId && c.type_ !== 'externe' && c.statut !== 'realise');
     const pending = internes.filter(c => new Date(c.date_echeance) >= new Date());
     if (pending.length > 0) {
       return pending.sort((a, b) => new Date(a.date_echeance).getTime() - new Date(b.date_echeance).getTime())[0].date_echeance;
