@@ -73,7 +73,16 @@ export default function Sidebar() {
   const countRetardActions = () => {
     let count = 0;
 
-    verifications.forEach((v) => {
+    // Only consider the most recent verification per (appareil_id, type_)
+    const latestVerifs = new Map<string, VerificationTechnique>();
+    verifications.forEach(v => {
+      const key = `${v.appareil_id}:${v.type_}`;
+      const existing = latestVerifs.get(key);
+      if (!existing || v.date_realisation > existing.date_realisation) {
+        latestVerifs.set(key, v);
+      }
+    });
+    latestVerifs.forEach((v) => {
       let years: number;
       if (v.type_ === 'annuelle_interne') {
         years = 1;
@@ -191,7 +200,7 @@ export default function Sidebar() {
               <>
                 <span className="flex-shrink-0">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
-                {item.count !== undefined && (
+                {item.count !== undefined && (item.countVariant !== 'danger' || item.count > 0) && (
                   <span
                     className={`text-[11px] font-semibold px-[6px] py-px rounded-full border tabular-nums ${
                       item.countVariant === 'danger'
