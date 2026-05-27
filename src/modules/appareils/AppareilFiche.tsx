@@ -76,7 +76,7 @@ export default function AppareilFiche() {
     observations: '',
   });
   const [cqFormData, setCQFormData] = useState({
-    dateEcheance: new Date(new Date().getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dateRealisation: new Date().toISOString().split('T')[0],
     organisme: '',
     observations: '',
   });
@@ -121,20 +121,35 @@ export default function AppareilFiche() {
   });
 
   const createCQMutation = useMutation({
-    mutationFn: () =>
-      api.controleQualite.create({
-        appareilId: Number(id!),
+    mutationFn: async () => {
+      const appareilId = Number(id!);
+      const externeId = await api.controleQualite.create({
+        appareilId,
         type: 'externe',
-        dateEcheance: cqFormData.dateEcheance,
-        statut: 'planifie',
+        dateRealisation: cqFormData.dateRealisation,
+        dateEcheance: cqFormData.dateRealisation,
+        statut: 'realise',
         organisme: cqFormData.organisme || null,
         observations: cqFormData.observations || null,
-      }),
+      });
+      const base = new Date(cqFormData.dateRealisation);
+      for (const days of [90, 180, 270]) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + days);
+        await api.controleQualite.create({
+          appareilId,
+          type: 'partiel_interne',
+          dateEcheance: d.toISOString().split('T')[0],
+          statut: 'planifie',
+          controleExterneId: externeId as number,
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['controles'] });
       setShowCQModal(false);
       setCQFormData({
-        dateEcheance: new Date(new Date().getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        dateRealisation: new Date().toISOString().split('T')[0],
         organisme: '',
         observations: '',
       });
@@ -513,11 +528,11 @@ export default function AppareilFiche() {
 
             <div className="space-y-4">
               <Field>
-                <Label>Date d'échéance</Label>
+                <Label>Date de réalisation</Label>
                 <Input
                   type="date"
-                  value={cqFormData.dateEcheance}
-                  onChange={e => setCQFormData({ ...cqFormData, dateEcheance: e.target.value })}
+                  value={cqFormData.dateRealisation}
+                  onChange={e => setCQFormData({ ...cqFormData, dateRealisation: e.target.value })}
                 />
               </Field>
 
