@@ -372,6 +372,9 @@ export default function AppareilFiche() {
                     if (idx === 0) {
                       typeLabel = 'Contrôle qualité partiel interne (3 mois)';
                       alertLabel = 'À effectuer 3 mois après l\'externe';
+                    } else if (idx === 1) {
+                      typeLabel = 'Contrôle qualité partiel interne (6 mois)';
+                      alertLabel = 'À effectuer 6 mois après l\'externe';
                     } else {
                       typeLabel = 'Contrôle qualité partiel interne (9 mois)';
                       alertLabel = 'À effectuer 9 mois après l\'externe';
