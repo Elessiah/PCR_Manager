@@ -107,7 +107,7 @@ function CompetenceModal({
         <h2 className="text-[16px] font-semibold">
           {mode.type === 'create' ? 'Ajouter une compétence' : 'Modifier la compétence'}
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <Field>
             <Label htmlFor="libelle">Libellé</Label>
             <Input
