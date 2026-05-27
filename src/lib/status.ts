@@ -6,17 +6,20 @@ export function statusFromDate(
 ): StatusColor {
   if (!deadlineIso) return 'non_applicable';
 
+  const deadlineDateStr = deadlineIso.split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineDateStr)) return 'non_applicable';
+
   const now = new Date();
-  const deadline = new Date(deadlineIso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  if (Number.isNaN(deadline.getTime())) return 'non_applicable';
+  if (deadlineDateStr < todayStr) return 'en_retard';
 
-  if (deadline < now) return 'en_retard';
+  const alert = new Date(now);
+  alert.setMonth(alert.getMonth() + alertMonths);
+  const alertStr = `${alert.getFullYear()}-${pad(alert.getMonth() + 1)}-${pad(alert.getDate())}`;
 
-  const alertThreshold = new Date(now);
-  alertThreshold.setMonth(alertThreshold.getMonth() + alertMonths);
-
-  if (deadline <= alertThreshold) return 'a_prevoir';
+  if (deadlineDateStr <= alertStr) return 'a_prevoir';
 
   return 'valide';
 }

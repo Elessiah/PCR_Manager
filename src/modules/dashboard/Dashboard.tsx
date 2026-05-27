@@ -190,6 +190,7 @@ export default function Dashboard() {
     });
 
     controles.forEach((cq) => {
+      if (cq.statut === 'realise') return;
       const appareil = appareilMap.get(cq.appareil_id);
       if (!appareil) return;
 
@@ -348,13 +349,20 @@ export default function Dashboard() {
     });
 
     appareils.forEach(app => {
-      const appControles = controlesByAppareil.get(app.id) || [];
-      if (appControles.length === 0) {
+      const allControles = controlesByAppareil.get(app.id) || [];
+      const pendingControles = allControles.filter(c => c.statut !== 'realise');
+
+      if (allControles.length === 0) {
         stats.en_retard++;
         return;
       }
 
-      const statuses = appControles.map(c => statusFromDate(c.date_echeance, 3));
+      if (pendingControles.length === 0) {
+        stats.valide++;
+        return;
+      }
+
+      const statuses = pendingControles.map(c => statusFromDate(c.date_echeance, 3));
       if (statuses.includes('en_retard')) stats.en_retard++;
       else if (statuses.includes('a_prevoir')) stats.a_prevoir++;
       else stats.valide++;

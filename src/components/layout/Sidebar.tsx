@@ -99,6 +99,7 @@ export default function Sidebar() {
     });
 
     controleQualites.forEach((cq) => {
+      if (cq.statut === 'realise') return;
       if (statusFromDate(cq.date_echeance) === 'en_retard') {
         count++;
       }

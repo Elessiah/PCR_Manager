@@ -108,8 +108,9 @@ export default function Actions() {
       });
     });
 
-    // Contrôles qualité: utiliser date_echeance directement
+    // Contrôles qualité: utiliser date_echeance directement (ignorer les CQ déjà réalisés)
     controleQualites.forEach((cq) => {
+      if (cq.statut === 'realise') return;
       const appareil = appareilMap.get(cq.appareil_id);
       if (!appareil) return;
 
