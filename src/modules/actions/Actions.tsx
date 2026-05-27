@@ -252,7 +252,10 @@ export default function Actions() {
     return actions;
   };
 
-  const allActions = buildActions();
+  const allActions = buildActions().filter((a) => {
+    const s = statusFromDate(a.deadline, 3);
+    return s === 'en_retard' || s === 'a_prevoir';
+  });
 
   const countByStatus = (status: string): number => {
     return allActions.filter(a => statusFromDate(a.deadline, 3) === status).length;
@@ -329,7 +332,11 @@ export default function Actions() {
     return true;
   });
 
-  // Tri: en_retard d'abord, puis par deadline croissant
+  // Tri :
+  // 1. En retard → À prévoir
+  // 2. Dans "En retard" : deadline croissante (la plus en retard d'abord)
+  // 3. Dans "À prévoir" : deadline croissante (la plus proche d'abord)
+  // 4. Égalité de deadline : ordre alphabétique par label
   filtered.sort((a, b) => {
     const statusA = statusFromDate(a.deadline, 3);
     const statusB = statusFromDate(b.deadline, 3);
@@ -344,11 +351,13 @@ export default function Actions() {
     const orderDiff = (statusOrder[statusA] ?? 99) - (statusOrder[statusB] ?? 99);
     if (orderDiff !== 0) return orderDiff;
 
-    if (a.deadline && b.deadline) {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-    }
+    // Même statut : deadline croissante (plus ancienne = plus urgente d'abord)
+    const deadlineA = a.deadline ?? '9999-99-99';
+    const deadlineB = b.deadline ?? '9999-99-99';
+    if (deadlineA !== deadlineB) return deadlineA.localeCompare(deadlineB);
 
-    return 0;
+    // Égalité de deadline : ordre alphabétique par label
+    return a.cible.label.localeCompare(b.cible.label, 'fr');
   });
 
   const targetUrl = (action: Action): string => {

@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const FIXED_DATE = new Date('2026-05-27T00:00:00');
 import { renderWithProviders, screen, waitFor, fireEvent } from '../../../test/test-utils';
 import Actions from '../Actions';
 import { invoke } from '@tauri-apps/api/core';
@@ -53,12 +55,12 @@ const mockTravailleur2: Travailleur = {
 const mockHabilitation1: Habilitation = {
   id: 1,
   travailleur_id: 1,
-  dosimetrie_passive_date: '2024-01-15',
-  dosimetrie_operationnelle_date: '2024-02-15',
-  formation_rp_travailleurs_date: '2025-01-01',
-  formation_rp_patients_date: '2025-01-15',
+  dosimetrie_passive_date: '2024-01-15',        // deadline 2026-01-15 → en_retard
+  dosimetrie_operationnelle_date: '2024-02-15', // deadline 2026-02-15 → en_retard
+  formation_rp_travailleurs_date: '2023-01-01', // deadline 2026-01-01 (3yr) → en_retard
+  formation_rp_patients_date: '2019-01-15',     // deadline 2026-01-15 (7yr) → en_retard
   visite_medicale_date: '2025-06-01',
-  visite_medicale_date_peremption: '2026-06-01',
+  visite_medicale_date_peremption: '2026-06-01', // → a_prevoir
   visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
 };
@@ -66,12 +68,12 @@ const mockHabilitation1: Habilitation = {
 const mockHabilitation2: Habilitation = {
   id: 2,
   travailleur_id: 2,
-  dosimetrie_passive_date: '2024-06-15',
-  dosimetrie_operationnelle_date: '2024-07-15',
+  dosimetrie_passive_date: '2024-06-15',        // deadline 2026-06-15 → a_prevoir
+  dosimetrie_operationnelle_date: '2024-07-15', // deadline 2026-07-15 → a_prevoir
   formation_rp_travailleurs_date: null,
-  formation_rp_patients_date: '2024-08-15',
+  formation_rp_patients_date: '2019-07-01',     // deadline 2026-07-01 (7yr) → a_prevoir
   visite_medicale_date: '2024-12-15',
-  visite_medicale_date_peremption: '2025-12-15',
+  visite_medicale_date_peremption: '2025-12-15', // → en_retard
   visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
 };
@@ -148,7 +150,7 @@ vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
           appareil_id: 1,
           type_: 'externe',
           date_realisation: '2025-10-15',
-          date_echeance: '2027-10-15',
+          date_echeance: '2026-06-15', // a_prevoir sous 2026-05-27 (était 2027-10-15 → valide)
           controle_externe_id: null,
           organisme: 'Bureau Veritas',
           realise_par: 'Expert externe',
@@ -163,6 +165,14 @@ vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
 });
 
 describe('Actions', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(FIXED_DATE)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('should display actions list with correct items', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
@@ -223,20 +233,24 @@ describe('Actions', () => {
     const buttons = screen.getAllByRole('button');
     const enRetardButton = buttons.find((btn) => btn.textContent?.includes('En retard'));
 
-    // Contrôle 1 (2024-01-01) → en_retard
+    // CQ 1 (2024-01-01) → en_retard
+    // Formation trav Jean (2023-01-01 + 3yr = 2026-01-01) → en_retard
+    // Formation pat Jean (2019-01-15 + 7yr = 2026-01-15) → en_retard
+    // Dosimétrie passive Jean (2024-01-15 + 2yr = 2026-01-15) → en_retard
+    // Dosimétrie op Jean (2024-02-15 + 2yr = 2026-02-15) → en_retard
     // Visite Marie Martin (peremption 2025-12-15) → en_retard
-    // Dosimétrie passive Jean Dupont (2024-01-15 + 2y = 2026-01-15) → en_retard
-    // Dosimétrie op Jean Dupont (2024-02-15 + 2y = 2026-02-15) → en_retard
-    // Total en retard = 4
-    expect(enRetardButton?.textContent).toContain('4');
+    // Total en retard = 6
+    expect(enRetardButton?.textContent).toContain('6');
 
     const aVenirButton = buttons.find((btn) => btn.textContent?.includes('À venir'));
-    // Vérification 2 (2026-06-15) → a_prevoir
+    // Vérification (2025-06-15 + 1yr = 2026-06-15) → a_prevoir
+    // CQ 2 (2026-06-15) → a_prevoir
     // Visite Jean Dupont (peremption 2026-06-01) → a_prevoir
-    // Dosimétrie passive Marie Martin (2024-06-15 + 2y = 2026-06-15) → a_prevoir
-    // Dosimétrie op Marie Martin (2024-07-15 + 2y = 2026-07-15) → a_prevoir
-    // Total à venir = 4
-    expect(aVenirButton?.textContent).toContain('4');
+    // Formation pat Marie (2019-07-01 + 7yr = 2026-07-01) → a_prevoir
+    // Dosimétrie passive Marie (2024-06-15 + 2yr = 2026-06-15) → a_prevoir
+    // Dosimétrie op Marie (2024-07-15 + 2yr = 2026-07-15) → a_prevoir
+    // Total à venir = 6
+    expect(aVenirButton?.textContent).toContain('6');
   });
 
   it('should filter actions by "En retard" status', async () => {
@@ -283,7 +297,7 @@ describe('Actions', () => {
       expect(screen.getByText(/Actions/i)).toBeInTheDocument();
     });
 
-    // Travailleur 1 has formation_rp_travailleurs_date = 2025-01-01, so deadline should be 2026-01-01
+    // Travailleur 1 has formation_rp_travailleurs_date = 2023-01-01, so deadline should be 2026-01-01 → en_retard
     await waitFor(() => {
       const rows = screen.getAllByRole('row');
       const formationRow = rows.find(row => row.textContent?.includes('Formation radioprotection'));
