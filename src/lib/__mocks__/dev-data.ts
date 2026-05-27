@@ -615,6 +615,37 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         created_at: new Date().toISOString(),
       };
       controles.push(c);
+      // Mirror SQL trigger trg_generer_cq_internes:
+      // When an external CQ is created, auto-generate 3 internal CQs
+      // at +3 months (partiel), +6 months (complet), +9 months (partiel)
+      if (c.type_ === 'externe') {
+        const addMonths = (dateStr: string, months: number): string => {
+          const d = new Date(dateStr + 'T00:00:00');
+          d.setMonth(d.getMonth() + months);
+          return d.toISOString().split('T')[0];
+        };
+        const base = c.date_echeance;
+        const internalTypes: Array<{ type_: string; offset: number }> = [
+          { type_: 'partiel_interne', offset: 3 },
+          { type_: 'complet_interne', offset: 6 },
+          { type_: 'partiel_interne', offset: 9 },
+        ];
+        for (const { type_, offset } of internalTypes) {
+          controles.push({
+            id: newId(),
+            appareil_id: c.appareil_id,
+            type_,
+            date_realisation: null,
+            date_echeance: addMonths(base, offset),
+            controle_externe_id: c.id,
+            organisme: null,
+            realise_par: null,
+            statut: 'planifie',
+            observations: null,
+            created_at: new Date().toISOString(),
+          } as ControleQualite);
+        }
+      }
       saveStore();
       return c.id as T;
     }
