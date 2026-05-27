@@ -91,6 +91,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       });
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
+      queryClient.invalidateQueries({ queryKey: ['habilitation', 'raw', travailleurId] });
       setEditingModal(null);
     } finally {
       setIsLoadingUpdate(false);
