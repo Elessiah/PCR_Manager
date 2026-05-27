@@ -21,7 +21,7 @@ interface Action {
   libelle: string;
   deadline: string | null;
   cible: {
-    type: 'appareil';
+    type: 'appareil' | 'travailleur';
     id: number;
     label: string;
   };
@@ -216,15 +216,124 @@ export default function Dashboard() {
       });
     });
 
-    return actionsList.sort((a, b) => {
+    // Build habMap from habilitationRawQueries
+    const habMap = new Map<number, Habilitation>();
+    habilitationRawQueries.forEach((q, idx) => {
+      if (q.data && travailleurs[idx]) {
+        habMap.set(travailleurs[idx].id, q.data as Habilitation);
+      }
+    });
+
+    // Add travailleur habilitation actions
+    travailleurs.forEach((t) => {
+      const hab = habMap.get(t.id);
+      if (!hab) return;
+
+      if (hab.dosimetrie_passive_date) {
+        const d = new Date(hab.dosimetrie_passive_date);
+        d.setFullYear(d.getFullYear() + 2);
+        actionsList.push({
+          id: `dosimetrie_passive-${t.id}`,
+          categorie: 'verification',
+          libelle: 'Dosimétrie passive',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: t.id,
+            label: `${t.prenom} ${t.nom}`,
+          },
+        });
+      }
+
+      if (hab.dosimetrie_operationnelle_date) {
+        const d = new Date(hab.dosimetrie_operationnelle_date);
+        d.setFullYear(d.getFullYear() + 2);
+        actionsList.push({
+          id: `dosimetrie_op-${t.id}`,
+          categorie: 'verification',
+          libelle: 'Dosimétrie opérationnelle',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: t.id,
+            label: `${t.prenom} ${t.nom}`,
+          },
+        });
+      }
+
+      if (hab.formation_rp_travailleurs_date) {
+        const d = new Date(hab.formation_rp_travailleurs_date);
+        d.setFullYear(d.getFullYear() + 3);
+        actionsList.push({
+          id: `formation-${t.id}`,
+          categorie: 'verification',
+          libelle: 'Formation RP travailleurs',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: t.id,
+            label: `${t.prenom} ${t.nom}`,
+          },
+        });
+      }
+
+      if (hab.formation_rp_patients_date) {
+        const d = new Date(hab.formation_rp_patients_date);
+        d.setFullYear(d.getFullYear() + 7);
+        actionsList.push({
+          id: `formation_pat-${t.id}`,
+          categorie: 'verification',
+          libelle: 'Formation RP patients',
+          deadline: d.toISOString().split('T')[0],
+          cible: {
+            type: 'travailleur',
+            id: t.id,
+            label: `${t.prenom} ${t.nom}`,
+          },
+        });
+      }
+
+      let visitDeadline: string | null = null;
+      if (hab.visite_medicale_date_peremption) {
+        visitDeadline = hab.visite_medicale_date_peremption;
+      } else if (hab.visite_medicale_date) {
+        const d = new Date(hab.visite_medicale_date);
+        if (hab.visite_medicale_duree_mois) {
+          d.setMonth(d.getMonth() + hab.visite_medicale_duree_mois);
+        } else {
+          d.setFullYear(d.getFullYear() + 1);
+        }
+        visitDeadline = d.toISOString().split('T')[0];
+      }
+      if (visitDeadline) {
+        actionsList.push({
+          id: `visite_med-${t.id}`,
+          categorie: 'verification',
+          libelle: 'Visite médicale',
+          deadline: visitDeadline,
+          cible: {
+            type: 'travailleur',
+            id: t.id,
+            label: `${t.prenom} ${t.nom}`,
+          },
+        });
+      }
+    });
+
+    const filtered = actionsList.filter((a) => {
+      const status = statusFromDate(a.deadline, 3);
+      return status === 'en_retard' || status === 'a_prevoir';
+    });
+
+    return filtered.sort((a, b) => {
       if (!a.deadline) return 1;
       if (!b.deadline) return -1;
       return a.deadline.localeCompare(b.deadline);
     });
-  }, [appareils, verifications, controles]);
+  }, [appareils, verifications, controles, travailleurs, habilitationRawQueries]);
 
   const alertCategories = useMemo(() => {
-    const verificationsList = actions.filter(a => a.categorie === 'verification');
+    const verificationsList = actions.filter(a => a.categorie === 'verification' && a.cible.type === 'appareil');
     const controlesList = actions.filter(a => a.categorie === 'controle');
 
     const countByStatus = (items: Action[]) => {
@@ -636,7 +745,7 @@ export default function Dashboard() {
                     <TR
                       key={action.id}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/appareils/${action.cible.id}`)}
+                      onClick={() => navigate(action.cible.type === 'travailleur' ? `/travailleurs/${action.cible.id}` : `/appareils/${action.cible.id}`)}
                     >
                       <TD>
                         <div className="font-semibold">{action.cible.label}</div>
@@ -651,7 +760,7 @@ export default function Dashboard() {
                       </TD>
                       <TD className="text-right">
                         <Badge variant={statusToBadgeVariant[status]}>
-                          {status === 'en_retard' ? 'Invalide' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
+                          {status === 'en_retard' ? 'En retard' : status === 'a_prevoir' ? 'À prévoir' : 'À jour'}
                         </Badge>
                       </TD>
                     </TR>
