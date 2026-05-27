@@ -13,7 +13,7 @@ export function statusFromDate(
   const pad = (n: number) => String(n).padStart(2, '0');
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  if (deadlineDateStr < todayStr) return 'en_retard';
+  if (deadlineDateStr <= todayStr) return 'en_retard';
 
   const alert = new Date(now);
   alert.setMonth(alert.getMonth() + alertMonths);

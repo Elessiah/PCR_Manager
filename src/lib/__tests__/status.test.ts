@@ -32,6 +32,10 @@ describe('status', () => {
       expect(statusFromDate('2026-05-14T00:00:00Z')).toBe('en_retard');
     });
 
+    it('should return en_retard for deadline on today', () => {
+      expect(statusFromDate('2026-05-15T00:00:00Z')).toBe('en_retard');
+    });
+
     it('should return a_prevoir for deadline within alert months (default 1)', () => {
       expect(statusFromDate('2026-05-20T00:00:00Z')).toBe('a_prevoir');
     });
