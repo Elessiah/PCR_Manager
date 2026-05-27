@@ -1,6 +1,6 @@
 # PCR Manager — Application de Suivi Radioprotection
 
-**Version**: 2.0  
+**Version**: 0.1.4  
 **Dernière mise à jour**: Mai 2026  
 **Statut**: Initialisation du dépôt
 
