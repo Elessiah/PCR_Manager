@@ -65,7 +65,16 @@ export default function Topbar() {
   const retardActions = useMemo(() => {
     const items: { label: string; detail: string; path: string }[] = [];
 
+    // Deduplicate: keep only the most recent verification per (appareil_id, type_)
+    const latestVerifs = new Map<string, VerificationTechnique>();
     verifications.forEach((v) => {
+      const key = `${v.appareil_id}:${v.type_}`;
+      const existing = latestVerifs.get(key);
+      if (!existing || v.date_realisation > existing.date_realisation) {
+        latestVerifs.set(key, v);
+      }
+    });
+    latestVerifs.forEach((v) => {
       let years: number;
       if (v.type_ === 'annuelle_interne') {
         years = 1;
@@ -87,6 +96,7 @@ export default function Topbar() {
     });
 
     controleQualites.forEach((cq) => {
+      if (cq.statut === 'realise') return;
       if (statusFromDate(cq.date_echeance) === 'en_retard') {
         items.push({
           label: `Contrôle qualité — ${cq.type_}`,
