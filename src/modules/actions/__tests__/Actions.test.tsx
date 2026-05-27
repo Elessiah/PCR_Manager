@@ -204,30 +204,30 @@ describe('Actions', () => {
   it('should display filter pills with numeric counters', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load (total = 12)
+    // Wait for habilitation-based actions to load (total = 14)
+    // 1 vérif annuelle + 1 vérif triennale nr + 2 contrôles + 4 formations + 2 visites méd + 4 dosimétrie = 14
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('12');
+      expect(toutButton?.textContent).toContain('14');
     });
 
-    // 1 vérif + 2 contrôles + 3 formations + 2 visites médicales + 2 dosimétrie passive + 2 dosimétrie op = 12
     const buttons = screen.getAllByRole('button');
     const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
     const controleButton = buttons.find((btn) => btn.textContent?.includes('Contrôle'));
 
-    expect(toutButton?.textContent).toContain('12');
+    expect(toutButton?.textContent).toContain('14');
     expect(controleButton?.textContent).toContain('2');
   });
 
   it('should update filter counters when filtering', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load
+    // Wait for habilitation-based actions to load (14 = 12 actionables + 2 non renseigné)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('12');
+      expect(toutButton?.textContent).toContain('14');
     });
 
     const buttons = screen.getAllByRole('button');
@@ -327,37 +327,33 @@ describe('Actions', () => {
     });
   });
 
-  it('should handle null formation_rp_travailleurs_date without crashing', async () => {
+  it('should handle null formation_rp_travailleurs_date — generates Non renseigné item', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
+    // Travailleur 2 has formation_rp_travailleurs_date = null → génère un item Non renseigné
     await waitFor(() => {
-      expect(screen.getByText(/Actions/i)).toBeInTheDocument();
+      const rows = screen.getAllByRole('row');
+      const marieFormationTravRows = rows.filter(row =>
+        row.textContent?.includes('Formation radioprotection travailleurs') && row.textContent?.includes('Marie Martin')
+      );
+      expect(marieFormationTravRows.length).toBe(1);
     });
-
-    // Travailleur 2 has formation_rp_travailleurs_date = null → pas de formation travailleurs
-    // mais formation_rp_patients_date est renseignée → une formation patients est générée
-    const rows = screen.getAllByRole('row');
-    const marioTravailleursRows = rows.filter(row =>
-      row.textContent?.includes('Formation radioprotection travailleurs') && row.textContent?.includes('Marie Martin')
-    );
-    expect(marioTravailleursRows.length).toBe(0);
   });
 
   it('should count Formation actions in pills', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation data to be loaded (total should be 8 once all loaded)
+    // 4 Formation actions: travailleurs Jean (en_retard) + patients Jean (en_retard)
+    //                    + travailleurs Marie (Non renseigné) + patients Marie (a_prevoir)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const formationButton = buttons.find((btn) => btn.textContent?.includes('Formation'));
-      expect(formationButton?.textContent).toContain('3');
+      expect(formationButton?.textContent).toContain('4');
     });
 
     const buttons = screen.getAllByRole('button');
     const formationButton = buttons.find((btn) => btn.textContent?.includes('Formation'));
-
-    // 3 Formation actions: travailleurs Jean Dupont + patients Jean Dupont + patients Marie Martin
-    expect(formationButton?.textContent).toContain('3');
+    expect(formationButton?.textContent).toContain('4');
   });
 
   it('should count Visite medicale actions in pills', async () => {
@@ -384,8 +380,8 @@ describe('Actions', () => {
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      // 1 vérif + 2 contrôles + 3 formations + 2 visites méd + 2 dosimétrie passive + 2 dosimétrie op = 12
-      expect(toutButton?.textContent).toContain('12');
+      // 12 actionables (en_retard + a_prevoir) + 2 Non renseigné (verif triennale + formation_trav Marie) = 14
+      expect(toutButton?.textContent).toContain('14');
     });
   });
 
@@ -402,9 +398,11 @@ describe('Actions', () => {
 
     await waitFor(() => {
       const rows = screen.getAllByRole('row');
-      // Header + 3 Formation actions (travailleurs Jean, patients Jean, patients Marie)
-      expect(rows.length).toBe(4);
-      for (let i = 1; i <= 3; i++) {
+      // Header + 4 Formation actions:
+      //   travailleurs Jean (en_retard), patients Jean (en_retard),
+      //   patients Marie (a_prevoir), travailleurs Marie (Non renseigné)
+      expect(rows.length).toBe(5);
+      for (let i = 1; i <= 4; i++) {
         expect(rows[i].textContent).toContain('Formation radioprotection');
       }
     });
@@ -433,11 +431,11 @@ describe('Actions', () => {
   it('should display generated actions with correct categories in badge', async () => {
     renderWithProviders(<Actions />, { route: '/actions' });
 
-    // Wait for habilitation-based actions to load
+    // Wait for habilitation-based actions to load (14 = 12 actionables + 2 Non renseigné)
     await waitFor(() => {
       const buttons = screen.getAllByRole('button');
       const toutButton = buttons.find((btn) => btn.textContent?.includes('Tout'));
-      expect(toutButton?.textContent).toContain('12');
+      expect(toutButton?.textContent).toContain('14');
     });
 
     // Check that Formation badge (span) appears in table rows — span elements carry bg-neutralBg

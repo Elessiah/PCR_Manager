@@ -11,7 +11,7 @@ import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Dot } from '../../components/ui/Dot';
 
-type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'formation' | 'controle' | 'visite_med' | 'dosimetrie';
+type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'non_renseigne' | 'formation' | 'controle' | 'visite_med' | 'dosimetrie';
 type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med' | 'dosimetrie';
 
 interface Action {
@@ -108,6 +108,29 @@ export default function Actions() {
       });
     });
 
+    // Non renseigné : appareils sans vérification annuelle ou triennale enregistrée
+    appareils.forEach((appareil) => {
+      const cibleAppareil = { type: 'appareil' as const, id: appareil.id, label: appareil.designation };
+      if (!latestVerifMap.has(`${appareil.id}:annuelle_interne`)) {
+        actions.push({
+          id: `verif_annuelle_nr-${appareil.id}`,
+          categorie: 'verification',
+          libelle: 'Vérification annuelle',
+          deadline: null,
+          cible: cibleAppareil,
+        });
+      }
+      if (!latestVerifMap.has(`${appareil.id}:triennale_externe`)) {
+        actions.push({
+          id: `verif_triennale_nr-${appareil.id}`,
+          categorie: 'verification',
+          libelle: 'Vérification triennale',
+          deadline: null,
+          cible: cibleAppareil,
+        });
+      }
+    });
+
     // Contrôles qualité: utiliser date_echeance directement (ignorer les CQ déjà réalisés)
     controleQualites.forEach((cq) => {
       if (cq.statut === 'realise') return;
@@ -141,111 +164,58 @@ export default function Actions() {
       const hab = habilitations.get(travailleur.id);
       if (!hab) return;
 
-      // Formation RP travailleurs: validité 3 ans (CDC §5)
-      if (hab.formation_rp_travailleurs_date) {
-        const formationDate = new Date(hab.formation_rp_travailleurs_date);
-        const deadline = new Date(formationDate);
-        deadline.setFullYear(deadline.getFullYear() + 3);
-
-        actions.push({
-          id: `formation-${travailleur.id}`,
-          categorie: 'formation',
-          libelle: 'Formation radioprotection travailleurs',
-          deadline: deadline.toISOString().split('T')[0],
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
-      }
-
-      // Formation RP patients: validité 7 ans
-      if (hab.formation_rp_patients_date) {
-        const formationDate = new Date(hab.formation_rp_patients_date);
-        const deadline = new Date(formationDate);
-        deadline.setFullYear(deadline.getFullYear() + 7);
-
-        actions.push({
-          id: `formation_patients-${travailleur.id}`,
-          categorie: 'formation',
-          libelle: 'Formation radioprotection patients',
-          deadline: deadline.toISOString().split('T')[0],
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
-      }
+      const cibleTravailleur = {
+        type: 'travailleur' as const,
+        id: travailleur.id,
+        label: `${travailleur.prenom} ${travailleur.nom}`,
+      };
 
       // Dosimétrie passive: validité 2 ans
       if (hab.dosimetrie_passive_date) {
         const d = new Date(hab.dosimetrie_passive_date);
         d.setFullYear(d.getFullYear() + 2);
-        actions.push({
-          id: `dosimetrie_passive-${travailleur.id}`,
-          categorie: 'dosimetrie',
-          libelle: 'Dosimétrie passive',
-          deadline: d.toISOString().split('T')[0],
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
+        actions.push({ id: `dosimetrie_passive-${travailleur.id}`, categorie: 'dosimetrie', libelle: 'Dosimétrie passive', deadline: d.toISOString().split('T')[0], cible: cibleTravailleur });
+      } else {
+        actions.push({ id: `dosimetrie_passive-${travailleur.id}`, categorie: 'dosimetrie', libelle: 'Dosimétrie passive', deadline: null, cible: cibleTravailleur });
       }
 
       // Dosimétrie opérationnelle: validité 2 ans
       if (hab.dosimetrie_operationnelle_date) {
         const d = new Date(hab.dosimetrie_operationnelle_date);
         d.setFullYear(d.getFullYear() + 2);
-        actions.push({
-          id: `dosimetrie_op-${travailleur.id}`,
-          categorie: 'dosimetrie',
-          libelle: 'Dosimétrie opérationnelle',
-          deadline: d.toISOString().split('T')[0],
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
+        actions.push({ id: `dosimetrie_op-${travailleur.id}`, categorie: 'dosimetrie', libelle: 'Dosimétrie opérationnelle', deadline: d.toISOString().split('T')[0], cible: cibleTravailleur });
+      } else {
+        actions.push({ id: `dosimetrie_op-${travailleur.id}`, categorie: 'dosimetrie', libelle: 'Dosimétrie opérationnelle', deadline: null, cible: cibleTravailleur });
+      }
+
+      // Formation RP travailleurs: validité 3 ans (CDC §5)
+      if (hab.formation_rp_travailleurs_date) {
+        const d = new Date(hab.formation_rp_travailleurs_date);
+        d.setFullYear(d.getFullYear() + 3);
+        actions.push({ id: `formation-${travailleur.id}`, categorie: 'formation', libelle: 'Formation radioprotection travailleurs', deadline: d.toISOString().split('T')[0], cible: cibleTravailleur });
+      } else {
+        actions.push({ id: `formation-${travailleur.id}`, categorie: 'formation', libelle: 'Formation radioprotection travailleurs', deadline: null, cible: cibleTravailleur });
+      }
+
+      // Formation RP patients: validité 7 ans
+      if (hab.formation_rp_patients_date) {
+        const d = new Date(hab.formation_rp_patients_date);
+        d.setFullYear(d.getFullYear() + 7);
+        actions.push({ id: `formation_patients-${travailleur.id}`, categorie: 'formation', libelle: 'Formation radioprotection patients', deadline: d.toISOString().split('T')[0], cible: cibleTravailleur });
+      } else {
+        actions.push({ id: `formation_patients-${travailleur.id}`, categorie: 'formation', libelle: 'Formation radioprotection patients', deadline: null, cible: cibleTravailleur });
       }
 
       // Visite médicale: date_peremption explicite > durée en mois > +1 an par défaut
       if (hab.visite_medicale_date_peremption) {
-        actions.push({
-          id: `visite_med-${travailleur.id}`,
-          categorie: 'visite_med',
-          libelle: 'Visite médicale',
-          deadline: hab.visite_medicale_date_peremption,
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
+        actions.push({ id: `visite_med-${travailleur.id}`, categorie: 'visite_med', libelle: 'Visite médicale', deadline: hab.visite_medicale_date_peremption, cible: cibleTravailleur });
       } else if (hab.visite_medicale_date) {
-        const visitDate = new Date(hab.visite_medicale_date);
-        const deadline = new Date(visitDate);
-        if (hab.visite_medicale_duree_mois) {
-          deadline.setMonth(deadline.getMonth() + hab.visite_medicale_duree_mois);
-        } else {
-          deadline.setFullYear(deadline.getFullYear() + 1);
-        }
-
-        actions.push({
-          id: `visite_med-${travailleur.id}`,
-          categorie: 'visite_med',
-          libelle: 'Visite médicale',
-          deadline: deadline.toISOString().split('T')[0],
-          cible: {
-            type: 'travailleur',
-            id: travailleur.id,
-            label: `${travailleur.prenom} ${travailleur.nom}`,
-          },
-        });
+        const d = new Date(hab.visite_medicale_date);
+        if (hab.visite_medicale_duree_mois) d.setMonth(d.getMonth() + hab.visite_medicale_duree_mois);
+        else d.setFullYear(d.getFullYear() + 1);
+        actions.push({ id: `visite_med-${travailleur.id}`, categorie: 'visite_med', libelle: 'Visite médicale', deadline: d.toISOString().split('T')[0], cible: cibleTravailleur });
+      } else {
+        actions.push({ id: `visite_med-${travailleur.id}`, categorie: 'visite_med', libelle: 'Visite médicale', deadline: null, cible: cibleTravailleur });
       }
     });
 
@@ -254,7 +224,7 @@ export default function Actions() {
 
   const allActions = buildActions().filter((a) => {
     const s = statusFromDate(a.deadline, 3);
-    return s === 'en_retard' || s === 'a_prevoir';
+    return s === 'en_retard' || s === 'a_prevoir' || s === 'non_applicable';
   });
 
   const countByStatus = (status: string): number => {
@@ -263,6 +233,10 @@ export default function Actions() {
 
   const countByCategorie = (categorie: ActionCategory): number => {
     return allActions.filter(a => a.categorie === categorie).length;
+  };
+
+  const countNonRenseigne = (): number => {
+    return allActions.filter(a => statusFromDate(a.deadline, 3) === 'non_applicable').length;
   };
 
   const typeLabel = (categorie: ActionCategory): string => {
@@ -282,9 +256,9 @@ export default function Actions() {
       en_retard: 'En retard',
       a_prevoir: 'À prévoir',
       valide: 'À jour',
-      non_applicable: 'N/A',
+      non_applicable: 'Non renseigné',
     };
-    return labels[status] || 'N/A';
+    return labels[status] || 'Non renseigné';
   };
 
   const formatDate = (deadline: string | null): string => {
@@ -312,6 +286,7 @@ export default function Actions() {
     { value: 'tout' as FilterValue, label: 'Tout', count: allActions.length },
     { value: 'en_retard' as FilterValue, label: 'En retard', count: countByStatus('en_retard') },
     { value: 'a_venir' as FilterValue, label: 'À venir', count: countByStatus('a_prevoir') },
+    { value: 'non_renseigne' as FilterValue, label: 'Non renseigné', count: countNonRenseigne() },
     { value: 'formation' as FilterValue, label: 'Formation', count: countByCategorie('formation') },
     { value: 'controle' as FilterValue, label: 'Contrôle', count: countByCategorie('controle') },
     { value: 'visite_med' as FilterValue, label: 'Visite méd.', count: countByCategorie('visite_med') },
@@ -324,6 +299,7 @@ export default function Actions() {
     const status = statusFromDate(action.deadline, 3);
     if (filter === 'en_retard') return status === 'en_retard';
     if (filter === 'a_venir') return status === 'a_prevoir';
+    if (filter === 'non_renseigne') return status === 'non_applicable';
     if (filter === 'controle') return action.categorie === 'controle';
     if (filter === 'formation') return action.categorie === 'formation';
     if (filter === 'visite_med') return action.categorie === 'visite_med';

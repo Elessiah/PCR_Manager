@@ -7,10 +7,55 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Field, Label, Input, Select } from '../../components/ui/FormField';
 import { ChevronLeft, Users, Shield, Pencil, Trash2 } from 'lucide-react';
-import { habilitationToBadge } from '../../lib/habilitation';
+import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import DonneesPersonnellesTab from './DonneesPersonnellesTab';
 import HabilitationTab from './HabilitationTab';
-import type { Travailleur } from '../../types/domain';
+import type { Travailleur, Habilitation } from '../../types/domain';
+
+/** Calcule le statut global de l'habilitation à partir des données brutes,
+ *  en utilisant les mêmes alertMonths que HabilitationTab. */
+function computeHabBadgeFromRaw(hab: Habilitation | undefined) {
+  if (!hab) return null;
+
+  const addYears = (d: string | null | undefined, y: number) => {
+    if (!d) return null;
+    const dt = new Date(d);
+    dt.setFullYear(dt.getFullYear() + y);
+    return dt.toISOString().split('T')[0];
+  };
+
+  const visitDeadline = hab.visite_medicale_date_peremption
+    ?? (() => {
+      if (!hab.visite_medicale_date) return null;
+      const dt = new Date(hab.visite_medicale_date);
+      if (hab.visite_medicale_duree_mois) dt.setMonth(dt.getMonth() + hab.visite_medicale_duree_mois);
+      else dt.setFullYear(dt.getFullYear() + 1);
+      return dt.toISOString().split('T')[0];
+    })();
+
+  // Mêmes alertMonths que HabilitationTab (dosimétrie=1, formation=1, visite=3)
+  const statuses = [
+    statusFromDate(addYears(hab.dosimetrie_passive_date, 2), 1),
+    statusFromDate(addYears(hab.dosimetrie_operationnelle_date, 2), 1),
+    statusFromDate(addYears(hab.formation_rp_travailleurs_date, 3), 1),
+    statusFromDate(addYears(hab.formation_rp_patients_date, 7), 1),
+    statusFromDate(visitDeadline, 3),
+  ];
+
+  let worst: 'en_retard' | 'a_prevoir' | 'valide' | 'non_applicable' = 'non_applicable';
+  if (statuses.includes('en_retard')) worst = 'en_retard';
+  else if (statuses.includes('a_prevoir')) worst = 'a_prevoir';
+  else if (statuses.includes('valide')) worst = 'valide';
+
+  const labels: Record<typeof worst, string> = {
+    en_retard: 'En retard',
+    a_prevoir: 'À prévoir',
+    valide: 'À jour',
+    non_applicable: 'Non renseigné',
+  };
+
+  return { label: labels[worst], variant: statusToBadgeVariant[worst] };
+}
 
 export default function TravailleurFiche() {
   const { id } = useParams<{ id: string }>();
@@ -26,9 +71,10 @@ export default function TravailleurFiche() {
     enabled: !!id,
   });
 
-  const { data: habStatus } = useQuery({
-    queryKey: ['habilitation', Number(id)],
-    queryFn: () => api.habilitation.compute(Number(id!)),
+  // Données brutes : même clé que HabilitationTab → cache partagé, badge toujours cohérent
+  const { data: habRaw } = useQuery({
+    queryKey: ['habilitationRaw', Number(id)],
+    queryFn: () => api.habilitation.getForTravailleur(Number(id!)),
     enabled: !!id,
   });
 
@@ -42,7 +88,7 @@ export default function TravailleurFiche() {
 
   if (!travailleur) return null;
 
-  const habBadge = habStatus ? habilitationToBadge[habStatus.statut] : null;
+  const habBadge = computeHabBadgeFromRaw(habRaw);
 
   return (
     <div className="space-y-4">

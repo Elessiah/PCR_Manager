@@ -118,7 +118,8 @@ describe('Actions — travailleurs avec items en retard/à prévoir', () => {
     it('Jean Dupont est visible dans la liste des actions', async () => {
       renderWithProviders(<Actions />, { route: '/actions' })
       await waitFor(() => {
-        expect(screen.getByText('Jean Dupont')).toBeInTheDocument()
+        // getAllByText : Jean Dupont apparaît sur plusieurs lignes (1 en_retard + 4 non_renseigné)
+        expect(screen.getAllByText('Jean Dupont')[0]).toBeInTheDocument()
       })
     })
 
@@ -176,7 +177,8 @@ describe('Actions — travailleurs avec items en retard/à prévoir', () => {
     it('Marie Martin est visible dans la liste des actions', async () => {
       renderWithProviders(<Actions />, { route: '/actions' })
       await waitFor(() => {
-        expect(screen.getByText('Marie Martin')).toBeInTheDocument()
+        // getAllByText : Marie Martin apparaît sur plusieurs lignes (1 a_prevoir + 4 non_renseigné)
+        expect(screen.getAllByText('Marie Martin')[0]).toBeInTheDocument()
       })
     })
 
@@ -197,14 +199,14 @@ describe('Actions — travailleurs avec items en retard/à prévoir', () => {
     })
   })
 
-  describe('Un travailleur avec toutes les dates null ne génère aucune action', () => {
+  describe('Un travailleur avec toutes les dates null génère des actions "Non renseigné"', () => {
     beforeEach(() => {
       vi.mocked(invoke).mockImplementation(async (cmd) => {
         switch (cmd) {
           case 'travailleur_list':
             return [makeTravailleur(3, 'Arnaud', 'Pierre')]
           case 'habilitation_get_for_travailleur':
-            return baseHab(3) // all null
+            return baseHab(3) // all null → 5 Non renseigné
           case 'appareil_list':
             return []
           case 'verification_list':
@@ -217,20 +219,19 @@ describe('Actions — travailleurs avec items en retard/à prévoir', () => {
       })
     })
 
-    it('Pierre Arnaud n\'est pas dans la liste', async () => {
+    it('Pierre Arnaud est visible dans la liste avec des actions Non renseigné', async () => {
       renderWithProviders(<Actions />, { route: '/actions' })
       await waitFor(() => {
-        // Attend que le composant soit rendu (vérifie le titre)
-        expect(screen.getByText('Actions')).toBeInTheDocument()
+        // Pierre Arnaud apparaît sur 5 lignes (toutes non_renseigné)
+        expect(screen.getAllByText('Pierre Arnaud')[0]).toBeInTheDocument()
       })
-      expect(screen.queryByText('Pierre Arnaud')).toBeNull()
     })
 
-    it('le compteur "Tout" est à 0', async () => {
+    it('le compteur "Tout" est à 5 (5 champs non renseignés)', async () => {
       renderWithProviders(<Actions />, { route: '/actions' })
       await waitFor(() => {
         const btn = screen.getByRole('button', { name: /Tout/ })
-        expect(btn.textContent).toMatch(/Tout\s*0/)
+        expect(btn.textContent).toContain('5')
       })
     })
   })
@@ -331,11 +332,11 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
     vi.useRealTimers()
   })
 
-  it('affiche exactement 6 actions au total (4 en retard + 2 à prévoir)', async () => {
+  it('affiche 27 actions au total (4 en retard + 2 à prévoir + 21 Non renseigné)', async () => {
     renderWithProviders(<Actions />, { route: '/actions' })
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /Tout/ })
-      expect(btn.textContent).toContain('6')
+      expect(btn.textContent).toContain('27')
     })
   })
 
@@ -381,20 +382,21 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
     })
   })
 
-  it('Alice Zebra (toutes dates null) n\'apparaît pas dans la liste', async () => {
+  it('Alice Zebra (toutes dates null) apparaît avec des actions Non renseigné', async () => {
     renderWithProviders(<Actions />, { route: '/actions' })
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Tout/ }).textContent).toContain('6')
+      expect(screen.getByRole('button', { name: /Tout/ }).textContent).toContain('27')
     })
-    expect(screen.queryByText('Alice Zebra')).toBeNull()
+    // Alice Zebra apparaît sur 5 lignes (toutes non_renseigné)
+    expect(screen.getAllByText('Alice Zebra')[0]).toBeInTheDocument()
   })
 
   it('après filtrage "En retard", tri par deadline croissante', async () => {
     renderWithProviders(<Actions />, { route: '/actions' })
 
-    // Attendre le chargement
+    // Attendre le chargement complet (27 = 6 actionables + 21 Non renseigné)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Tout/ }).textContent).toContain('6')
+      expect(screen.getByRole('button', { name: /Tout/ }).textContent).toContain('27')
     })
 
     // Cliquer sur le filtre "En retard"
