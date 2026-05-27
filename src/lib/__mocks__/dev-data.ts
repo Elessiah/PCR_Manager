@@ -461,8 +461,20 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       return undefined as T;
     }
     case 'competence_ref_delete': {
-      const idx = competenceRefs.findIndex(c => c.id === a?.id);
+      const delId = a?.id as number;
+      const idx = competenceRefs.findIndex(c => c.id === delId);
       if (idx >= 0) competenceRefs.splice(idx, 1);
+      // Cascade: mirror SQLite ON DELETE CASCADE
+      for (const [aId, refSet] of appareilCompetenceRefs) {
+        refSet.delete(delId);
+        if (refSet.size === 0) appareilCompetenceRefs.delete(aId);
+      }
+      for (const key of Array.from(competencesTravailleur.keys())) {
+        if (key.endsWith(`_${delId}`)) competencesTravailleur.delete(key);
+      }
+      for (const key of Array.from(competencesTravailleurGeneral.keys())) {
+        if (key.endsWith(`_${delId}`)) competencesTravailleurGeneral.delete(key);
+      }
       saveStore();
       return undefined as T;
     }
