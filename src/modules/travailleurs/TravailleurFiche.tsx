@@ -236,7 +236,7 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
               <Select value={fonction} onChange={e => setFonction(e.target.value)}>
                 <option value="">— Sélectionner —</option>
                 <option value="Cardiologue">Cardiologue</option>
-                <option value="Cardiologue_liberal">Cardiologue libéral</option>
+                <option value="Cardiologue libéral">Cardiologue libéral</option>
                 <option value="MERM">MERM</option>
                 <option value="Infirmier">Infirmier</option>
               </Select>
