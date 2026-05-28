@@ -529,19 +529,23 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
     }
   }, [isOpen, habilitation?.dosimetrie_passive_date]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
-
   const handleSave = async () => {
     await onSave({
       travailleurId,
       dosimetriePassiveDate: passiveDate || null,
     });
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'Enter' && !isLoading) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose, passiveDate, isLoading]);
 
   if (!isOpen) return null;
 
@@ -589,19 +593,23 @@ function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoadi
     }
   }, [isOpen, habilitation?.dosimetrie_operationnelle_date]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
-
   const handleSave = async () => {
     await onSave({
       travailleurId,
       dosimetrieOperationnelleDate: operationnelleDate || null,
     });
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'Enter' && !isLoading) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose, operationnelleDate, isLoading]);
 
   if (!isOpen) return null;
 
@@ -666,13 +674,6 @@ function EditModalFormationRp({
     }
   }, [isOpen, type, habilitation?.formation_rp_travailleurs_date, habilitation?.formation_rp_patients_date]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
-
   const handleSave = async () => {
     const input: Parameters<typeof api.habilitation.update>[0] = {
       travailleurId,
@@ -680,6 +681,17 @@ function EditModalFormationRp({
     };
     await onSave(input);
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'Enter' && !isLoading) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose, date, type, isLoading]);
 
   if (!isOpen) return null;
 
@@ -758,6 +770,15 @@ function VisiteMedicaleModeduree({
     });
   };
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !isLoading && visitDate) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitDate, isLoading]);
+
   return (
     <div className="space-y-4">
       <Field>
@@ -834,6 +855,15 @@ function VisiteMedicaleModeDateDirecte({
       visiteMedicaleDatePeremption: expirationDate || null,
     });
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !isLoading && visitDate && expirationDate) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitDate, expirationDate, isLoading]);
 
   return (
     <div className="space-y-4">
