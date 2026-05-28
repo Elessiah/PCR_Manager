@@ -306,8 +306,7 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
       40: {},
     }
 
-    vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
-      const a = args as { travailleurId?: number } | undefined
+    vi.mocked(invoke).mockImplementation(async (cmd) => {
       switch (cmd) {
         case 'travailleur_list':
           return travailleurs
@@ -426,8 +425,7 @@ describe('Actions — compétences non validées', () => {
 
   describe('Un travailleur avec compétences non validées apparaît dans Actions', () => {
     beforeEach(() => {
-      vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
-        const a = args as { travailleurId?: number } | undefined
+      vi.mocked(invoke).mockImplementation(async (cmd) => {
         switch (cmd) {
           case 'travailleur_list':
             return [makeTravailleur(1, 'Dupont', 'Jean')]
