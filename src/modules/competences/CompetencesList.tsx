@@ -33,6 +33,7 @@ function CompetenceModal({
   );
 
   const formRef = useRef<HTMLFormElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const dureeMoisRef = useRef<HTMLInputElement>(null);
   const alerteMoisRef = useRef<HTMLInputElement>(null);
 
@@ -123,8 +124,7 @@ function CompetenceModal({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (!permanente) dureeMoisRef.current?.focus();
-                  else formRef.current?.requestSubmit();
+                  descriptionRef.current?.focus();
                 }
               }}
             />
@@ -135,6 +135,7 @@ function CompetenceModal({
           <Field>
             <Label htmlFor="description">Description (facultative)</Label>
             <textarea
+              ref={descriptionRef}
               id="description"
               value={description}
               onChange={e => setDescription(e.target.value)}
