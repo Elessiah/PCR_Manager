@@ -299,6 +299,40 @@ describe('HabilitationTab — statuts des badges par item', () => {
     })
   })
 
+  // ── Scénario 9 : dates toutes "À jour" mais competences_ok = false ─────────
+  describe('Scénario 9 : dates à jour mais compétences non validées → badge "Partielle"', () => {
+    beforeEach(() => {
+      setupMocks({
+        // Toutes les dates bien dans le futur (seuil > 1 mois) → valide
+        dosimetrie_passive_date: '2025-01-01',            // deadline 2027-01-01 → valide
+        dosimetrie_operationnelle_date: '2025-01-01',
+        formation_rp_travailleurs_date: '2024-08-01',     // deadline 2027-08-01 → valide
+        formation_rp_patients_date: '2020-08-01',         // deadline 2027-08-01 → valide
+        visite_medicale_date_peremption: '2027-01-01',    // → valide
+      }, {
+        statut: 'partielle',
+        details: { formation_rp_ok: true, formation_rp_patients_ok: true, dosimetries_ok: true, competences_ok: false, visite_med_ok: true },
+      })
+    })
+
+    it('le badge récapitulatif dans l\'en-tête affiche "Partielle"', async () => {
+      await openHabilitationTab()
+      expect(screen.getByText('Partielle')).toBeInTheDocument()
+    })
+
+    it('le badge "Partielle" a la classe warn (bg-warnBg)', async () => {
+      await openHabilitationTab()
+      expect(screen.getByText('Partielle').closest('span')).toHaveClass('bg-warnBg')
+    })
+
+    it('aucun badge "À jour" n\'est présent dans l\'en-tête (5 dans les items, pas dans l\'en-tête)', async () => {
+      await openHabilitationTab()
+      // Les 5 items HabilitationTab affichent "À jour" (calcul temporel pur)
+      // Le badge en-tête n'est PAS "À jour" → exactement 5 occurrences
+      expect(screen.getAllByText('À jour')).toHaveLength(5)
+    })
+  })
+
   // ── Scénario 8 : visite médicale via date + durée en mois ────────────────
   describe('Scénario 8 : visite médicale calculée par date + durée en mois', () => {
     describe('visite médicale en retard (date + 12 mois dépassée)', () => {

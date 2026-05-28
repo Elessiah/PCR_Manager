@@ -307,12 +307,11 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
     }
 
     vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
-      const a = args as { travailleurId?: number } | undefined
       switch (cmd) {
         case 'travailleur_list':
           return travailleurs
         case 'habilitation_get_for_travailleur': {
-          const tId = a?.travailleurId ?? 0
+          const tId = (args as { travailleurId?: number } | undefined)?.travailleurId ?? 0
           return baseHab(tId, habilitations[tId] ?? {})
         }
         case 'appareil_list':
@@ -409,6 +408,72 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
       expect(rows[2]).toHaveTextContent('Alpha Scanner') // deadline 2026-03-01
       expect(rows[3]).toHaveTextContent('Marie Martin')  // deadline 2026-04-01 (M < Z)
       expect(rows[4]).toHaveTextContent('Zeta IRM')      // deadline 2026-04-01
+    })
+  })
+})
+
+describe('Actions — compétences non validées', () => {
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-27T00:00:00'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('Un travailleur avec compétences non validées apparaît dans Actions', () => {
+    beforeEach(() => {
+      vi.mocked(invoke).mockImplementation(async (cmd) => {
+        switch (cmd) {
+          case 'travailleur_list':
+            return [makeTravailleur(1, 'Dupont', 'Jean')]
+          case 'habilitation_get_for_travailleur':
+            return baseHab(1)
+          case 'habilitation_compute':
+            return {
+              statut: 'partielle',
+              details: {
+                formation_rp_ok: true,
+                formation_rp_patients_ok: true,
+                dosimetries_ok: true,
+                competences_ok: false,
+                visite_med_ok: true,
+              },
+            }
+          case 'appareil_list':
+            return []
+          case 'verification_list':
+            return []
+          case 'controle_qualite_list':
+            return []
+          default:
+            return []
+        }
+      })
+    })
+
+    it('Jean Dupont est visible dans la liste des actions', async () => {
+      renderWithProviders(<Actions />, { route: '/actions' })
+      await waitFor(() => {
+        expect(screen.getAllByText('Jean Dupont')[0]).toBeInTheDocument()
+      })
+    })
+
+    it('l\'action est labelisée "Compétences non validées"', async () => {
+      renderWithProviders(<Actions />, { route: '/actions' })
+      await waitFor(() => {
+        expect(screen.getByText('Compétences non validées')).toBeInTheDocument()
+      })
+    })
+
+    it('le filtre "Compétences" compte 1 action', async () => {
+      renderWithProviders(<Actions />, { route: '/actions' })
+      await waitFor(() => {
+        const btn = screen.getByRole('button', { name: /Compétences/ })
+        expect(btn.textContent).toContain('1')
+      })
     })
   })
 })

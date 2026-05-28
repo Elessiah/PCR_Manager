@@ -10,11 +10,13 @@ import { ChevronLeft, Users, Shield, Pencil, Trash2 } from 'lucide-react';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import DonneesPersonnellesTab from './DonneesPersonnellesTab';
 import HabilitationTab from './HabilitationTab';
-import type { Travailleur, Habilitation } from '../../types/domain';
+import type { Travailleur, Habilitation, HabilitationStatus } from '../../types/domain';
 
 /** Calcule le statut global de l'habilitation à partir des données brutes,
- *  en utilisant les mêmes alertMonths que HabilitationTab. */
-function computeHabBadgeFromRaw(hab: Habilitation | undefined) {
+ *  en utilisant les mêmes alertMonths que HabilitationTab.
+ *  competences_ok : résultat du calcul backend (inclut la vérification des compétences).
+ *  Si les dates sont toutes à jour mais les compétences non validées → badge "Partielle". */
+function computeHabBadgeFromRaw(hab: Habilitation | undefined, competences_ok?: boolean) {
   if (!hab) return null;
 
   const addYears = (d: string | null | undefined, y: number) => {
@@ -47,6 +49,11 @@ function computeHabBadgeFromRaw(hab: Habilitation | undefined) {
   else if (statuses.includes('a_prevoir')) worst = 'a_prevoir';
   else if (statuses.includes('valide')) worst = 'valide';
 
+  // Toutes les dates sont à jour mais des compétences ne sont pas validées → Partielle
+  if (worst === 'valide' && competences_ok === false) {
+    return { label: 'Partielle', variant: statusToBadgeVariant['a_prevoir'] };
+  }
+
   const labels: Record<typeof worst, string> = {
     en_retard: 'En retard',
     a_prevoir: 'À prévoir',
@@ -78,6 +85,13 @@ export default function TravailleurFiche() {
     enabled: !!id,
   });
 
+  // Statut calculé (inclut competences_ok) : même clé que HabilitationTab et TravailleursList
+  const { data: habStatus } = useQuery<HabilitationStatus>({
+    queryKey: ['habilitation', Number(id)],
+    queryFn: () => api.habilitation.compute(Number(id!)),
+    enabled: !!id,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => api.travailleur.delete(Number(id!)),
     onSuccess: () => {
@@ -88,7 +102,7 @@ export default function TravailleurFiche() {
 
   if (!travailleur) return null;
 
-  const habBadge = computeHabBadgeFromRaw(habRaw);
+  const habBadge = computeHabBadgeFromRaw(habRaw, habStatus?.details.competences_ok);
 
   return (
     <div className="space-y-4">
