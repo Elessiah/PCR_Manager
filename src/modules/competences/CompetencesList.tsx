@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { CompetenceRef } from '../../types/domain';
@@ -31,6 +31,10 @@ function CompetenceModal({
   const [permanente, setPermanente] = useState(
     mode.type === 'edit' ? mode.competence.duree_validite_mois === null : false
   );
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const dureeMoisRef = useRef<HTMLInputElement>(null);
+  const alerteMoisRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -107,7 +111,7 @@ function CompetenceModal({
         <h2 className="text-[16px] font-semibold">
           {mode.type === 'create' ? 'Ajouter une compétence' : 'Modifier la compétence'}
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
           <Field>
             <Label htmlFor="libelle">Libellé</Label>
             <Input
@@ -116,6 +120,13 @@ function CompetenceModal({
               onChange={e => setLibelle(e.target.value)}
               placeholder="Ex : Mise sous tension de l'appareil"
               autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (!permanente) dureeMoisRef.current?.focus();
+                  else formRef.current?.requestSubmit();
+                }
+              }}
             />
             {attempted && !libelle.trim() && (
               <p className="text-xs text-danger">Le libellé est obligatoire.</p>
@@ -158,11 +169,13 @@ function CompetenceModal({
             <Field>
               <Label htmlFor="dureeMois">Durée de validité (mois)</Label>
               <Input
+                ref={dureeMoisRef}
                 id="dureeMois"
                 type="number"
                 value={dureeMois}
                 onChange={e => setDureeMois(e.target.value)}
                 min={1}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); alerteMoisRef.current?.focus(); } }}
               />
               {attempted && (isNaN(Number(dureeMois)) || Number(dureeMois) < 1) && (
                 <p className="text-xs text-danger">La durée doit être d'au moins 1 mois.</p>
@@ -172,6 +185,7 @@ function CompetenceModal({
           <Field>
             <Label htmlFor="alerteMois">Alerte avant péremption (mois)</Label>
             <Input
+              ref={alerteMoisRef}
               id="alerteMois"
               type="number"
               value={alerteMois}
@@ -179,6 +193,7 @@ function CompetenceModal({
               min={1}
               disabled={permanente}
               max={permanente ? undefined : Number(dureeMois)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formRef.current?.requestSubmit(); } }}
             />
             {attempted && !permanente && (
               <>
