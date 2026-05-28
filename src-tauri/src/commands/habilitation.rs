@@ -203,7 +203,7 @@ fn verify_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> ru
         .unwrap_or(false);
 
     if !has_appareils {
-        return Ok(false);
+        return Ok(true); // Vacuous truth: no appareils assigned = no competence requirements = OK
     }
 
     let mut stmt = conn.prepare(

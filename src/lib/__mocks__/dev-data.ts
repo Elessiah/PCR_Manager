@@ -178,9 +178,8 @@ function computeHabilitation(travailleurId: number): HabilitationStatus {
   }
 
   const appareilIds = travailleurAppareils.get(travailleurId) ?? new Set<number>();
-  let competences_ok = false;
+  let competences_ok = true; // Vacuous truth: no appareils = no requirements = OK
   if (appareilIds.size > 0) {
-    competences_ok = true;
     outer: for (const appareilId of appareilIds) {
       const requiredComps = appareilCompetenceRefs.get(appareilId) ?? new Set<number>();
       for (const compId of requiredComps) {
@@ -620,9 +619,13 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
       // at +3 months (partiel), +6 months (complet), +9 months (partiel)
       if (c.type_ === 'externe') {
         const addMonths = (dateStr: string, months: number): string => {
-          const d = new Date(dateStr + 'T00:00:00');
-          d.setMonth(d.getMonth() + months);
-          return d.toISOString().split('T')[0];
+          // Use local-time arithmetic to avoid UTC/timezone offset issues
+          const [y, m, d] = dateStr.split('-').map(Number);
+          const dt = new Date(y, m - 1 + months, d);
+          const yy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, '0');
+          const dd = String(dt.getDate()).padStart(2, '0');
+          return `${yy}-${mm}-${dd}`;
         };
         const base = c.date_echeance;
         const internalTypes: Array<{ type_: string; offset: number }> = [
