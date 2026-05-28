@@ -182,30 +182,31 @@ function CompetenceModal({
               )}
             </Field>
           )}
-          <Field>
-            <Label htmlFor="alerteMois">Alerte avant péremption (mois)</Label>
-            <Input
-              ref={alerteMoisRef}
-              id="alerteMois"
-              type="number"
-              value={alerteMois}
-              onChange={e => setAlerteMois(e.target.value)}
-              min={1}
-              disabled={permanente}
-              max={permanente ? undefined : Number(dureeMois)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formRef.current?.requestSubmit(); } }}
-            />
-            {attempted && !permanente && (
-              <>
-                {(isNaN(Number(alerteMois)) || Number(alerteMois) < 1) && (
-                  <p className="text-xs text-danger">L'alerte doit être d'au moins 1 mois.</p>
-                )}
-                {Number(alerteMois) >= 1 && Number(alerteMois) > Number(dureeMois) && (
-                  <p className="text-xs text-danger">L'alerte ne peut pas dépasser la durée de validité ({dureeMois} mois).</p>
-                )}
-              </>
-            )}
-          </Field>
+          {!permanente && (
+            <Field>
+              <Label htmlFor="alerteMois">Alerte avant péremption (mois)</Label>
+              <Input
+                ref={alerteMoisRef}
+                id="alerteMois"
+                type="number"
+                value={alerteMois}
+                onChange={e => setAlerteMois(e.target.value)}
+                min={1}
+                max={Number(dureeMois)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formRef.current?.requestSubmit(); } }}
+              />
+              {attempted && (
+                <>
+                  {(isNaN(Number(alerteMois)) || Number(alerteMois) < 1) && (
+                    <p className="text-xs text-danger">L'alerte doit être d'au moins 1 mois.</p>
+                  )}
+                  {Number(alerteMois) >= 1 && Number(alerteMois) > Number(dureeMois) && (
+                    <p className="text-xs text-danger">L'alerte ne peut pas dépasser la durée de validité ({dureeMois} mois).</p>
+                  )}
+                </>
+              )}
+            </Field>
+          )}
           {mutError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700">
               {mutError}
