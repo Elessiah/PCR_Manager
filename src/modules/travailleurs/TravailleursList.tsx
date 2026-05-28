@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -158,6 +158,15 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const prenomRef = useRef<HTMLInputElement>(null);
+  const sexeRef = useRef<HTMLSelectElement>(null);
+  const dateNaissanceRef = useRef<HTMLInputElement>(null);
+  const fonctionRef = useRef<HTMLSelectElement>(null);
+  const categorieRef = useRef<HTMLSelectElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const telephoneRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
@@ -211,7 +220,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
       >
         <h2 className="text-lg font-semibold mb-4">Ajouter un travailleur</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <Field>
             <Label htmlFor="nom">Nom *</Label>
             <Input
@@ -221,6 +230,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setNom(e.target.value)}
               placeholder="Dupont"
               autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); prenomRef.current?.focus(); } }}
             />
             {attempted && !nom.trim() && (
               <p className="text-xs text-danger">Le nom est obligatoire.</p>
@@ -230,11 +240,13 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="prenom">Prénom *</Label>
             <Input
+              ref={prenomRef}
               id="prenom"
               type="text"
               value={prenom}
               onChange={(e) => setPrenom(e.target.value)}
               placeholder="Jean"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sexeRef.current?.focus(); } }}
             />
             {attempted && !prenom.trim() && (
               <p className="text-xs text-danger">Le prénom est obligatoire.</p>
@@ -244,9 +256,11 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="sexe">Sexe</Label>
             <Select
+              ref={sexeRef}
               id="sexe"
               value={sexe}
               onChange={(e) => setSexe(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); dateNaissanceRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="M">Masculin</option>
@@ -258,19 +272,23 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="dateNaissance">Date de naissance</Label>
             <Input
+              ref={dateNaissanceRef}
               id="dateNaissance"
               type="date"
               value={dateNaissance}
               onChange={(e) => setDateNaissance(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fonctionRef.current?.focus(); } }}
             />
           </Field>
 
           <Field>
             <Label htmlFor="fonction">Fonction</Label>
             <Select
+              ref={fonctionRef}
               id="fonction"
               value={fonction}
               onChange={(e) => setFonction(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); categorieRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="Cardiologue">Cardiologue</option>
@@ -283,9 +301,11 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="categorie">Catégorie réglementaire</Label>
             <Select
+              ref={categorieRef}
               id="categorie"
               value={categorieReglementaire}
               onChange={(e) => setCategorieReglementaire(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); emailRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="A">A</option>
@@ -296,22 +316,26 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="email">Email</Label>
             <Input
+              ref={emailRef}
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="jean.dupont@example.com"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); telephoneRef.current?.focus(); } }}
             />
           </Field>
 
           <Field>
             <Label htmlFor="telephone">Téléphone</Label>
             <Input
+              ref={telephoneRef}
               id="telephone"
               type="tel"
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
               placeholder="+33 6 12 34 56 78"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formRef.current?.requestSubmit(); } }}
             />
           </Field>
 

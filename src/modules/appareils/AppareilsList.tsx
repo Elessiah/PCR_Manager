@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
@@ -22,6 +22,13 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
   const [utilisationPartagee, setUtilisationPartagee] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const marqueRef = useRef<HTMLInputElement>(null);
+  const modeleRef = useRef<HTMLInputElement>(null);
+  const numeroSerieRef = useRef<HTMLInputElement>(null);
+  const typeRef = useRef<HTMLSelectElement>(null);
+  const lieuRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -65,7 +72,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
         onClick={e => e.stopPropagation()}
       >
         <h2 className="text-[16px] font-semibold">Ajouter un appareil</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <Field>
             <Label htmlFor="designation">Désignation *</Label>
             <Input
@@ -74,6 +81,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
               onChange={e => setDesignation(e.target.value)}
               placeholder="Ex : Tube radiogène"
               autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); marqueRef.current?.focus(); } }}
             />
             {attempted && !designation.trim() && (
               <p className="text-xs text-danger">La désignation est obligatoire.</p>
@@ -82,33 +90,39 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="marque">Marque</Label>
             <Input
+              ref={marqueRef}
               id="marque"
               value={marque}
               onChange={e => setMarque(e.target.value)}
               placeholder="Ex : Philips"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); modeleRef.current?.focus(); } }}
             />
           </Field>
           <Field>
             <Label htmlFor="modele">Modèle</Label>
             <Input
+              ref={modeleRef}
               id="modele"
               value={modele}
               onChange={e => setModele(e.target.value)}
               placeholder="Ex : X200"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); numeroSerieRef.current?.focus(); } }}
             />
           </Field>
           <Field>
             <Label htmlFor="numeroSerie">Numéro de série</Label>
             <Input
+              ref={numeroSerieRef}
               id="numeroSerie"
               value={numeroSerie}
               onChange={e => setNumeroSerie(e.target.value)}
               placeholder="Ex : NS-123456"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); typeRef.current?.focus(); } }}
             />
           </Field>
           <Field>
             <Label htmlFor="type">Type</Label>
-            <Select id="type" value={type} onChange={e => setType(e.target.value)}>
+            <Select ref={typeRef} id="type" value={type} onChange={e => setType(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lieuRef.current?.focus(); } }}>
               <option value="">— Sélectionner —</option>
               <option value="Fixe">Fixe</option>
               <option value="Deplacable">Déplaçable</option>
@@ -117,10 +131,12 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
           <Field>
             <Label htmlFor="lieuUtilisation">Lieu d'utilisation</Label>
             <Input
+              ref={lieuRef}
               id="lieuUtilisation"
               value={lieuUtilisation}
               onChange={e => setLieuUtilisation(e.target.value)}
               placeholder="Ex : Salle 101"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formRef.current?.requestSubmit(); } }}
             />
           </Field>
           <button
