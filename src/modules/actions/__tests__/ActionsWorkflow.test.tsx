@@ -306,12 +306,12 @@ describe('Actions — ordre de tri : En retard → À prévoir, deadline croissa
       40: {},
     }
 
-    vi.mocked(invoke).mockImplementation(async (cmd) => {
+    vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
       switch (cmd) {
         case 'travailleur_list':
           return travailleurs
         case 'habilitation_get_for_travailleur': {
-          const tId = a?.travailleurId ?? 0
+          const tId = (args as { travailleurId?: number } | undefined)?.travailleurId ?? 0
           return baseHab(tId, habilitations[tId] ?? {})
         }
         case 'appareil_list':
