@@ -4,15 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
-import type { Habilitation } from '../../types/domain';
+import type { Habilitation, HabilitationStatus } from '../../types/domain';
 import { PageHead } from '../../components/ui/PageHead';
 import { Card } from '../../components/ui/Card';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Dot } from '../../components/ui/Dot';
 
-type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'non_renseigne' | 'formation' | 'controle' | 'visite_med' | 'dosimetrie';
-type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med' | 'dosimetrie';
+type FilterValue = 'tout' | 'en_retard' | 'a_venir' | 'non_renseigne' | 'formation' | 'controle' | 'visite_med' | 'dosimetrie' | 'competence';
+type ActionCategory = 'verification' | 'controle' | 'formation' | 'visite_med' | 'dosimetrie' | 'competence';
 
 interface Action {
   id: string;
@@ -61,6 +61,21 @@ export default function Actions() {
   habilitationQueries.forEach((q, idx) => {
     if (q.data && travailleurs[idx]) {
       habilitations.set(travailleurs[idx].id, q.data);
+    }
+  });
+
+  // Statut calculé par le backend (inclut competences_ok) — même cache que TravailleursList
+  const habStatusQueries = useQueries({
+    queries: travailleurs.map((t) => ({
+      queryKey: ['habilitation', t.id],
+      queryFn: () => api.habilitation.compute(t.id),
+    })),
+  });
+
+  const habStatuses = new Map<number, HabilitationStatus>();
+  habStatusQueries.forEach((q, idx) => {
+    if (q.data && travailleurs[idx]) {
+      habStatuses.set(travailleurs[idx].id, q.data as HabilitationStatus);
     }
   });
 
@@ -219,6 +234,24 @@ export default function Actions() {
       }
     });
 
+    // Compétences non validées : une action par travailleur concerné
+    travailleurs.forEach((travailleur) => {
+      const status = habStatuses.get(travailleur.id);
+      if (status?.details?.competences_ok === false) {
+        actions.push({
+          id: `competences-${travailleur.id}`,
+          categorie: 'competence',
+          libelle: 'Compétences non validées',
+          deadline: null,
+          cible: {
+            type: 'travailleur',
+            id: travailleur.id,
+            label: `${travailleur.prenom} ${travailleur.nom}`,
+          },
+        });
+      }
+    });
+
     return actions;
   };
 
@@ -246,6 +279,7 @@ export default function Actions() {
       formation: 'Formation',
       visite_med: 'Visite médicale',
       dosimetrie: 'Dosimétrie',
+      competence: 'Compétence',
     };
     return labels[categorie];
   };
@@ -291,6 +325,7 @@ export default function Actions() {
     { value: 'controle' as FilterValue, label: 'Contrôle', count: countByCategorie('controle') },
     { value: 'visite_med' as FilterValue, label: 'Visite méd.', count: countByCategorie('visite_med') },
     { value: 'dosimetrie' as FilterValue, label: 'Dosimétrie', count: countByCategorie('dosimetrie') },
+    { value: 'competence' as FilterValue, label: 'Compétences', count: countByCategorie('competence') },
   ];
 
   const filtered = allActions.filter((action) => {
@@ -304,6 +339,7 @@ export default function Actions() {
     if (filter === 'formation') return action.categorie === 'formation';
     if (filter === 'visite_med') return action.categorie === 'visite_med';
     if (filter === 'dosimetrie') return action.categorie === 'dosimetrie';
+    if (filter === 'competence') return action.categorie === 'competence';
 
     return true;
   });
