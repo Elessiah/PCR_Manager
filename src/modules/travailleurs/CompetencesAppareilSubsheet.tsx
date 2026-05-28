@@ -35,6 +35,7 @@ export default function CompetencesAppareilSubsheet({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competence', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+      queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
     },
   });
 
