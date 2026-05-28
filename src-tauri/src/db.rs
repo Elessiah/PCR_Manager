@@ -106,6 +106,7 @@ pub fn open_and_migrate(app: &tauri::AppHandle, key: Option<&str>) -> Result<Con
 
 /// Modifie la clé SQLCipher de la connexion ouverte.
 /// La connexion reste valide après l'appel.
+#[cfg(target_os = "macos")]
 pub fn rekey_db(conn: &Connection, new_key: &str) -> Result<()> {
     let escaped = new_key.replace('\'', "''");
     conn.execute_batch(&format!("PRAGMA rekey = '{}';", escaped))
@@ -114,6 +115,7 @@ pub fn rekey_db(conn: &Connection, new_key: &str) -> Result<()> {
 }
 
 /// Génère une clé DB aléatoire (32 octets → 64 chars hex).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn generate_db_key() -> String {
     use rand::RngCore;
     let mut bytes = [0u8; 32];
@@ -126,6 +128,7 @@ pub fn generate_db_key() -> String {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCHEMA: &str = include_str!("schema.sql");
+#[cfg(debug_assertions)]
 const SEED_DEMO: &str = include_str!("seed_demo.sql");
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
@@ -170,12 +173,14 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     )
     .context("Initialisation établissement id=1")?;
 
-    let is_empty: bool = conn
-        .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
-        .unwrap_or(0) == 0;
     #[cfg(debug_assertions)]
-    if is_empty {
-        conn.execute_batch(SEED_DEMO).context("Échec du seed de démonstration")?;
+    {
+        let is_empty = conn
+            .query_row("SELECT COUNT(*) FROM etablissement", [], |r| r.get::<_, i64>(0))
+            .unwrap_or(0) == 0;
+        if is_empty {
+            conn.execute_batch(SEED_DEMO).context("Échec du seed de démonstration")?;
+        }
     }
     Ok(())
 }
