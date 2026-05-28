@@ -93,8 +93,7 @@ describe('Actions — travailleurs avec items en retard/à prévoir', () => {
 
   describe('Un travailleur avec formation en retard apparaît dans Actions', () => {
     beforeEach(() => {
-      vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {
-        const a = args as { travailleurId?: number } | undefined
+      vi.mocked(invoke).mockImplementation(async (cmd) => {
         switch (cmd) {
           case 'travailleur_list':
             return [makeTravailleur(1, 'Dupont', 'Jean')]
