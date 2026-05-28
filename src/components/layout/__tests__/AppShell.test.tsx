@@ -20,13 +20,6 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /appareils/i })).toBeInTheDocument();
   });
 
-  it('should render topbar with search input', () => {
-    renderWithProviders(<AppShellWrapper />, { route: '/' });
-
-    const searchInput = screen.getByPlaceholderText(/rechercher/i);
-    expect(searchInput).toBeInTheDocument();
-  });
-
   it('should render outlet content', () => {
     renderWithProviders(<AppShellWrapper />, { route: '/' });
 

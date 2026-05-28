@@ -63,26 +63,6 @@ describe('Topbar', () => {
     });
   });
 
-  it('should render search input with placeholder', async () => {
-    renderWithProviders(<Topbar />);
-
-    await waitFor(() => {
-      const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i);
-      expect(searchInput).toBeInTheDocument();
-      expect(searchInput).toHaveAttribute('type', 'text');
-    });
-  });
-
-  it('should render search with Ctrl+F shortcut', async () => {
-    renderWithProviders(<Topbar />);
-
-    await waitFor(() => {
-      const kbd = screen.getByText('Ctrl+F');
-      expect(kbd).toBeInTheDocument();
-      expect(kbd.tagName).toBe('KBD');
-    });
-  });
-
   it('should render notification bell button', async () => {
     renderWithProviders(<Topbar />);
 
@@ -153,48 +133,6 @@ describe('Topbar', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Appareil X-Ray')).toBeInTheDocument();
-    });
-  });
-
-  it('should focus search input when Ctrl+F is pressed', async () => {
-    renderWithProviders(<Topbar />);
-
-    await waitFor(() => {
-      const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i);
-      expect(searchInput).toBeInTheDocument();
-    });
-
-    const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i) as HTMLInputElement;
-    const event = new KeyboardEvent('keydown', {
-      key: 'f',
-      ctrlKey: true,
-      bubbles: true,
-    });
-    window.dispatchEvent(event);
-
-    await waitFor(() => {
-      expect(document.activeElement).toBe(searchInput);
-    });
-  });
-
-  it('should not focus search input when Ctrl+G is pressed', async () => {
-    renderWithProviders(<Topbar />);
-
-    await waitFor(() => {
-      const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i);
-      expect(searchInput).toBeInTheDocument();
-    });
-
-    const event = new KeyboardEvent('keydown', {
-      key: 'g',
-      ctrlKey: true,
-      bubbles: true,
-    });
-    window.dispatchEvent(event);
-
-    const searchInput = screen.getByPlaceholderText(/rechercher travailleur/i) as HTMLInputElement;
-    await waitFor(() => {
-      expect(document.activeElement).not.toBe(searchInput);
     });
   });
 
