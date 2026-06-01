@@ -4,14 +4,14 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { statusFromDate } from '../../lib/status';
-import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite, Habilitation } from '../../types/domain';
+import type { Etablissement, Travailleur, Appareil, VerificationTechnique, ControleQualite, Habilitation, HabilitationStatus } from '../../types/domain';
 
 interface NavItem {
   to: string;
   icon: React.ReactNode;
   label: string;
   count?: number;
-  countVariant?: 'accent' | 'danger';
+  countVariant?: 'accent' | 'danger' | 'warn' | 'neutral';
 }
 
 function getInitials(denomination: string | null | undefined): string {
@@ -70,10 +70,26 @@ export default function Sidebar() {
     })),
   });
 
-  const countRetardActions = () => {
-    let count = 0;
+  const habStatusQueries = useQueries({
+    queries: travailleurs.map((t) => ({
+      queryKey: ['habilitation', t.id],
+      queryFn: () => api.habilitation.compute(t.id),
+    })),
+  });
 
-    // Only consider the most recent verification per (appareil_id, type_)
+  const computeActionsCounter = (): { count: number; variant: 'danger' | 'warn' | 'neutral' } => {
+    let retard = 0;
+    let aPrevoir = 0;
+    let nonRenseigne = 0;
+
+    const track = (deadline: string | null) => {
+      const s = statusFromDate(deadline, 3);
+      if (s === 'en_retard') retard++;
+      else if (s === 'a_prevoir') aPrevoir++;
+      else if (s === 'non_applicable') nonRenseigne++;
+    };
+
+    // Vérifications techniques : seulement la plus récente par (appareil, type)
     const latestVerifs = new Map<string, VerificationTechnique>();
     verifications.forEach(v => {
       const key = `${v.appareil_id}:${v.type_}`;
@@ -84,32 +100,35 @@ export default function Sidebar() {
     });
     latestVerifs.forEach((v) => {
       let years: number;
-      if (v.type_ === 'annuelle_interne') {
-        years = 1;
-      } else if (v.type_ === 'triennale_externe') {
-        years = 3;
-      } else {
-        return;
-      }
+      if (v.type_ === 'annuelle_interne') years = 1;
+      else if (v.type_ === 'triennale_externe') years = 3;
+      else return;
       const deadline = new Date(v.date_realisation);
       deadline.setFullYear(deadline.getFullYear() + years);
-      if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') {
-        count++;
-      }
+      track(deadline.toISOString().split('T')[0]);
     });
 
+    // Appareils sans vérification → non renseigné
+    appareils.forEach((appareil) => {
+      if (!latestVerifs.has(`${appareil.id}:annuelle_interne`)) nonRenseigne++;
+      if (!latestVerifs.has(`${appareil.id}:triennale_externe`)) nonRenseigne++;
+    });
+
+    // Contrôles qualité non réalisés
     controleQualites.forEach((cq) => {
       if (cq.statut === 'realise') return;
-      if (statusFromDate(cq.date_echeance) === 'en_retard') {
-        count++;
-      }
+      track(cq.date_echeance);
     });
 
+    // Habilitations
     const habMap = new Map<number, Habilitation>();
     habilitationQueries.forEach((q, idx) => {
-      if (q.data && travailleurs[idx]) {
-        habMap.set(travailleurs[idx].id, q.data);
-      }
+      if (q.data && travailleurs[idx]) habMap.set(travailleurs[idx].id, q.data);
+    });
+
+    const habStatusMap = new Map<number, HabilitationStatus>();
+    habStatusQueries.forEach((q, idx) => {
+      if (q.data && travailleurs[idx]) habStatusMap.set(travailleurs[idx].id, q.data as HabilitationStatus);
     });
 
     travailleurs.forEach((t) => {
@@ -117,44 +136,48 @@ export default function Sidebar() {
       if (!hab) return;
 
       if (hab.formation_rp_travailleurs_date) {
-        const deadline = new Date(hab.formation_rp_travailleurs_date);
-        deadline.setFullYear(deadline.getFullYear() + 3);
-        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
-      }
+        const d = new Date(hab.formation_rp_travailleurs_date);
+        d.setFullYear(d.getFullYear() + 3);
+        track(d.toISOString().split('T')[0]);
+      } else { nonRenseigne++; }
 
       if (hab.formation_rp_patients_date) {
-        const deadline = new Date(hab.formation_rp_patients_date);
-        deadline.setFullYear(deadline.getFullYear() + 7);
-        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
-      }
+        const d = new Date(hab.formation_rp_patients_date);
+        d.setFullYear(d.getFullYear() + 7);
+        track(d.toISOString().split('T')[0]);
+      } else { nonRenseigne++; }
 
       if (hab.dosimetrie_passive_date) {
-        const deadline = new Date(hab.dosimetrie_passive_date);
-        deadline.setFullYear(deadline.getFullYear() + 2);
-        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
-      }
+        const d = new Date(hab.dosimetrie_passive_date);
+        d.setFullYear(d.getFullYear() + 2);
+        track(d.toISOString().split('T')[0]);
+      } else { nonRenseigne++; }
 
       if (hab.dosimetrie_operationnelle_date) {
-        const deadline = new Date(hab.dosimetrie_operationnelle_date);
-        deadline.setFullYear(deadline.getFullYear() + 2);
-        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
-      }
+        const d = new Date(hab.dosimetrie_operationnelle_date);
+        d.setFullYear(d.getFullYear() + 2);
+        track(d.toISOString().split('T')[0]);
+      } else { nonRenseigne++; }
 
       if (hab.visite_medicale_date_peremption) {
-        if (statusFromDate(hab.visite_medicale_date_peremption) === 'en_retard') count++;
+        track(hab.visite_medicale_date_peremption);
       } else if (hab.visite_medicale_date) {
-        const deadline = new Date(hab.visite_medicale_date);
-        if (hab.visite_medicale_duree_mois) {
-          deadline.setMonth(deadline.getMonth() + hab.visite_medicale_duree_mois);
-        } else {
-          deadline.setFullYear(deadline.getFullYear() + 1);
-        }
-        if (statusFromDate(deadline.toISOString().split('T')[0]) === 'en_retard') count++;
-      }
+        const d = new Date(hab.visite_medicale_date);
+        if (hab.visite_medicale_duree_mois) d.setMonth(d.getMonth() + hab.visite_medicale_duree_mois);
+        else d.setFullYear(d.getFullYear() + 1);
+        track(d.toISOString().split('T')[0]);
+      } else { nonRenseigne++; }
+
+      const status = habStatusMap.get(t.id);
+      if (status?.details?.competences_ok === false) nonRenseigne++;
     });
 
-    return count;
+    const count = retard + aPrevoir + nonRenseigne;
+    const variant = retard > 0 ? 'danger' : aPrevoir > 0 ? 'warn' : 'neutral';
+    return { count, variant };
   };
+
+  const actionsCounter = computeActionsCounter();
 
   const navItems: NavItem[] = [
     { to: '/', icon: <LayoutDashboard size={16} strokeWidth={1.75} />, label: 'Dashboard' },
@@ -162,7 +185,7 @@ export default function Sidebar() {
     { to: '/travailleurs', icon: <Users size={16} strokeWidth={1.75} />, label: 'Travailleurs', count: travailleurs.length, countVariant: 'accent' },
     { to: '/appareils', icon: <Wrench size={16} strokeWidth={1.75} />, label: 'Appareils', count: appareils.length, countVariant: 'accent' },
     { to: '/competences', icon: <BookOpen size={16} strokeWidth={1.75} />, label: 'Compétences' },
-    { to: '/actions', icon: <ListChecks size={16} strokeWidth={1.75} />, label: 'Actions', count: countRetardActions(), countVariant: 'danger' },
+    { to: '/actions', icon: <ListChecks size={16} strokeWidth={1.75} />, label: 'Actions', count: actionsCounter.count, countVariant: actionsCounter.variant },
   ];
 
   return (
@@ -201,11 +224,15 @@ export default function Sidebar() {
               <>
                 <span className="flex-shrink-0">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
-                {item.count !== undefined && (item.countVariant !== 'danger' || item.count > 0) && (
+                {item.count !== undefined && (
                   <span
                     className={`text-[11px] font-semibold px-[6px] py-px rounded-full border tabular-nums ${
                       item.countVariant === 'danger'
                         ? 'bg-dangerBg border-dangerBorder text-danger'
+                        : item.countVariant === 'warn'
+                        ? 'bg-warnBg border-warnBorder text-warn'
+                        : item.countVariant === 'neutral'
+                        ? 'bg-neutralBg border-neutralBorder text-textMuted'
                         : isActive
                         ? 'bg-white border-accentSoftBorder text-accent'
                         : 'bg-neutralBg border-neutralBorder text-textMuted'
