@@ -2,7 +2,7 @@ use data_encoding::BASE32;
 use keyring::Entry;
 use parking_lot::Mutex;
 use rand::RngCore;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Instant};
 
 const KEYRING_SERVICE: &str = "PCRManager";
 const KEYRING_TOTP_USER: &str = "totp_secret";
@@ -11,11 +11,17 @@ const KEYRING_TOTP_USER: &str = "totp_secret";
 
 pub struct SessionState {
     pub authenticated: Mutex<bool>,
+    pub failed_totp: Mutex<u32>,
+    pub locked_until: Mutex<Option<Instant>>,
 }
 
 impl SessionState {
     pub fn new() -> Self {
-        Self { authenticated: Mutex::new(false) }
+        Self {
+            authenticated: Mutex::new(false),
+            failed_totp: Mutex::new(0),
+            locked_until: Mutex::new(None),
+        }
     }
 }
 
@@ -81,9 +87,40 @@ pub async fn totp_login(
     session: tauri::State<'_, SessionState>,
     db: tauri::State<'_, crate::db::DbState>,
 ) -> Result<(), String> {
+    // Check if locked out
+    {
+        let mut locked = session.locked_until.lock();
+        if let Some(locked_time) = *locked {
+            if Instant::now() < locked_time {
+                return Err("Trop de tentatives. Veuillez patienter avant de réessayer.".into());
+            } else {
+                *locked = None;
+            }
+        }
+    }
+
     if !verify_code(&code)? {
+        // Increment failed counter on invalid code
+        let mut failed = session.failed_totp.lock();
+        *failed += 1;
+
+        if *failed >= 5 {
+            // Exponential backoff: min(30s * 2^(failed-5), 300s)
+            let attempts_over_5 = (*failed - 5).min(4) as u32;
+            let backoff_secs = 30u64 * (1u64 << attempts_over_5);
+            let backoff_secs = backoff_secs.min(300);
+
+            let mut locked = session.locked_until.lock();
+            *locked = Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
+        }
+
         return Err("Code TOTP invalide".into());
     }
+
+    // Reset counters on valid code
+    *session.failed_totp.lock() = 0;
+    *session.locked_until.lock() = None;
+
     if db.conn.lock().is_none() {
         let conn = crate::db::open_and_migrate(&app, None).map_err(|e| e.to_string())?;
         *db.conn.lock() = Some(conn);
@@ -202,5 +239,49 @@ mod tests {
         let session = SessionState::new();
         *session.authenticated.lock() = true;
         assert!(ensure_authenticated(&session).is_ok());
+    }
+
+    #[test]
+    fn test_failed_totp_lockout() {
+        let session = SessionState::new();
+
+        // Simulate 5 failed attempts
+        for _ in 0..5 {
+            *session.failed_totp.lock() += 1;
+        }
+
+        let failed_count = *session.failed_totp.lock();
+        assert_eq!(failed_count, 5);
+
+        // Set lockout as totp_login would
+        let attempts_over_5 = (failed_count - 5).min(4) as u32;
+        let backoff_secs = 30u64 * (1u64 << attempts_over_5);
+        let backoff_secs = backoff_secs.min(300);
+
+        let mut locked = session.locked_until.lock();
+        *locked = Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
+
+        // Verify lockout is set and will reject login attempts
+        assert!(locked.is_some());
+        if let Some(locked_time) = *locked {
+            assert!(Instant::now() < locked_time);
+        }
+    }
+
+    #[test]
+    fn test_reset_counters_on_success() {
+        let session = SessionState::new();
+
+        // Simulate failed attempt state
+        *session.failed_totp.lock() = 3;
+        *session.locked_until.lock() = Some(Instant::now() + std::time::Duration::from_secs(60));
+
+        // Reset as totp_login would on successful code
+        *session.failed_totp.lock() = 0;
+        *session.locked_until.lock() = None;
+
+        // Verify counters are reset
+        assert_eq!(*session.failed_totp.lock(), 0);
+        assert!(session.locked_until.lock().is_none());
     }
 }

@@ -843,6 +843,15 @@ pub async fn save_export_file(
     dest_path: String,
 ) -> Result<String, String> {
     auth_totp::ensure_authenticated(&session)?;
+
+    if dest_path.is_empty() || dest_path.contains('\0') {
+        return Err("Chemin de destination invalide".to_string());
+    }
+    // No confinement applied to dest_path because it is chosen by the user via the native save dialog.
+    if !std::path::Path::new(&dest_path).is_absolute() {
+        return Err("Chemin de destination invalide".to_string());
+    }
+
     let bytes = general_purpose::STANDARD.decode(&file_b64).map_err(|e| e.to_string())?;
     fs::write(&dest_path, &bytes).map_err(|e| e.to_string())?;
     Ok(dest_path)
