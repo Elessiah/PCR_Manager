@@ -376,7 +376,7 @@ export default function Actions() {
     if (action.cible.type === 'appareil') {
       return `/appareils/${action.cible.id}`;
     }
-    return `/travailleurs/${action.cible.id}`;
+    return `/travailleurs/${action.cible.id}?tab=hab`;
   };
 
   return (
