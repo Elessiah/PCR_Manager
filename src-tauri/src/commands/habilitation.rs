@@ -278,7 +278,7 @@ fn check_date_within_years(date_str: &str, years: i32) -> bool {
         let threshold = date
             .checked_add_months(Months::new(12 * years as u32))
             .unwrap_or(date);
-        now <= threshold
+        date <= now && now <= threshold
     } else {
         false
     }
@@ -290,7 +290,7 @@ fn check_date_with_months(date_str: &str, months: i64) -> bool {
         let threshold = date
             .checked_add_months(Months::new(months as u32))
             .unwrap_or(date);
-        now <= threshold
+        date <= now && now <= threshold
     } else {
         false
     }
@@ -350,6 +350,34 @@ mod tests {
         ).unwrap();
 
         assert_eq!(validated, 0);
+    }
+
+    #[test]
+    fn test_check_date_within_years_rejects_future_date() {
+        let now = chrono::Local::now().naive_local().date();
+        let future_date = (now + chrono::Duration::days(365)).format("%Y-%m-%d").to_string();
+        assert!(!check_date_within_years(&future_date, 2));
+    }
+
+    #[test]
+    fn test_check_date_within_years_accepts_recent_past_within_window() {
+        let now = chrono::Local::now().naive_local().date();
+        let past_date = (now - chrono::Duration::days(30)).format("%Y-%m-%d").to_string();
+        assert!(check_date_within_years(&past_date, 2));
+    }
+
+    #[test]
+    fn test_check_date_within_years_rejects_date_older_than_window() {
+        let now = chrono::Local::now().naive_local().date();
+        let old_date = (now - chrono::Duration::days(1095)).format("%Y-%m-%d").to_string(); // 3 years ago
+        assert!(!check_date_within_years(&old_date, 2));
+    }
+
+    #[test]
+    fn test_check_date_with_months_rejects_future_date() {
+        let now = chrono::Local::now().naive_local().date();
+        let future_date = (now + chrono::Duration::days(30)).format("%Y-%m-%d").to_string();
+        assert!(!check_date_with_months(&future_date, 12));
     }
 
 }

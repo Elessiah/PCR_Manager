@@ -274,8 +274,10 @@ pub async fn appareil_competence_remove(
 #[tauri::command]
 pub async fn appareil_competence_list(
     appareil_id: i64,
+    session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<Vec<i64>, String> {
+    auth_totp::ensure_authenticated(&session)?;
     let conn = state.get()?;
     let mut stmt = conn
         .prepare(
