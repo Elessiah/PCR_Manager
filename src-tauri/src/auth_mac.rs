@@ -51,9 +51,14 @@ pub async fn mac_auth_start(
 #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 pub async fn mac_se_activate(
 	app: AppHandle,
-	_session: State<'_, SessionState>,
+	session: State<'_, SessionState>,
 	db: State<'_, DbState>,
 ) -> Result<(), String> {
+	let already_protected = crate::db::has_mac_wrapped_key(&app) || crate::auth_totp::has_totp();
+	if already_protected {
+		crate::auth_totp::ensure_authenticated(&session)?;
+	}
+
 	#[cfg(not(target_os = "macos"))]
 	{
 		return Err("Authentification Keychain non disponible sur cette plateforme".into());
