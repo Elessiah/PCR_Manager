@@ -18,12 +18,20 @@ interface HabilitationTabProps {
 type EditModalType = 'dosimetries' | 'dosimetries_op' | 'formationRpTravailleur' | 'formationRpPatient' | 'visiteMedicale' | null;
 type VisiteMedicaleMode = 'duree' | 'dateDirecte';
 
+interface EditingGeneralComp {
+  competenceRefId: number;
+  libelle: string;
+  isValidated: boolean;
+}
+
 export default function HabilitationTab({ travailleurId }: HabilitationTabProps) {
   const queryClient = useQueryClient();
   const [editingModal, setEditingModal] = useState<EditModalType>(null);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
   const [selectedAppareilIds, setSelectedAppareilIds] = useState<number[]>([]);
   const [appareilSearchQuery, setAppareilSearchQuery] = useState('');
+  const [editingGeneralComp, setEditingGeneralComp] = useState<EditingGeneralComp | null>(null);
+  const [editGeneralDate, setEditGeneralDate] = useState('');
 
   const { data: habStatus } = useQuery({
     queryKey: ['habilitation', travailleurId],
@@ -98,17 +106,42 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     }
   };
 
-  const handleToggleGeneralCompetence = async (competenceRefId: number) => {
+  const handleClickGeneralCompetence = (competenceRefId: number, libelle: string) => {
     const existing = generalCompetences.find(c => c.competence_ref_id === competenceRefId);
+    const isValidated = existing?.validated === 1;
+    setEditingGeneralComp({ competenceRefId, libelle, isValidated });
+    setEditGeneralDate(
+      isValidated
+        ? (existing?.date_validation || new Date().toISOString().slice(0, 10))
+        : new Date().toISOString().slice(0, 10)
+    );
+  };
+
+  const handleSaveGeneralComp = async () => {
+    if (!editingGeneralComp) return;
     await api.competence.generalSet({
       travailleurId,
-      competenceRefId,
-      dateValidation: new Date().toISOString().slice(0, 10),
-      validated: existing?.validated === 1 ? 0 : 1,
+      competenceRefId: editingGeneralComp.competenceRefId,
+      dateValidation: editGeneralDate || null,
+      validated: 1,
     });
     queryClient.invalidateQueries({ queryKey: ['competenceGeneral', travailleurId] });
     queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
     queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
+    setEditingGeneralComp(null);
+  };
+
+  const handleInvalidateGeneralComp = async () => {
+    if (!editingGeneralComp) return;
+    await api.competence.generalSet({
+      travailleurId,
+      competenceRefId: editingGeneralComp.competenceRefId,
+      validated: 0,
+    });
+    queryClient.invalidateQueries({ queryKey: ['competenceGeneral', travailleurId] });
+    queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+    queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
+    setEditingGeneralComp(null);
   };
 
   const handleRemoveAppareil = async (appareilId: number) => {
@@ -450,7 +483,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                   return (
                     <button
                       key={ref.id}
-                      onClick={() => handleToggleGeneralCompetence(ref.id)}
+                      onClick={() => handleClickGeneralCompetence(ref.id, ref.libelle)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${
                         checked
                           ? 'bg-okBg border-okBorder'
@@ -472,7 +505,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                         </div>
                         {checked && competence?.date_validation && (
                           <div className="text-xs text-textMuted mt-0.5">
-                            Validé: {formatDate(competence.date_validation)}
+                            {formatDate(competence.date_validation)}
                           </div>
                         )}
                       </div>
@@ -507,6 +540,52 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           )}
         </CardBody>
       </Card>
+
+      {editingGeneralComp && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-surface rounded-lg shadow-lg w-80 p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base font-semibold">
+                {editingGeneralComp.isValidated ? 'Modifier la validation' : 'Valider la compétence'}
+              </h2>
+              <button onClick={() => setEditingGeneralComp(null)} className="text-textMuted hover:text-text">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-textMuted mb-4">{editingGeneralComp.libelle}</p>
+            <div className="space-y-4">
+              <Field>
+                <Label>Date de validation</Label>
+                <Input
+                  type="date"
+                  value={editGeneralDate}
+                  onChange={(e) => setEditGeneralDate(e.target.value)}
+                />
+              </Field>
+              <div className="flex gap-2 justify-end mt-2">
+                {editingGeneralComp.isValidated && (
+                  <Button
+                    variant="dangerGhost"
+                    onClick={handleInvalidateGeneralComp}
+                  >
+                    Invalider
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setEditingGeneralComp(null)}>
+                  Annuler
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveGeneralComp}
+                  disabled={!editGeneralDate}
+                >
+                  {editingGeneralComp.isValidated ? 'Mettre à jour' : 'Valider'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
