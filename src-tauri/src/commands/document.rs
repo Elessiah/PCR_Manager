@@ -1,10 +1,41 @@
 use crate::db::DbState;
 use crate::models::Document;
 use crate::auth_totp;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use uuid::Uuid;
 use chrono;
 use tauri::Manager;
+
+fn resolve_safe_document_path(base: &Path, chemin_relatif: &str) -> Result<PathBuf, String> {
+    if chemin_relatif.is_empty() {
+        return Err("Chemin de document invalide".to_string());
+    }
+    if chemin_relatif.contains('\0') {
+        return Err("Chemin de document invalide".to_string());
+    }
+    let path = PathBuf::from(chemin_relatif);
+    if path.is_absolute() {
+        return Err("Chemin de document invalide".to_string());
+    }
+    for component in path.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Chemin de document invalide".to_string());
+        }
+    }
+    let mut found_documents = false;
+    for component in path.components() {
+        if let std::path::Component::Normal(name) = component {
+            if name.to_string_lossy() == "documents" {
+                found_documents = true;
+                break;
+            }
+        }
+    }
+    if !found_documents {
+        return Err("Chemin de document invalide".to_string());
+    }
+    Ok(base.join(chemin_relatif))
+}
 
 fn validate_source_path(p: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(p);
@@ -172,12 +203,13 @@ pub async fn document_delete(
 
     drop(conn);
 
-    let abs_path = app_handle
+    let app_local_data_dir = app_handle
         .path()
         .app_local_data_dir()
-        .map_err(|e| e.to_string())?
-        .join(&chemin_relatif);
-    let _ = std::fs::remove_file(&abs_path);
+        .map_err(|e| e.to_string())?;
+    if let Ok(abs_path) = resolve_safe_document_path(&app_local_data_dir, &chemin_relatif) {
+        let _ = std::fs::remove_file(&abs_path);
+    }
 
     Ok(())
 }
@@ -314,11 +346,11 @@ pub async fn document_open(
         .query_row("SELECT chemin_relatif FROM document WHERE id = ?1", [id], |row| row.get(0))
         .map_err(|_| "Document non trouvé".to_string())?;
 
-    let abs_path = app_handle
+    let app_local_data_dir = app_handle
         .path()
         .app_local_data_dir()
-        .map_err(|e| e.to_string())?
-        .join(&chemin_relatif);
+        .map_err(|e| e.to_string())?;
+    let abs_path = resolve_safe_document_path(&app_local_data_dir, &chemin_relatif)?;
 
     open_with_system_default(&abs_path)
 }
@@ -455,5 +487,54 @@ mod tests {
         let path_str = temp_file.path().to_str().unwrap();
         let result = validate_source_path(path_str);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_accepts_nominal() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "documents/abc.pdf");
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert!(resolved.to_string_lossy().contains("documents/abc.pdf"));
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_rejects_parent_dir() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "../../etc/passwd");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin de document invalide");
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_rejects_absolute_path() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "/etc/passwd");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin de document invalide");
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_rejects_missing_documents_prefix() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "other/abc.pdf");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin de document invalide");
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_rejects_empty() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin de document invalide");
+    }
+
+    #[test]
+    fn test_resolve_safe_document_path_rejects_nul_byte() {
+        let base = PathBuf::from("/app/data");
+        let result = resolve_safe_document_path(&base, "documents/file\0.pdf");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Chemin de document invalide");
     }
 }
