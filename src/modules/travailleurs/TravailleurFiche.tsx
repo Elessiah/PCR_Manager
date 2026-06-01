@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { Avatar } from '../../components/ui/Avatar';
@@ -67,8 +67,11 @@ function computeHabBadgeFromRaw(hab: Habilitation | undefined, competences_ok?: 
 export default function TravailleurFiche() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'perso' | 'hab'>('perso');
+  const [activeTab, setActiveTab] = useState<'perso' | 'hab'>(
+    searchParams.get('tab') === 'hab' ? 'hab' : 'perso'
+  );
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
