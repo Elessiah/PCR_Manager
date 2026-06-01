@@ -54,6 +54,11 @@ export default function CompetencesAppareilSubsheet({
     });
   };
 
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('fr-FR');
+  };
+
   const appareilCompetences = competences.filter(c => c.appareil_id === appareilId);
   const requiredSet = new Set(requiredCompetenceIds);
   const filteredRefs = competenceRefs.filter(c => c.propre_appareil === 1 && requiredSet.has(c.id));
@@ -111,6 +116,11 @@ export default function CompetencesAppareilSubsheet({
                     <div className={`text-xs ${checked ? 'font-semibold text-ok' : 'text-text'}`}>
                       {ref.libelle}
                     </div>
+                    {checked && competence?.date_validation && (
+                      <div className="text-xs text-textMuted mt-0.5">
+                        Validé: {formatDate(competence.date_validation)}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
