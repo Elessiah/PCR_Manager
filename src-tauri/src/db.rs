@@ -165,6 +165,39 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
         tx.commit().context("Migration 1 : commit")?;
     }
 
+    if user_version < 2 {
+        let tx = conn.transaction().context("Migration 2 : begin")?;
+        // ALTER TABLE ADD COLUMN échoue si la colonne existe déjà (nouvelles installs via schema.sql).
+        // On ignore ces erreurs silencieusement.
+        for col in &[
+            "delai_alerte_dosimetrie_passive",
+            "delai_alerte_dosimetrie_op",
+            "delai_alerte_formation_rp_trav",
+            "delai_alerte_formation_rp_pat",
+            "delai_alerte_visite_med",
+        ] {
+            let _ = tx.execute_batch(&format!(
+                "ALTER TABLE habilitation ADD COLUMN {} INTEGER", col
+            ));
+        }
+        tx.execute_batch(
+            "CREATE TABLE IF NOT EXISTS habilitation_config (
+                 item_type         TEXT    PRIMARY KEY,
+                 delai_alerte_mois INTEGER NOT NULL
+             );
+             INSERT OR IGNORE INTO habilitation_config (item_type, delai_alerte_mois) VALUES
+                 ('dosimetrie_passive',        1),
+                 ('dosimetrie_operationnelle', 1),
+                 ('formation_rp_travailleur',  1),
+                 ('formation_rp_patient',      1),
+                 ('visite_medicale',           3);",
+        )
+        .context("Migration 2 : table habilitation_config")?;
+        tx.pragma_update(None, "user_version", 2i64)
+            .context("Migration 2 : user_version")?;
+        tx.commit().context("Migration 2 : commit")?;
+    }
+
     // Production : garantit qu'une ligne établissement id=1 existe (requise par FirstSetupModal).
     // Non exécuté en debug car le seed_demo insère lui-même la ligne avec INSERT OR IGNORE.
     #[cfg(not(debug_assertions))]
@@ -247,6 +280,7 @@ mod tests {
             "document",
             "etablissement",
             "habilitation",
+            "habilitation_config",
             "journal_acces",
             "registre_traitement",
             "travailleur",

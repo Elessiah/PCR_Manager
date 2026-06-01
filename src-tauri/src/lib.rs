@@ -64,6 +64,8 @@ pub fn run() {
             commands::habilitation::habilitation_compute,
             commands::habilitation::habilitation_update,
             commands::habilitation::habilitation_get_for_travailleur,
+            commands::habilitation::habilitation_config_get,
+            commands::habilitation::habilitation_alerte_propagate,
             commands::competence::competence_list,
             commands::competence::competence_set,
             commands::competence::competence_get_for_travailleur,

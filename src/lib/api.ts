@@ -4,6 +4,7 @@ import type {
   Travailleur,
   Habilitation,
   HabilitationStatus,
+  HabilitationConfig,
   CompetenceRef,
   CompetenceTravailleur,
   CompetenceTravailleurGeneral,
@@ -108,6 +109,11 @@ export const api = {
       visiteMedicaleDate?: string | null;
       visiteMedicaleDureeMois?: number | null;
       visiteMedicaleDatePeremption?: string | null;
+      delaiAlerteDosimetriePassive?: number | null;
+      delaiAlerteDosimetrieOp?: number | null;
+      delaiAlerteFormationRpTrav?: number | null;
+      delaiAlerteFormationRpPat?: number | null;
+      delaiAlerteVisiteMed?: number | null;
     }) =>
       invoke<void>('habilitation_update', {
         travailleurId: input.travailleurId,
@@ -118,9 +124,26 @@ export const api = {
         visiteMedicaleDate: input.visiteMedicaleDate,
         visiteMedicaleDureeMois: input.visiteMedicaleDureeMois,
         visiteMedicaleDatePeremption: input.visiteMedicaleDatePeremption,
+        delaiAlerteDosimetriePassive: input.delaiAlerteDosimetriePassive,
+        delaiAlerteDosimetrieOp: input.delaiAlerteDosimetrieOp,
+        delaiAlerteFormationRpTrav: input.delaiAlerteFormationRpTrav,
+        delaiAlerteFormationRpPat: input.delaiAlerteFormationRpPat,
+        delaiAlerteVisiteMed: input.delaiAlerteVisiteMed,
       }),
     getForTravailleur: (travailleurId: number) =>
       invoke<Habilitation>('habilitation_get_for_travailleur', { travailleurId }),
+    getConfig: () =>
+      invoke<HabilitationConfig[]>('habilitation_config_get'),
+    propagateAlerte: (input: {
+      itemType: string;
+      delaiMois: number;
+      scope: 'all' | 'default';
+    }) =>
+      invoke<void>('habilitation_alerte_propagate', {
+        itemType: input.itemType,
+        delaiMois: input.delaiMois,
+        scope: input.scope,
+      }),
   },
 
   competence: {

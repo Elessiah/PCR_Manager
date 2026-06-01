@@ -60,6 +60,11 @@ const baseHab = (travailleurId: number, overrides: Partial<Habilitation> = {}): 
   visite_medicale_date_peremption: null,
   visite_medicale_duree_mois: null,
   updated_at: '2025-01-01T00:00:00Z',
+  delai_alerte_dosimetrie_passive: null,
+  delai_alerte_dosimetrie_op: null,
+  delai_alerte_formation_rp_trav: null,
+  delai_alerte_formation_rp_pat: null,
+  delai_alerte_visite_med: null,
   ...overrides,
 })
 

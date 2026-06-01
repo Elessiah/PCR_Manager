@@ -105,6 +105,11 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
         visite_medicale_duree_mois: 12,
         visite_medicale_date_peremption: null,
         updated_at: '2025-01-01T00:00:00Z',
+        delai_alerte_dosimetrie_passive: null,
+        delai_alerte_dosimetrie_op: null,
+        delai_alerte_formation_rp_trav: null,
+        delai_alerte_formation_rp_pat: null,
+        delai_alerte_visite_med: null,
       }
     case 'competence_get_for_travailleur':
       return mockCompetences
@@ -118,6 +123,8 @@ vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       return [1]
     case 'appareil_competence_list':
       return [1, 2]
+    case 'habilitation_config_get':
+      return []
     default:
       return null
   }

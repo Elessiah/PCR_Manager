@@ -1,5 +1,5 @@
 use crate::db::DbState;
-use crate::models::{HabilitationStatus, HabilitationDetails, Habilitation};
+use crate::models::{HabilitationStatus, HabilitationDetails, Habilitation, HabilitationConfig};
 use crate::auth_totp;
 use chrono::{NaiveDate, Months};
 
@@ -116,6 +116,11 @@ pub async fn habilitation_update(
     visite_medicale_date: Option<String>,
     visite_medicale_duree_mois: Option<i64>,
     visite_medicale_date_peremption: Option<String>,
+    delai_alerte_dosimetrie_passive: Option<i64>,
+    delai_alerte_dosimetrie_op: Option<i64>,
+    delai_alerte_formation_rp_trav: Option<i64>,
+    delai_alerte_formation_rp_pat: Option<i64>,
+    delai_alerte_visite_med: Option<i64>,
     session: tauri::State<'_, auth_totp::SessionState>,
     state: tauri::State<'_, DbState>,
 ) -> Result<(), String> {
@@ -129,7 +134,7 @@ pub async fn habilitation_update(
     let conn = state.get()?;
 
     conn.execute(
-        "INSERT INTO habilitation (travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_duree_mois, visite_medicale_date_peremption) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(travailleur_id) DO UPDATE SET dosimetrie_passive_date = excluded.dosimetrie_passive_date, dosimetrie_operationnelle_date = excluded.dosimetrie_operationnelle_date, formation_rp_travailleurs_date = excluded.formation_rp_travailleurs_date, formation_rp_patients_date = excluded.formation_rp_patients_date, visite_medicale_date = excluded.visite_medicale_date, visite_medicale_duree_mois = excluded.visite_medicale_duree_mois, visite_medicale_date_peremption = excluded.visite_medicale_date_peremption",
+        "INSERT INTO habilitation (travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_duree_mois, visite_medicale_date_peremption, delai_alerte_dosimetrie_passive, delai_alerte_dosimetrie_op, delai_alerte_formation_rp_trav, delai_alerte_formation_rp_pat, delai_alerte_visite_med) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) ON CONFLICT(travailleur_id) DO UPDATE SET dosimetrie_passive_date = excluded.dosimetrie_passive_date, dosimetrie_operationnelle_date = excluded.dosimetrie_operationnelle_date, formation_rp_travailleurs_date = excluded.formation_rp_travailleurs_date, formation_rp_patients_date = excluded.formation_rp_patients_date, visite_medicale_date = excluded.visite_medicale_date, visite_medicale_duree_mois = excluded.visite_medicale_duree_mois, visite_medicale_date_peremption = excluded.visite_medicale_date_peremption, delai_alerte_dosimetrie_passive = excluded.delai_alerte_dosimetrie_passive, delai_alerte_dosimetrie_op = excluded.delai_alerte_dosimetrie_op, delai_alerte_formation_rp_trav = excluded.delai_alerte_formation_rp_trav, delai_alerte_formation_rp_pat = excluded.delai_alerte_formation_rp_pat, delai_alerte_visite_med = excluded.delai_alerte_visite_med",
         rusqlite::params![
             travailleur_id,
             dosimetrie_passive_date,
@@ -139,6 +144,11 @@ pub async fn habilitation_update(
             visite_medicale_date,
             visite_medicale_duree_mois,
             visite_medicale_date_peremption,
+            delai_alerte_dosimetrie_passive,
+            delai_alerte_dosimetrie_op,
+            delai_alerte_formation_rp_trav,
+            delai_alerte_formation_rp_pat,
+            delai_alerte_visite_med,
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -155,7 +165,7 @@ pub async fn habilitation_get_for_travailleur(
     let conn = state.get()?;
 
     let result = conn.query_row(
-        "SELECT id, travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_date_peremption, visite_medicale_duree_mois, updated_at FROM habilitation WHERE travailleur_id = ?1",
+        "SELECT id, travailleur_id, dosimetrie_passive_date, dosimetrie_operationnelle_date, formation_rp_travailleurs_date, formation_rp_patients_date, visite_medicale_date, visite_medicale_date_peremption, visite_medicale_duree_mois, updated_at, delai_alerte_dosimetrie_passive, delai_alerte_dosimetrie_op, delai_alerte_formation_rp_trav, delai_alerte_formation_rp_pat, delai_alerte_visite_med FROM habilitation WHERE travailleur_id = ?1",
         [travailleur_id],
         |row| {
             Ok(Habilitation {
@@ -169,6 +179,11 @@ pub async fn habilitation_get_for_travailleur(
                 visite_medicale_date_peremption: row.get(7)?,
                 visite_medicale_duree_mois: row.get(8)?,
                 updated_at: row.get(9)?,
+                delai_alerte_dosimetrie_passive: row.get(10)?,
+                delai_alerte_dosimetrie_op: row.get(11)?,
+                delai_alerte_formation_rp_trav: row.get(12)?,
+                delai_alerte_formation_rp_pat: row.get(13)?,
+                delai_alerte_visite_med: row.get(14)?,
             })
         }
     );
@@ -187,10 +202,78 @@ pub async fn habilitation_get_for_travailleur(
                 visite_medicale_date_peremption: None,
                 visite_medicale_duree_mois: None,
                 updated_at: String::new(),
+                delai_alerte_dosimetrie_passive: None,
+                delai_alerte_dosimetrie_op: None,
+                delai_alerte_formation_rp_trav: None,
+                delai_alerte_formation_rp_pat: None,
+                delai_alerte_visite_med: None,
             })
         }
         Err(e) => Err(e.to_string()),
     }
+}
+
+#[tauri::command]
+pub async fn habilitation_config_get(
+    session: tauri::State<'_, auth_totp::SessionState>,
+    state: tauri::State<'_, DbState>,
+) -> Result<Vec<HabilitationConfig>, String> {
+    auth_totp::ensure_authenticated(&session)?;
+    let conn = state.get()?;
+    let mut stmt = conn
+        .prepare("SELECT item_type, delai_alerte_mois FROM habilitation_config ORDER BY item_type")
+        .map_err(|e| e.to_string())?;
+    let configs = stmt
+        .query_map([], |row| {
+            Ok(HabilitationConfig {
+                item_type: row.get(0)?,
+                delai_alerte_mois: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(configs)
+}
+
+#[tauri::command]
+pub async fn habilitation_alerte_propagate(
+    item_type: String,
+    delai_mois: i64,
+    scope: String, // "all" | "default"
+    session: tauri::State<'_, auth_totp::SessionState>,
+    state: tauri::State<'_, DbState>,
+) -> Result<(), String> {
+    auth_totp::ensure_authenticated(&session)?;
+    if delai_mois < 1 || delai_mois > 120 {
+        return Err("Délai invalide : doit être compris entre 1 et 120 mois".into());
+    }
+    let col = match item_type.as_str() {
+        "dosimetrie_passive"        => "delai_alerte_dosimetrie_passive",
+        "dosimetrie_operationnelle" => "delai_alerte_dosimetrie_op",
+        "formation_rp_travailleur"  => "delai_alerte_formation_rp_trav",
+        "formation_rp_patient"      => "delai_alerte_formation_rp_pat",
+        "visite_medicale"           => "delai_alerte_visite_med",
+        _ => return Err("Type d'item d'habilitation inconnu".into()),
+    };
+    let conn = state.get()?;
+
+    conn.execute(
+        "INSERT INTO habilitation_config (item_type, delai_alerte_mois) VALUES (?1, ?2) ON CONFLICT(item_type) DO UPDATE SET delai_alerte_mois = excluded.delai_alerte_mois",
+        rusqlite::params![item_type, delai_mois],
+    )
+    .map_err(|e| e.to_string())?;
+
+    if scope == "all" {
+        // Réinitialise tous les délais par travailleur → héritage du nouveau défaut global
+        conn.execute(
+            &format!("UPDATE habilitation SET {} = NULL", col),
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 fn verify_competences_ok(conn: &rusqlite::Connection, travailleur_id: i64) -> rusqlite::Result<bool> {
