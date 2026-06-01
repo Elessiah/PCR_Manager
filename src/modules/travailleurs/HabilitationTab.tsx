@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
@@ -7,7 +8,7 @@ import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
-import { Activity, GraduationCap, X, Check, Monitor, Search } from 'lucide-react';
+import { Activity, ArrowUpRight, GraduationCap, X, Check, Monitor, Search } from 'lucide-react';
 import type { Habilitation } from '../../types/domain';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
@@ -19,6 +20,7 @@ type EditModalType = 'dosimetries' | 'dosimetries_op' | 'formationRpTravailleur'
 type VisiteMedicaleMode = 'duree' | 'dateDirecte';
 
 export default function HabilitationTab({ travailleurId }: HabilitationTabProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editingModal, setEditingModal] = useState<EditModalType>(null);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState(false);
@@ -495,9 +497,13 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           ) : (
             appareilsAssignes.map((appareil, idx) => (
               <div key={appareil.id} className={idx > 0 ? 'border-t border-border pt-4' : ''}>
-                <div className="text-[12px] font-semibold text-textMuted uppercase tracking-wide mb-3">
+                <button
+                  onClick={() => navigate(`/appareils/${appareil.id}`)}
+                  className="flex items-center gap-1 text-[12px] font-semibold text-textMuted uppercase tracking-wide mb-3 hover:text-text transition-colors group"
+                >
                   {appareil.designation}
-                </div>
+                  <ArrowUpRight size={11} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
                 <CompetencesAppareilSubsheet
                   appareilId={appareil.id}
                   travailleurId={travailleurId}
