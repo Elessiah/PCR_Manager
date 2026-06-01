@@ -551,14 +551,14 @@ pub async fn data_import_encrypted(
         .decrypt(&nonce, ciphertext)
         .map_err(|_| "Code incorrect ou fichier corrompu".to_string())?;
 
-    // DÃ©compresser
-    let mut decoder = GzDecoder::new(&plaintext[..]);
+    // DÃ©compresser (borne anti-zip-bomb: on ne lit jamais plus que la limite + 1 octet)
+    const MAX_JSON_DEC: u64 = 50 * 1024 * 1024;
+    let mut decoder = GzDecoder::new(&plaintext[..]).take(MAX_JSON_DEC + 1);
     let mut json_str = String::new();
     decoder.read_to_string(&mut json_str)
         .map_err(|e| format!("Erreur dÃ©compression: {}", e))?;
 
-    const MAX_JSON_DEC: usize = 50 * 1024 * 1024;
-    if json_str.len() > MAX_JSON_DEC {
+    if json_str.len() as u64 > MAX_JSON_DEC {
         return Err("Payload dÃ©compress\u{00e9} trop volumineux (max 50 Mo)".to_string());
     }
 
