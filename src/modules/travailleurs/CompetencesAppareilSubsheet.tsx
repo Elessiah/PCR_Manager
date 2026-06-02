@@ -1,11 +1,20 @@
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Field, Input, Label } from '../../components/ui/FormField';
 
 interface CompetencesAppareilSubsheetProps {
   appareilId: number;
   travailleurId: number;
+}
+
+interface EditingState {
+  competenceRefId: number;
+  libelle: string;
+  isValidated: boolean;
 }
 
 export default function CompetencesAppareilSubsheet({
@@ -13,6 +22,8 @@ export default function CompetencesAppareilSubsheet({
   travailleurId,
 }: CompetencesAppareilSubsheetProps) {
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [editDate, setEditDate] = useState('');
 
   const { data: competences = [] } = useQuery({
     queryKey: ['competence', travailleurId],
@@ -39,23 +50,55 @@ export default function CompetencesAppareilSubsheet({
     },
   });
 
-  const handleToggle = async (competenceRefId: number) => {
+  const handleClickCompetence = (competenceRefId: number, libelle: string) => {
     const existing = competences.find(
       c => c.appareil_id === appareilId && c.competence_ref_id === competenceRefId
     );
-
     const isValidated = existing?.validated === 1;
+    setEditing({ competenceRefId, libelle, isValidated });
+    setEditDate(
+      isValidated
+        ? (existing?.date_validation || new Date().toISOString().slice(0, 10))
+        : new Date().toISOString().slice(0, 10)
+    );
+  };
 
+  const handleSave = async () => {
+    if (!editing) return;
     await setMutation.mutateAsync({
       travailleurId,
       appareilId,
-      competenceRefId,
-      validated: isValidated ? 0 : 1,
+      competenceRefId: editing.competenceRefId,
+      dateValidation: editDate || null,
+      validated: 1,
     });
+    setEditing(null);
   };
 
+  const handleInvalidate = async () => {
+    if (!editing) return;
+    await setMutation.mutateAsync({
+      travailleurId,
+      appareilId,
+      competenceRefId: editing.competenceRefId,
+      validated: 0,
+    });
+    setEditing(null);
+  };
+
+  useEffect(() => {
+    if (!editing) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditing(null);
+      else if (e.key === 'Enter' && !setMutation.isPending && editDate) handleSave();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, editDate, setMutation.isPending]);
+
   const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '';
+    if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString('fr-FR');
   };
 
@@ -94,7 +137,7 @@ export default function CompetencesAppareilSubsheet({
               return (
                 <button
                   key={ref.id}
-                  onClick={() => handleToggle(ref.id)}
+                  onClick={() => handleClickCompetence(ref.id, ref.libelle)}
                   disabled={setMutation.isPending}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${
                     checked
@@ -118,7 +161,7 @@ export default function CompetencesAppareilSubsheet({
                     </div>
                     {checked && competence?.date_validation && (
                       <div className="text-xs text-textMuted mt-0.5">
-                        Validé: {formatDate(competence.date_validation)}
+                        {formatDate(competence.date_validation)}
                       </div>
                     )}
                   </div>
@@ -127,6 +170,49 @@ export default function CompetencesAppareilSubsheet({
             })}
           </div>
         </>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-surface rounded-lg shadow-lg w-80 p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base font-semibold">
+                {editing.isValidated ? 'Modifier la validation' : 'Valider la compétence'}
+              </h2>
+              <button onClick={() => setEditing(null)} className="text-textMuted hover:text-text">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-textMuted mb-4">{editing.libelle}</p>
+            <div className="space-y-4">
+              <Field>
+                <Label>Date de validation</Label>
+                <Input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+              </Field>
+              <div className="flex gap-2 justify-end mt-2">
+                {editing.isValidated && (
+                  <Button
+                    variant="dangerGhost"
+                    onClick={handleInvalidate}
+                    disabled={setMutation.isPending}
+                  >
+                    Invalider
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setEditing(null)} disabled={setMutation.isPending}>
+                  Annuler
+                </Button>
+                <Button variant="primary" onClick={handleSave} disabled={setMutation.isPending || !editDate}>
+                  {setMutation.isPending ? 'Enregistrement…' : editing.isValidated ? 'Mettre à jour' : 'Valider'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
