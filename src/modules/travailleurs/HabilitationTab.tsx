@@ -8,7 +8,7 @@ import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
-import { Activity, ArrowUpRight, GraduationCap, X, Check, Monitor, Search } from 'lucide-react';
+import { Activity, ArrowUpRight, GraduationCap, X, Check, Monitor, Search, Users, Star } from 'lucide-react';
 import type { Habilitation } from '../../types/domain';
 import CompetencesAppareilSubsheet from './CompetencesAppareilSubsheet';
 
@@ -25,6 +25,20 @@ interface EditingGeneralComp {
   isValidated: boolean;
 }
 
+interface PendingAlerte {
+  itemType: string;
+  itemLabel: string;
+  oldDelai: number;
+  newDelai: number;
+}
+
+const DEFAULT_DELAYS: Record<string, number> = {
+  dosimetrie_passive:        1,
+  dosimetrie_operationnelle: 1,
+  formation_rp_travailleur:  1,
+  formation_rp_patient:      1,
+  visite_medicale:           3,
+};
 export default function HabilitationTab({ travailleurId }: HabilitationTabProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -34,6 +48,8 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   const [appareilSearchQuery, setAppareilSearchQuery] = useState('');
   const [editingGeneralComp, setEditingGeneralComp] = useState<EditingGeneralComp | null>(null);
   const [editGeneralDate, setEditGeneralDate] = useState('');
+  const [pendingAlerte, setPendingAlerte] = useState<PendingAlerte | null>(null);
+  const [isPropagating, setIsPropagating] = useState(false);
 
   const { data: habStatus } = useQuery({
     queryKey: ['habilitation', travailleurId],
@@ -70,6 +86,17 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     queryFn: () => api.travailleurAppareil.list(travailleurId),
   });
 
+  const { data: habConfig = [] } = useQuery({
+    queryKey: ['habilitationConfig'],
+    queryFn: () => api.habilitation.getConfig(),
+  });
+
+  const configMap = Object.fromEntries((habConfig ?? []).map(c => [c.item_type, c.delai_alerte_mois]));
+
+  const effectiveDelay = (itemType: string, perWorkerDelay: number | null | undefined): number => {
+    if (perWorkerDelay !== null && perWorkerDelay !== undefined) return perWorkerDelay;
+    return configMap[itemType] ?? DEFAULT_DELAYS[itemType] ?? 1;
+  };
 
   if (!habStatus || !travailleur || !habilitation) {
     return (
@@ -86,7 +113,10 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   );
   const competencesGenerales = competenceRefs.filter(c => c.propre_appareil === 0);
 
-  const handleUpdateHabilitation = async (input: Parameters<typeof api.habilitation.update>[0]) => {
+  const handleUpdateHabilitation = async (
+    input: Parameters<typeof api.habilitation.update>[0],
+    alerte?: { itemType: string; itemLabel: string; oldDelai: number; newDelai: number },
+  ) => {
     try {
       setIsLoadingUpdate(true);
       await api.habilitation.update({
@@ -97,14 +127,42 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
         visiteMedicaleDate: habilitation.visite_medicale_date,
         visiteMedicaleDureeMois: habilitation.visite_medicale_duree_mois,
         visiteMedicaleDatePeremption: habilitation.visite_medicale_date_peremption,
+        delaiAlerteDosimetriePassive: habilitation.delai_alerte_dosimetrie_passive,
+        delaiAlerteDosimetrieOp: habilitation.delai_alerte_dosimetrie_op,
+        delaiAlerteFormationRpTrav: habilitation.delai_alerte_formation_rp_trav,
+        delaiAlerteFormationRpPat: habilitation.delai_alerte_formation_rp_pat,
+        delaiAlerteVisiteMed: habilitation.delai_alerte_visite_med,
         ...input, // override with the specific field(s) being saved; includes travailleurId
       });
       queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
       queryClient.invalidateQueries({ queryKey: ['habilitation', 'raw', travailleurId] });
       setEditingModal(null);
+      if (alerte && alerte.oldDelai !== alerte.newDelai) {
+        setPendingAlerte(alerte);
+      }
     } finally {
       setIsLoadingUpdate(false);
+    }
+  };
+
+  const handleAlertePropagate = async (scope: 'all' | 'default') => {
+    if (!pendingAlerte) return;
+    try {
+      setIsPropagating(true);
+      await api.habilitation.propagateAlerte({
+        itemType: pendingAlerte.itemType,
+        delaiMois: pendingAlerte.newDelai,
+        scope,
+      });
+      queryClient.invalidateQueries({ queryKey: ['habilitationConfig'] });
+      queryClient.invalidateQueries({ queryKey: ['habilitationRaw', travailleurId] });
+      queryClient.invalidateQueries({ queryKey: ['habilitation', travailleurId] });
+      setPendingAlerte(null);
+    } catch {
+      toast.error('Erreur lors de la mise à jour du délai d\'alerte');
+    } finally {
+      setIsPropagating(false);
     }
   };
 
@@ -195,7 +253,8 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     }
     return null;
   })();
-  const visitStatus = statusFromDate(visitDeadline, 3);
+  const visitAlertDelay = effectiveDelay('visite_medicale', habilitation.delai_alerte_visite_med);
+  const visitStatus = statusFromDate(visitDeadline, visitAlertDelay);
 
   const addYears = (dateStr: string | null | undefined, years: number): string | null => {
     if (!dateStr) return null;
@@ -204,11 +263,13 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     return d.toISOString().split('T')[0];
   };
 
+  const passiveAlertDelay = effectiveDelay('dosimetrie_passive', habilitation.delai_alerte_dosimetrie_passive);
   const passiveDeadline = addYears(habilitation.dosimetrie_passive_date, 2);
-  const passiveStatus = statusFromDate(passiveDeadline, 1);
+  const passiveStatus = statusFromDate(passiveDeadline, passiveAlertDelay);
 
+  const operationnelleAlertDelay = effectiveDelay('dosimetrie_operationnelle', habilitation.delai_alerte_dosimetrie_op);
   const operationnelleDeadline = addYears(habilitation.dosimetrie_operationnelle_date, 2);
-  const operationnelleStatus = statusFromDate(operationnelleDeadline, 1);
+  const operationnelleStatus = statusFromDate(operationnelleDeadline, operationnelleAlertDelay);
 
   const dosStatusLabels: Record<string, string> = {
     valide: 'À jour',
@@ -217,15 +278,17 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     non_applicable: 'Non renseigné',
   };
 
+  const formRpTravAlertDelay = effectiveDelay('formation_rp_travailleur', habilitation.delai_alerte_formation_rp_trav);
   const formRpTravDeadline = habilitation.formation_rp_travailleurs_date
     ? addYears(habilitation.formation_rp_travailleurs_date, 3)
     : null;
-  const formRpTravStatus = statusFromDate(formRpTravDeadline, 1);
+  const formRpTravStatus = statusFromDate(formRpTravDeadline, formRpTravAlertDelay);
 
+  const formRpPatAlertDelay = effectiveDelay('formation_rp_patient', habilitation.delai_alerte_formation_rp_pat);
   const formRpPatDeadline = habilitation.formation_rp_patients_date
     ? addYears(habilitation.formation_rp_patients_date, 7)
     : null;
-  const formRpPatStatus = statusFromDate(formRpPatDeadline, 1);
+  const formRpPatStatus = statusFromDate(formRpPatDeadline, formRpPatAlertDelay);
 
   const formStatusLabels: Record<string, string> = {
     valide: 'À jour',
@@ -310,6 +373,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           <EditModalDosimetries
             isOpen={editingModal === 'dosimetries'}
             habilitation={habilitation}
+            effectiveDelay={passiveAlertDelay}
             onClose={() => setEditingModal(null)}
             onSave={handleUpdateHabilitation}
             isLoading={isLoadingUpdate}
@@ -318,6 +382,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           <EditModalDosimetriesOp
             isOpen={editingModal === 'dosimetries_op'}
             habilitation={habilitation}
+            effectiveDelay={operationnelleAlertDelay}
             onClose={() => setEditingModal(null)}
             onSave={handleUpdateHabilitation}
             isLoading={isLoadingUpdate}
@@ -332,6 +397,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
             isOpen={editingModal === 'formationRpTravailleur'}
             type="travailleur"
             habilitation={habilitation}
+            effectiveDelay={formRpTravAlertDelay}
             onClose={() => setEditingModal(null)}
             onSave={handleUpdateHabilitation}
             isLoading={isLoadingUpdate}
@@ -342,6 +408,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
             isOpen={editingModal === 'formationRpPatient'}
             type="patient"
             habilitation={habilitation}
+            effectiveDelay={formRpPatAlertDelay}
             onClose={() => setEditingModal(null)}
             onSave={handleUpdateHabilitation}
             isLoading={isLoadingUpdate}
@@ -351,6 +418,7 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           <EditModalVisiteMedicale
             isOpen={editingModal === 'visiteMedicale'}
             habilitation={habilitation}
+            effectiveDelay={visitAlertDelay}
             onClose={() => setEditingModal(null)}
             onSave={handleUpdateHabilitation}
             isLoading={isLoadingUpdate}
@@ -358,6 +426,14 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
           />
         </>
       )}
+
+      <AlerteDelaiConfirmModal
+        pending={pendingAlerte}
+        isLoading={isPropagating}
+        onAllWorkers={() => handleAlertePropagate('all')}
+        onDefaultOnly={() => handleAlertePropagate('default')}
+        onClose={() => setPendingAlerte(null)}
+      />
 
       <Card>
         <CardHead>
@@ -596,29 +672,37 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
   );
 }
 
+type SaveWithAlerte = (
+  input: Parameters<typeof api.habilitation.update>[0],
+  alerte?: { itemType: string; itemLabel: string; oldDelai: number; newDelai: number },
+) => Promise<void>;
+
 interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
+  onSave: SaveWithAlerte;
   isLoading: boolean;
   travailleurId: number;
   habilitation: Habilitation;
+  effectiveDelay: number;
 }
 
-function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
+function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId, effectiveDelay }: EditModalProps) {
   const [passiveDate, setPassiveDate] = useState('');
+  const [delaiAlerte, setDelaiAlerte] = useState(effectiveDelay);
 
   useEffect(() => {
     if (isOpen) {
       setPassiveDate(habilitation?.dosimetrie_passive_date || '');
+      setDelaiAlerte(effectiveDelay);
     }
-  }, [isOpen, habilitation?.dosimetrie_passive_date]);
+  }, [isOpen, habilitation?.dosimetrie_passive_date, effectiveDelay]);
 
   const handleSave = async () => {
-    await onSave({
-      travailleurId,
-      dosimetriePassiveDate: passiveDate || null,
-    });
+    await onSave(
+      { travailleurId, dosimetriePassiveDate: passiveDate || null, delaiAlerteDosimetriePassive: delaiAlerte },
+      { itemType: 'dosimetrie_passive', itemLabel: 'Dosimétrie passive', oldDelai: effectiveDelay, newDelai: delaiAlerte },
+    );
   };
 
   useEffect(() => {
@@ -630,7 +714,7 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose, passiveDate, isLoading]);
+  }, [isOpen, onClose, passiveDate, delaiAlerte, isLoading]);
 
   if (!isOpen) return null;
 
@@ -655,6 +739,8 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
             <p className="text-xs text-textMuted mt-1">Renouvellement tous les 2 ans</p>
           </Field>
 
+          <DelaiAlerteField value={delaiAlerte} onChange={setDelaiAlerte} />
+
           <div className="flex gap-2 justify-end mt-6">
             <Button variant="ghost" onClick={onClose} disabled={isLoading}>
               Annuler
@@ -669,20 +755,22 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
   );
 }
 
-function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
+function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId, effectiveDelay }: EditModalProps) {
   const [operationnelleDate, setOperationnelleDate] = useState('');
+  const [delaiAlerte, setDelaiAlerte] = useState(effectiveDelay);
 
   useEffect(() => {
     if (isOpen) {
       setOperationnelleDate(habilitation?.dosimetrie_operationnelle_date || '');
+      setDelaiAlerte(effectiveDelay);
     }
-  }, [isOpen, habilitation?.dosimetrie_operationnelle_date]);
+  }, [isOpen, habilitation?.dosimetrie_operationnelle_date, effectiveDelay]);
 
   const handleSave = async () => {
-    await onSave({
-      travailleurId,
-      dosimetrieOperationnelleDate: operationnelleDate || null,
-    });
+    await onSave(
+      { travailleurId, dosimetrieOperationnelleDate: operationnelleDate || null, delaiAlerteDosimetrieOp: delaiAlerte },
+      { itemType: 'dosimetrie_operationnelle', itemLabel: 'Dosimétrie opérationnelle', oldDelai: effectiveDelay, newDelai: delaiAlerte },
+    );
   };
 
   useEffect(() => {
@@ -694,7 +782,7 @@ function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoadi
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose, operationnelleDate, isLoading]);
+  }, [isOpen, onClose, operationnelleDate, delaiAlerte, isLoading]);
 
   if (!isOpen) return null;
 
@@ -719,6 +807,8 @@ function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoadi
             <p className="text-xs text-textMuted mt-1">Renouvellement tous les 2 ans</p>
           </Field>
 
+          <DelaiAlerteField value={delaiAlerte} onChange={setDelaiAlerte} />
+
           <div className="flex gap-2 justify-end mt-6">
             <Button variant="ghost" onClick={onClose} disabled={isLoading}>
               Annuler
@@ -741,30 +831,39 @@ function EditModalFormationRp({
   onSave,
   isLoading,
   travailleurId,
+  effectiveDelay,
 }: {
   isOpen: boolean;
   type: 'travailleur' | 'patient';
   habilitation: Habilitation;
   onClose: () => void;
-  onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
+  onSave: SaveWithAlerte;
   isLoading: boolean;
   travailleurId: number;
+  effectiveDelay: number;
 }) {
   const [date, setDate] = useState('');
+  const [delaiAlerte, setDelaiAlerte] = useState(effectiveDelay);
 
   useEffect(() => {
     if (isOpen) {
       const currentDate = type === 'travailleur' ? habilitation?.formation_rp_travailleurs_date || '' : habilitation?.formation_rp_patients_date || '';
       setDate(currentDate);
+      setDelaiAlerte(effectiveDelay);
     }
-  }, [isOpen, type, habilitation?.formation_rp_travailleurs_date, habilitation?.formation_rp_patients_date]);
+  }, [isOpen, type, habilitation?.formation_rp_travailleurs_date, habilitation?.formation_rp_patients_date, effectiveDelay]);
 
   const handleSave = async () => {
+    const isTrav = type === 'travailleur';
     const input: Parameters<typeof api.habilitation.update>[0] = {
       travailleurId,
-      ...(type === 'travailleur' ? { formationRpTravailleursDate: date || null } : { formationRpPatientsDate: date || null }),
+      ...(isTrav
+        ? { formationRpTravailleursDate: date || null, delaiAlerteFormationRpTrav: delaiAlerte }
+        : { formationRpPatientsDate: date || null, delaiAlerteFormationRpPat: delaiAlerte }),
     };
-    await onSave(input);
+    const itemType = isTrav ? 'formation_rp_travailleur' : 'formation_rp_patient';
+    const itemLabel = isTrav ? 'Formation RP travailleurs' : 'Formation RP patients';
+    await onSave(input, { itemType, itemLabel, oldDelai: effectiveDelay, newDelai: delaiAlerte });
   };
 
   useEffect(() => {
@@ -776,7 +875,7 @@ function EditModalFormationRp({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose, date, type, isLoading]);
+  }, [isOpen, onClose, date, delaiAlerte, type, isLoading]);
 
   if (!isOpen) return null;
 
@@ -805,6 +904,8 @@ function EditModalFormationRp({
             </p>
           </Field>
 
+          <DelaiAlerteField value={delaiAlerte} onChange={setDelaiAlerte} />
+
           <div className="flex gap-2 justify-end mt-6">
             <Button variant="ghost" onClick={onClose} disabled={isLoading}>
               Annuler
@@ -824,19 +925,23 @@ function VisiteMedicaleModeduree({
   onSave,
   isLoading,
   travailleurId,
+  effectiveDelay,
 }: {
   habilitation: Habilitation;
-  onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
+  onSave: SaveWithAlerte;
   isLoading: boolean;
   travailleurId: number;
+  effectiveDelay: number;
 }) {
   const [visitDate, setVisitDate] = useState('');
   const [months, setMonths] = useState(12);
+  const [delaiAlerte, setDelaiAlerte] = useState(effectiveDelay);
 
   useEffect(() => {
     setVisitDate(habilitation?.visite_medicale_date || '');
     setMonths(habilitation?.visite_medicale_duree_mois || 12);
-  }, [habilitation?.visite_medicale_date, habilitation?.visite_medicale_duree_mois]);
+    setDelaiAlerte(effectiveDelay);
+  }, [habilitation?.visite_medicale_date, habilitation?.visite_medicale_duree_mois, effectiveDelay]);
 
   const calculateExpiration = (visitDate: string, months: number): string => {
     const date = new Date(visitDate);
@@ -847,12 +952,10 @@ function VisiteMedicaleModeduree({
   const expirationDate = visitDate ? calculateExpiration(visitDate, months) : '';
 
   const handleSave = async () => {
-    await onSave({
-      travailleurId,
-      visiteMedicaleDate: visitDate || null,
-      visiteMedicaleDureeMois: months,
-      visiteMedicaleDatePeremption: null,
-    });
+    await onSave(
+      { travailleurId, visiteMedicaleDate: visitDate || null, visiteMedicaleDureeMois: months, visiteMedicaleDatePeremption: null, delaiAlerteVisiteMed: delaiAlerte },
+      { itemType: 'visite_medicale', itemLabel: 'Visite médicale', oldDelai: effectiveDelay, newDelai: delaiAlerte },
+    );
   };
 
   useEffect(() => {
@@ -862,7 +965,7 @@ function VisiteMedicaleModeduree({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitDate, isLoading]);
+  }, [visitDate, delaiAlerte, isLoading]);
 
   return (
     <div className="space-y-4">
@@ -901,6 +1004,8 @@ function VisiteMedicaleModeduree({
         </Field>
       )}
 
+      <DelaiAlerteField value={delaiAlerte} onChange={setDelaiAlerte} />
+
       <Button
         variant="primary"
         onClick={handleSave}
@@ -918,27 +1023,29 @@ function VisiteMedicaleModeDateDirecte({
   onSave,
   isLoading,
   travailleurId,
+  effectiveDelay,
 }: {
   habilitation: Habilitation;
-  onSave: (input: Parameters<typeof api.habilitation.update>[0]) => Promise<void>;
+  onSave: SaveWithAlerte;
   isLoading: boolean;
   travailleurId: number;
+  effectiveDelay: number;
 }) {
   const [visitDate, setVisitDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [delaiAlerte, setDelaiAlerte] = useState(effectiveDelay);
 
   useEffect(() => {
     setVisitDate(habilitation?.visite_medicale_date || '');
     setExpirationDate(habilitation?.visite_medicale_date_peremption || '');
-  }, [habilitation?.visite_medicale_date, habilitation?.visite_medicale_date_peremption]);
+    setDelaiAlerte(effectiveDelay);
+  }, [habilitation?.visite_medicale_date, habilitation?.visite_medicale_date_peremption, effectiveDelay]);
 
   const handleSave = async () => {
-    await onSave({
-      travailleurId,
-      visiteMedicaleDate: visitDate || null,
-      visiteMedicaleDureeMois: null,
-      visiteMedicaleDatePeremption: expirationDate || null,
-    });
+    await onSave(
+      { travailleurId, visiteMedicaleDate: visitDate || null, visiteMedicaleDureeMois: null, visiteMedicaleDatePeremption: expirationDate || null, delaiAlerteVisiteMed: delaiAlerte },
+      { itemType: 'visite_medicale', itemLabel: 'Visite médicale', oldDelai: effectiveDelay, newDelai: delaiAlerte },
+    );
   };
 
   useEffect(() => {
@@ -948,7 +1055,7 @@ function VisiteMedicaleModeDateDirecte({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitDate, expirationDate, isLoading]);
+  }, [visitDate, expirationDate, delaiAlerte, isLoading]);
 
   return (
     <div className="space-y-4">
@@ -976,6 +1083,8 @@ function VisiteMedicaleModeDateDirecte({
         )}
       </Field>
 
+      <DelaiAlerteField value={delaiAlerte} onChange={setDelaiAlerte} />
+
       <Button
         variant="primary"
         onClick={handleSave}
@@ -988,7 +1097,7 @@ function VisiteMedicaleModeDateDirecte({
   );
 }
 
-function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId }: EditModalProps) {
+function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoading, travailleurId, effectiveDelay }: EditModalProps) {
   const [mode, setMode] = useState<VisiteMedicaleMode>(
     habilitation?.visite_medicale_date_peremption ? 'dateDirecte' : 'duree'
   );
@@ -1031,17 +1140,131 @@ function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoad
           {mode === 'duree' ? (
             <VisiteMedicaleModeduree
               habilitation={habilitation}
-              onSave={async (input) => { await onSave(input); onClose(); }}
+              onSave={async (input, alerte) => { await onSave(input, alerte); onClose(); }}
               isLoading={isLoading}
               travailleurId={travailleurId}
+              effectiveDelay={effectiveDelay}
             />
           ) : (
             <VisiteMedicaleModeDateDirecte
               habilitation={habilitation}
-              onSave={async (input) => { await onSave(input); onClose(); }}
+              onSave={async (input, alerte) => { await onSave(input, alerte); onClose(); }}
               isLoading={isLoading}
               travailleurId={travailleurId}
+              effectiveDelay={effectiveDelay}
             />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DelaiAlerteField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="border-t border-border pt-4">
+      <Field>
+        <Label>Délai d'alerte "À prévoir" (mois)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={value}
+            onChange={(e) => onChange(Math.max(1, Math.min(120, parseInt(e.target.value) || 1)))}
+            min="1"
+            max="120"
+            className="w-24"
+          />
+          <span className="text-xs text-textMuted">
+            mois avant expiration
+          </span>
+        </div>
+        <p className="text-xs text-textMuted mt-1">
+          L'item passera en orange «&nbsp;À prévoir&nbsp;» {value} mois avant sa date d'expiration.
+        </p>
+      </Field>
+    </div>
+  );
+}
+
+function AlerteDelaiConfirmModal({
+  pending,
+  isLoading,
+  onAllWorkers,
+  onDefaultOnly,
+  onClose,
+}: {
+  pending: PendingAlerte | null;
+  isLoading: boolean;
+  onAllWorkers: () => void;
+  onDefaultOnly: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!pending) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [pending, onClose]);
+
+  if (!pending) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+      <div className="bg-surface rounded-lg shadow-lg w-[480px] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Délai d'alerte modifié</h2>
+          <button onClick={onClose} className="text-textMuted hover:text-text" disabled={isLoading}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <p className="text-sm text-textMuted">
+            Vous avez changé le délai d'alerte «&nbsp;À prévoir&nbsp;» pour&nbsp;
+            <span className="font-medium text-text">{pending.itemLabel}</span>&nbsp;:
+            de <span className="font-medium text-text">{pending.oldDelai} mois</span> à&nbsp;
+            <span className="font-medium text-text">{pending.newDelai} mois</span>.
+          </p>
+          <p className="text-sm text-textMuted">
+            Souhaitez-vous appliquer ce nouveau délai à&nbsp;:
+          </p>
+
+          <div className="space-y-3">
+            <button
+              onClick={onAllWorkers}
+              disabled={isLoading}
+              className="w-full flex items-start gap-4 p-4 rounded-lg border border-border hover:border-accent hover:bg-surface2 transition-colors text-left disabled:opacity-50"
+            >
+              <div className="w-9 h-9 rounded-full bg-accentSoft flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Users className="w-4 h-4 text-accent" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Tous les travailleurs</div>
+                <div className="text-xs text-textMuted mt-0.5">
+                  Ce délai s'appliquera immédiatement à tous les travailleurs pour cet item. Les délais personnalisés existants seront réinitialisés.
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={onDefaultOnly}
+              disabled={isLoading}
+              className="w-full flex items-start gap-4 p-4 rounded-lg border border-border hover:border-accent hover:bg-surface2 transition-colors text-left disabled:opacity-50"
+            >
+              <div className="w-9 h-9 rounded-full bg-warnBg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Star className="w-4 h-4 text-warn" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Nouveau délai par défaut uniquement</div>
+                <div className="text-xs text-textMuted mt-0.5">
+                  Ce délai sera utilisé par défaut pour les nouveaux items. Les travailleurs avec un délai personnalisé conservent le leur.
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {isLoading && (
+            <p className="text-xs text-textMuted text-center">Mise à jour en cours…</p>
           )}
         </div>
       </div>

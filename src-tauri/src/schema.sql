@@ -74,8 +74,28 @@ CREATE TABLE IF NOT EXISTS habilitation (
     visite_medicale_date                TEXT,
     updated_at                          TEXT    NOT NULL DEFAULT (datetime('now')),
     visite_medicale_date_peremption     TEXT,
-    visite_medicale_duree_mois          INTEGER
+    visite_medicale_duree_mois          INTEGER,
+    delai_alerte_dosimetrie_passive     INTEGER,
+    delai_alerte_dosimetrie_op          INTEGER,
+    delai_alerte_formation_rp_trav      INTEGER,
+    delai_alerte_formation_rp_pat       INTEGER,
+    delai_alerte_visite_med             INTEGER
 );
+
+-- ------------------------------------------------------------
+-- CONFIGURATION DÉLAIS D'ALERTE HABILITATION (défauts globaux)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS habilitation_config (
+    item_type         TEXT    PRIMARY KEY,
+    delai_alerte_mois INTEGER NOT NULL
+);
+
+INSERT OR IGNORE INTO habilitation_config (item_type, delai_alerte_mois) VALUES
+    ('dosimetrie_passive',        1),
+    ('dosimetrie_operationnelle', 1),
+    ('formation_rp_travailleur',  1),
+    ('formation_rp_patient',      1),
+    ('visite_medicale',           3);
 
 -- ------------------------------------------------------------
 -- COMPÉTENCES DE RÉFÉRENCE

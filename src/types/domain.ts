@@ -47,6 +47,16 @@ export interface Habilitation {
   visite_medicale_date_peremption: string | null;
   visite_medicale_duree_mois: number | null;
   updated_at: string;
+  delai_alerte_dosimetrie_passive: number | null;
+  delai_alerte_dosimetrie_op: number | null;
+  delai_alerte_formation_rp_trav: number | null;
+  delai_alerte_formation_rp_pat: number | null;
+  delai_alerte_visite_med: number | null;
+}
+
+export interface HabilitationConfig {
+  item_type: string;
+  delai_alerte_mois: number;
 }
 
 export type HabilitationStatut = 'validee' | 'partielle' | 'non_validee';

@@ -57,6 +57,17 @@ pub struct Habilitation {
     pub visite_medicale_date_peremption: Option<String>,
     pub visite_medicale_duree_mois: Option<i64>,
     pub updated_at: String,
+    pub delai_alerte_dosimetrie_passive: Option<i64>,
+    pub delai_alerte_dosimetrie_op: Option<i64>,
+    pub delai_alerte_formation_rp_trav: Option<i64>,
+    pub delai_alerte_formation_rp_pat: Option<i64>,
+    pub delai_alerte_visite_med: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HabilitationConfig {
+    pub item_type: String,
+    pub delai_alerte_mois: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

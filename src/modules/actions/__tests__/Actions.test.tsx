@@ -63,6 +63,11 @@ const mockHabilitation1: Habilitation = {
   visite_medicale_date_peremption: '2026-06-01', // → a_prevoir
   visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
+  delai_alerte_dosimetrie_passive: null,
+  delai_alerte_dosimetrie_op: null,
+  delai_alerte_formation_rp_trav: null,
+  delai_alerte_formation_rp_pat: null,
+  delai_alerte_visite_med: null,
 };
 
 const mockHabilitation2: Habilitation = {
@@ -76,6 +81,11 @@ const mockHabilitation2: Habilitation = {
   visite_medicale_date_peremption: '2025-12-15', // → en_retard
   visite_medicale_duree_mois: 12,
   updated_at: '2025-01-01T00:00:00Z',
+  delai_alerte_dosimetrie_passive: null,
+  delai_alerte_dosimetrie_op: null,
+  delai_alerte_formation_rp_trav: null,
+  delai_alerte_formation_rp_pat: null,
+  delai_alerte_visite_med: null,
 };
 
 vi.mocked(invoke).mockImplementation(async (cmd, args?: unknown) => {

@@ -7,6 +7,7 @@ import type {
   Travailleur,
   Habilitation,
   HabilitationStatus,
+  HabilitationConfig,
   Appareil,
   VerificationTechnique,
   ControleQualite,
@@ -46,6 +47,14 @@ const travailleurAppareils = new Map<number, Set<number>>();
 const competencesTravailleur = new Map<string, CompetenceTravailleur>();
 const competencesTravailleurGeneral = new Map<string, CompetenceTravailleurGeneral>();
 const appareilCompetenceRefs = new Map<number, Set<number>>();
+
+const habilitationConfig: HabilitationConfig[] = [
+  { item_type: 'dosimetrie_passive',        delai_alerte_mois: 1 },
+  { item_type: 'dosimetrie_operationnelle', delai_alerte_mois: 1 },
+  { item_type: 'formation_rp_travailleur',  delai_alerte_mois: 1 },
+  { item_type: 'formation_rp_patient',      delai_alerte_mois: 1 },
+  { item_type: 'visite_medicale',           delai_alerte_mois: 3 },
+];
 
 const competenceRefs: CompetenceRef[] = [
   { id: 1, libelle: "Mise sous tension de l'appareil",               ordre: 1, description: null, propre_appareil: 1, duree_validite_mois: null, duree_alerte_mois: 3 },
@@ -348,6 +357,9 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         formation_rp_travailleurs_date: null, formation_rp_patients_date: null,
         visite_medicale_date: null, visite_medicale_date_peremption: null,
         visite_medicale_duree_mois: null, updated_at: '',
+        delai_alerte_dosimetrie_passive: null, delai_alerte_dosimetrie_op: null,
+        delai_alerte_formation_rp_trav: null, delai_alerte_formation_rp_pat: null,
+        delai_alerte_visite_med: null,
       } as T;
     }
     case 'habilitation_compute':
@@ -366,7 +378,38 @@ export async function devMockInvoke<T>(cmd: string, args?: unknown): Promise<T> 
         visite_medicale_date_peremption: (a?.visiteMedicaleDatePeremption as string | null) ?? null,
         visite_medicale_duree_mois: (a?.visiteMedicaleDureeMois as number | null) ?? null,
         updated_at: new Date().toISOString(),
+        delai_alerte_dosimetrie_passive: (a?.delaiAlerteDosimetriePassive as number | null) ?? null,
+        delai_alerte_dosimetrie_op: (a?.delaiAlerteDosimetrieOp as number | null) ?? null,
+        delai_alerte_formation_rp_trav: (a?.delaiAlerteFormationRpTrav as number | null) ?? null,
+        delai_alerte_formation_rp_pat: (a?.delaiAlerteFormationRpPat as number | null) ?? null,
+        delai_alerte_visite_med: (a?.delaiAlerteVisiteMed as number | null) ?? null,
       });
+      saveStore();
+      return undefined as T;
+    }
+    case 'habilitation_config_get':
+      return [...habilitationConfig] as T;
+    case 'habilitation_alerte_propagate': {
+      const itemType = a?.itemType as string;
+      const delaiMois = a?.delaiMois as number;
+      const scope = a?.scope as string;
+      const idx = habilitationConfig.findIndex(c => c.item_type === itemType);
+      if (idx >= 0) habilitationConfig[idx].delai_alerte_mois = delaiMois;
+      if (scope === 'all') {
+        const colMap: Record<string, keyof Habilitation> = {
+          dosimetrie_passive:        'delai_alerte_dosimetrie_passive',
+          dosimetrie_operationnelle: 'delai_alerte_dosimetrie_op',
+          formation_rp_travailleur:  'delai_alerte_formation_rp_trav',
+          formation_rp_patient:      'delai_alerte_formation_rp_pat',
+          visite_medicale:           'delai_alerte_visite_med',
+        };
+        const col = colMap[itemType];
+        if (col) {
+          for (const [tId, hab] of habilitationsMap) {
+            habilitationsMap.set(tId, { ...hab, [col]: null });
+          }
+        }
+      }
       saveStore();
       return undefined as T;
     }
