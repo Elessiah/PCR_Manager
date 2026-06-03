@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { fonctionLabel } from '../../lib/labels';
 import { Badge } from '../../components/ui/Badge';
 import { PageHead } from '../../components/ui/PageHead';
 import { Table, THead, TBody, TR, TH, TD } from '../../components/ui/Table';
@@ -129,7 +130,7 @@ export default function TravailleursList() {
                     </div>
                   </TD>
                   <TD>{t.prenom}</TD>
-                  <TD className="text-textMuted">{t.fonction}</TD>
+                  <TD className="text-textMuted">{fonctionLabel(t.fonction)}</TD>
                   <TD><Badge variant="neutral" icon={null}>Cat. {t.categorie_reglementaire ?? '—'}</Badge></TD>
                   <TD><Badge variant={habToVariant(hab)}>{habToLabel(hab)}</Badge></TD>
                   <TD className="text-right"><ChevronRight size={14} className="text-textSoft"/></TD>
@@ -290,7 +291,7 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
             >
               <option value="">— Sélectionner —</option>
               <option value="Cardiologue">Cardiologue</option>
-              <option value="Cardiologue libéral">Cardiologue libéral</option>
+              <option value="Cardiologue_liberal">Cardiologue libéral</option>
               <option value="MERM">MERM</option>
               <option value="Infirmier">Infirmier</option>
             </Select>

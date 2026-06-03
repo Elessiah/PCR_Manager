@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Field, Label, Input, Select } from '../../components/ui/FormField';
 import { ChevronLeft, Users, Shield, Pencil, Trash2 } from 'lucide-react';
 import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
+import { fonctionLabel } from '../../lib/labels';
 import DonneesPersonnellesTab from './DonneesPersonnellesTab';
 import HabilitationTab from './HabilitationTab';
 import type { Travailleur, Habilitation, HabilitationStatus } from '../../types/domain';
@@ -123,7 +124,7 @@ export default function TravailleurFiche() {
             {travailleur.prenom} {travailleur.nom}
           </h1>
           <div className="flex items-center gap-2.5 flex-wrap text-[14px] text-textMuted mt-1">
-            {travailleur.fonction && <span>{travailleur.fonction}</span>}
+            {travailleur.fonction && <span>{fonctionLabel(travailleur.fonction)}</span>}
             {travailleur.fonction && travailleur.categorie_reglementaire && <span>·</span>}
             {travailleur.categorie_reglementaire && <span>Catégorie {travailleur.categorie_reglementaire}</span>}
             {(travailleur.fonction || travailleur.categorie_reglementaire) && travailleur.date_debut_activite && <span>·</span>}
@@ -299,7 +300,7 @@ function EditTravailleurModal({ travailleur, onClose, onSaved }: {
               <Select value={fonction} onChange={e => setFonction(e.target.value)}>
                 <option value="">— Sélectionner —</option>
                 <option value="Cardiologue">Cardiologue</option>
-                <option value="Cardiologue libéral">Cardiologue libéral</option>
+                <option value="Cardiologue_liberal">Cardiologue libéral</option>
                 <option value="MERM">MERM</option>
                 <option value="Infirmier">Infirmier</option>
               </Select>

@@ -1,6 +1,7 @@
 import type { Travailleur } from '../../types/domain';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { ReadField } from '../../components/ui/ReadField';
+import { fonctionLabel } from '../../lib/labels';
 
 interface DonneesPersonnellesTabProps {
   travailleur: Travailleur;
@@ -36,7 +37,7 @@ export default function DonneesPersonnellesTab({ travailleur }: DonneesPersonnel
         </CardHead>
         <CardBody>
           <div className="form-grid space-y-4">
-            <ReadField label="Fonction" value={travailleur.fonction} />
+            <ReadField label="Fonction" value={fonctionLabel(travailleur.fonction)} />
             <ReadField label="Date de début d'activité" value={formatDate(travailleur.date_debut_activite)} />
             <ReadField label="Catégorie réglementaire" value={travailleur.categorie_reglementaire} />
             <ReadField label="Numéro ADELI / RPPS" value={travailleur.numero_adeli_rpps} mono />
