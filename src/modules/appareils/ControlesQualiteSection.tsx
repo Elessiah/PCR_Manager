@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Field, Label, Input } from '../../components/ui/FormField';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Check } from 'lucide-react';
 
 interface ControlesQualiteSectionProps {
   appareilId: number;
@@ -56,6 +56,23 @@ export default function ControlesQualiteSection({ appareilId }: ControlesQualite
         type: c?.type_ || 'partiel_interne',
         statut: 'realise',
         dateRealisation: new Date().toISOString().split('T')[0],
+        dateEcheance: c?.date_echeance || '',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['controles'] });
+    },
+  });
+
+  const unmarkMutation = useMutation({
+    mutationFn: (id: number) => {
+      const c = controles.find(c => c.id === id);
+      return api.controleQualite.update({
+        id,
+        appareilId,
+        type: c?.type_ || 'partiel_interne',
+        statut: 'planifie',
+        dateRealisation: null,
         dateEcheance: c?.date_echeance || '',
       });
     },
@@ -139,7 +156,14 @@ export default function ControlesQualiteSection({ appareilId }: ControlesQualite
               }
 
               return (
-                <div key={controle.id} className={`py-3 px-4 flex items-center gap-6 ${isLast ? '' : 'border-b border-border'}`}>
+                <div
+                  key={controle.id}
+                  className={`py-3 px-4 flex items-center gap-6 transition-all ${
+                    controle.statut === 'realise'
+                      ? 'bg-emerald-50/50 backdrop-blur-sm rounded-lg border border-emerald-100'
+                      : isLast ? '' : 'border-b border-border'
+                  }`}
+                >
                   <div className="flex-1">
                     <div className="font-medium text-sm">{typeLabel}</div>
                     <div className="text-xs text-textMuted mt-0.5">{alertLabel}</div>
@@ -148,22 +172,33 @@ export default function ControlesQualiteSection({ appareilId }: ControlesQualite
                     <div className="text-sm font-mono">{formatDate(controle.date_echeance)}</div>
                     <div className="text-xs text-textMuted mt-0.5">{formatRelativeDay(controle.date_echeance)}</div>
                   </div>
-                  <Badge variant={statusToBadgeVariant[status]}>
-                    {status === 'valide' && 'Valide'}
-                    {status === 'a_prevoir' && 'À prévoir'}
-                    {status === 'en_retard' && 'En retard'}
-                    {status === 'non_applicable' && 'N/A'}
-                  </Badge>
-                  {controle.statut === 'planifie' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => updateMutation.mutate(controle.id)}
-                      disabled={updateMutation.isPending}
-                    >
-                      Marquer effectué
-                    </Button>
+                  {controle.statut !== 'realise' && (
+                    <Badge variant={statusToBadgeVariant[status]}>
+                      {status === 'valide' && 'Valide'}
+                      {status === 'a_prevoir' && 'À prévoir'}
+                      {status === 'en_retard' && 'En retard'}
+                      {status === 'non_applicable' && 'N/A'}
+                    </Badge>
                   )}
+                  <button
+                    onClick={() => {
+                      if (controle.statut === 'planifie') {
+                        updateMutation.mutate(controle.id);
+                      } else if (controle.statut === 'realise') {
+                        unmarkMutation.mutate(controle.id);
+                      }
+                    }}
+                    disabled={updateMutation.isPending || unmarkMutation.isPending}
+                    className="bg-transparent border-none p-0 cursor-pointer disabled:opacity-50 transition-all"
+                  >
+                    {controle.statut === 'planifie' ? (
+                      <div className="w-5 h-5 rounded-full border-2 border-border flex items-center justify-center" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                        <Check size={12} className="text-white" />
+                      </div>
+                    )}
+                  </button>
                 </div>
               );
             })}
