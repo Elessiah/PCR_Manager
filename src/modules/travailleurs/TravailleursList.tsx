@@ -260,7 +260,6 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               id="sexe"
               value={sexe}
               onChange={(e) => setSexe(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); dateNaissanceRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="M">Masculin</option>
@@ -288,7 +287,6 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               id="fonction"
               value={fonction}
               onChange={(e) => setFonction(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); categorieRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="Cardiologue">Cardiologue</option>
@@ -305,7 +303,6 @@ function AddTravailleurModal({ onClose }: { onClose: () => void }) {
               id="categorie"
               value={categorieReglementaire}
               onChange={(e) => setCategorieReglementaire(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); emailRef.current?.focus(); } }}
             >
               <option value="">— Sélectionner —</option>
               <option value="A">A</option>
