@@ -122,7 +122,7 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
           </Field>
           <Field>
             <Label htmlFor="type">Type</Label>
-            <Select ref={typeRef} id="type" value={type} onChange={e => setType(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lieuRef.current?.focus(); } }}>
+            <Select ref={typeRef} id="type" value={type} onChange={e => setType(e.target.value)}>
               <option value="">— Sélectionner —</option>
               <option value="Fixe">Fixe</option>
               <option value="Deplacable">Déplaçable</option>
