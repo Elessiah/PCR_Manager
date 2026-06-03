@@ -24,6 +24,19 @@ export function statusFromDate(
   return 'valide';
 }
 
+// Returns null if not validated, otherwise the expiry status derived from date_peremption.
+// date_peremption === null means no expiry → always 'valide'.
+export function competenceStatus(
+  validated: number | undefined,
+  datePeremption: string | null | undefined,
+  alertMonths: number
+): 'valide' | 'a_prevoir' | 'en_retard' | null {
+  if (validated !== 1) return null;
+  if (!datePeremption) return 'valide';
+  const s = statusFromDate(datePeremption, alertMonths);
+  return s === 'non_applicable' ? 'valide' : s;
+}
+
 export const statusToBadgeVariant: Record<StatusColor, 'ok' | 'warn' | 'danger' | 'neutral'> = {
   valide: 'ok',
   a_prevoir: 'warn',

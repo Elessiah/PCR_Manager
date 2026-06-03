@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { Badge } from '../../components/ui/Badge';
-import { statusFromDate, statusToBadgeVariant } from '../../lib/status';
+import { statusFromDate, statusToBadgeVariant, competenceStatus } from '../../lib/status';
 import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Label } from '../../components/ui/FormField';
@@ -112,6 +112,12 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
     a => !assignedSet.has(a.id)
   );
   const competencesGenerales = competenceRefs.filter(c => c.propre_appareil === 0);
+
+  const validatedGeneralCount = competencesGenerales.filter(ref => {
+    const comp = generalCompetences.find(c => c.competence_ref_id === ref.id);
+    const st = competenceStatus(comp?.validated, comp?.date_peremption, ref.duree_alerte_mois);
+    return st === 'valide' || st === 'a_prevoir';
+  }).length;
 
   const handleUpdateHabilitation = async (
     input: Parameters<typeof api.habilitation.update>[0],
@@ -541,14 +547,14 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
                 <div></div>
                 <div className="flex items-center gap-2">
                   <span className="text-textMuted text-xs mono">
-                    {generalCompetences.filter(c => c.validated === 1).length}/{competencesGenerales.length}
+                    {validatedGeneralCount}/{competencesGenerales.length}
                   </span>
                   <Badge variant={
-                    generalCompetences.filter(c => c.validated === 1).length === competencesGenerales.length ? 'ok' :
-                    generalCompetences.filter(c => c.validated === 1).length > 0 ? 'warn' : 'neutral'
+                    validatedGeneralCount === competencesGenerales.length ? 'ok' :
+                    validatedGeneralCount > 0 ? 'warn' : 'neutral'
                   }>
-                    {generalCompetences.filter(c => c.validated === 1).length === competencesGenerales.length ? 'Validé' :
-                     generalCompetences.filter(c => c.validated === 1).length > 0 ? 'Partielle' : 'Non validée'}
+                    {validatedGeneralCount === competencesGenerales.length ? 'Validé' :
+                     validatedGeneralCount > 0 ? 'Partielle' : 'Non validée'}
                   </Badge>
                 </div>
               </div>
@@ -556,32 +562,40 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
               <div className="grid grid-cols-2 gap-1">
                 {competencesGenerales.map((ref) => {
                   const competence = generalCompetences.find(c => c.competence_ref_id === ref.id);
-                  const checked = competence?.validated === 1;
+                  const compSt = competenceStatus(competence?.validated, competence?.date_peremption, ref.duree_alerte_mois);
+
+                  const cardClass = compSt === null
+                    ? 'bg-surface border-border hover:border-textMuted'
+                    : compSt === 'en_retard' ? 'bg-dangerBg border-dangerBorder'
+                    : compSt === 'a_prevoir' ? 'bg-warnBg border-warnBorder'
+                    : 'bg-okBg border-okBorder';
+
+                  const checkboxClass = compSt === null
+                    ? 'bg-white border-borderStrong'
+                    : compSt === 'en_retard' ? 'bg-danger border-danger'
+                    : compSt === 'a_prevoir' ? 'bg-warn border-warn'
+                    : 'bg-ok border-ok';
+
+                  const textClass = compSt === null
+                    ? 'text-text'
+                    : compSt === 'en_retard' ? 'font-semibold text-danger'
+                    : compSt === 'a_prevoir' ? 'font-semibold text-warn'
+                    : 'font-semibold text-ok';
 
                   return (
                     <button
                       key={ref.id}
                       onClick={() => handleClickGeneralCompetence(ref.id, ref.libelle)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${
-                        checked
-                          ? 'bg-okBg border-okBorder'
-                          : 'bg-surface border-border hover:border-textMuted'
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${cardClass}`}
                     >
-                      <div
-                        className={`w-5 h-5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center ${
-                          checked
-                            ? 'bg-ok border-ok'
-                            : 'bg-white border-borderStrong'
-                        }`}
-                      >
-                        {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                      <div className={`w-5 h-5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center ${checkboxClass}`}>
+                        {compSt !== null && <Check size={10} className="text-white" strokeWidth={3} />}
                       </div>
                       <div className="flex-1 min-w-0 text-left">
-                        <div className={`text-xs ${checked ? 'font-semibold text-ok' : 'text-text'}`}>
+                        <div className={`text-xs ${textClass}`}>
                           {ref.libelle}
                         </div>
-                        {checked && competence?.date_validation && (
+                        {compSt !== null && competence?.date_validation && (
                           <div className="text-xs text-textMuted mt-0.5">
                             {formatDate(competence.date_validation)}
                           </div>
