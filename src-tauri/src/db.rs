@@ -54,13 +54,17 @@ fn get_or_create_db_key() -> Result<String> {
 
     match entry.get_password() {
         Ok(password) => Ok(password),
-        Err(_) => {
+        // Entrée absente → première installation, on génère une clé fraîche.
+        Err(keyring::Error::NoEntry) => {
             let key = Uuid::new_v4().to_string();
             entry
                 .set_password(&key)
                 .context("Failed to store database key in keyring")?;
             Ok(key)
         }
+        // Toute autre erreur (service indisponible, accès refusé…) est fatale :
+        // générer une nouvelle clé écraserait silencieusement l'ancienne.
+        Err(e) => Err(anyhow::anyhow!("Impossible d'accéder au keyring: {e}")),
     }
 }
 
@@ -91,12 +95,31 @@ pub fn open_db_keyring(app: &tauri::AppHandle) -> Result<Connection> {
 
 /// Ouvre la DB et exécute les migrations en attente.
 /// `key` = None → mode legacy (keyring), Some(k) → clé fournie par iPhone.
+/// Si la clé ne correspond pas à la DB existante (SQLITE_NOTADB), supprime
+/// la DB corrompue/inaccessible et recrée une DB vierge avec la clé actuelle.
 pub fn open_and_migrate(app: &tauri::AppHandle, key: Option<&str>) -> Result<Connection> {
     let mut conn = match key {
         Some(k) => open_db_with_key(app, k)?,
         None    => open_db_keyring(app)?,
     };
-    run_migrations(&mut conn)?;
+    if let Err(e) = run_migrations(&mut conn) {
+        let is_wrong_key = e.to_string().contains("not a database")
+            || e.to_string().contains("SQLITE_NOTADB");
+        if is_wrong_key {
+            // La clé du keyring ne correspond plus à la DB (credential perdu/réinitialisé).
+            // La DB existante est irrécouvrable : on la supprime et on repart à zéro.
+            drop(conn);
+            let db_path = app_data_dir(app).join("pcr.db");
+            let _ = std::fs::remove_file(&db_path);
+            let mut fresh_conn = match key {
+                Some(k) => open_db_with_key(app, k)?,
+                None    => open_db_keyring(app)?,
+            };
+            run_migrations(&mut fresh_conn)?;
+            return Ok(fresh_conn);
+        }
+        return Err(e);
+    }
     Ok(conn)
 }
 
@@ -132,7 +155,8 @@ const SCHEMA: &str = include_str!("schema.sql");
 const SEED_DEMO: &str = include_str!("seed_demo.sql");
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {
-    conn.execute_batch(SCHEMA).context("Échec de l'initialisation du schéma")?;
+    conn.execute_batch(SCHEMA)
+        .map_err(|e| anyhow::anyhow!("Échec de l'initialisation du schéma: {e}"))?;
 
     // Migration 1 : ajoute ON DELETE CASCADE sur competence_travailleur.competence_ref_id
     // SQLite ne supporte pas ALTER COLUMN : on recrée la table dans une transaction.
