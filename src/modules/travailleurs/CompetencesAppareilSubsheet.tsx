@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { Check, X } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { competenceStatus } from '../../lib/status';
 import { Field, Input, Label } from '../../components/ui/FormField';
 
 interface CompetencesAppareilSubsheetProps {
@@ -106,8 +107,9 @@ export default function CompetencesAppareilSubsheet({
   const requiredSet = new Set(requiredCompetenceIds);
   const filteredRefs = competenceRefs.filter(c => c.propre_appareil === 1 && requiredSet.has(c.id));
   const validatedCount = filteredRefs.filter(ref => {
-    const competence = appareilCompetences.find(c => c.competence_ref_id === ref.id);
-    return competence?.validated === 1;
+    const comp = appareilCompetences.find(c => c.competence_ref_id === ref.id);
+    const st = competenceStatus(comp?.validated, comp?.date_peremption, ref.duree_alerte_mois);
+    return st === 'valide' || st === 'a_prevoir';
   }).length;
   const variant = validatedCount === filteredRefs.length && filteredRefs.length > 0 ? 'ok' : validatedCount > 0 ? 'warn' : 'neutral';
 
@@ -132,34 +134,42 @@ export default function CompetencesAppareilSubsheet({
               const competence = appareilCompetences.find(
                 c => c.competence_ref_id === ref.id
               );
-              const checked = competence?.validated === 1;
+              const compSt = competenceStatus(competence?.validated, competence?.date_peremption, ref.duree_alerte_mois);
+
+              const cardClass = compSt === null
+                ? 'bg-surface border-border hover:border-textMuted'
+                : compSt === 'en_retard' ? 'bg-dangerBg border-dangerBorder'
+                : compSt === 'a_prevoir' ? 'bg-warnBg border-warnBorder'
+                : 'bg-okBg border-okBorder';
+
+              const checkboxClass = compSt === null
+                ? 'bg-white border-borderStrong'
+                : compSt === 'en_retard' ? 'bg-danger border-danger'
+                : compSt === 'a_prevoir' ? 'bg-warn border-warn'
+                : 'bg-ok border-ok';
+
+              const textClass = compSt === null
+                ? 'text-text'
+                : compSt === 'en_retard' ? 'font-semibold text-danger'
+                : compSt === 'a_prevoir' ? 'font-semibold text-warn'
+                : 'font-semibold text-ok';
 
               return (
                 <button
                   key={ref.id}
                   onClick={() => handleClickCompetence(ref.id, ref.libelle)}
                   disabled={setMutation.isPending}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${
-                    checked
-                      ? 'bg-okBg border-okBorder'
-                      : 'bg-surface border-border hover:border-textMuted'
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded border-1 transition-colors cursor-pointer ${cardClass}`}
                 >
-                  <div
-                    className={`w-5 h-5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center ${
-                      checked
-                        ? 'bg-ok border-ok'
-                        : 'bg-white border-borderStrong'
-                    }`}
-                  >
-                    {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                  <div className={`w-5 h-5 rounded-[3px] border-[1.5px] flex-shrink-0 flex items-center justify-center ${checkboxClass}`}>
+                    {compSt !== null && <Check size={10} className="text-white" strokeWidth={3} />}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <div className="text-xs text-textMuted mono">{String(idx + 1).padStart(2, '0')}</div>
-                    <div className={`text-xs ${checked ? 'font-semibold text-ok' : 'text-text'}`}>
+                    <div className={`text-xs ${textClass}`}>
                       {ref.libelle}
                     </div>
-                    {checked && competence?.date_validation && (
+                    {compSt !== null && competence?.date_validation && (
                       <div className="text-xs text-textMuted mt-0.5">
                         {formatDate(competence.date_validation)}
                       </div>
