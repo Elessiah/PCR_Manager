@@ -1,6 +1,6 @@
 {
   "name": "pcr-manager",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Application de Suivi Radioprotection - Client lourd Tauri + React",
   "private": true,
   "type": "module",
