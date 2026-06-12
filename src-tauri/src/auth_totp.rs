@@ -55,9 +55,13 @@ pub fn totp_available() -> bool {
 /// Génère un nouveau secret TOTP, le stocke dans le Keychain, retourne l'URI otpauth.
 /// Appelé une seule fois lors de la configuration initiale.
 #[tauri::command]
-pub fn totp_setup_start(session: tauri::State<'_, SessionState>) -> Result<String, String> {
-    if has_totp() && !*session.authenticated.lock() {
-        return Err("TOTP déjà configuré : authentification requise pour réinitialiser".to_string());
+pub fn totp_setup_start(
+    app: tauri::AppHandle,
+    session: tauri::State<'_, SessionState>,
+) -> Result<String, String> {
+    let already_protected = has_totp() || crate::db::has_mac_wrapped_key(&app);
+    if already_protected && !*session.authenticated.lock() {
+        return Err("Un mode de protection est déjà configuré : authentification requise pour réinitialiser".to_string());
     }
     let secret = generate_secret();
     store_secret(&secret)?;
