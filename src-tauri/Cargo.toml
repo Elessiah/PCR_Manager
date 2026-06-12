@@ -1,6 +1,6 @@
 [package]
 name = "pcr-manager"
-version = "0.1.2"
+version = "1.0.0"
 edition = "2024"
 description = "PCR Manager — suivi radioprotection"
 authors = ["PCR Manager"]

@@ -1,6 +1,6 @@
 {
   "productName": "PCR Manager",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "identifier": "PCRManager",
   "build": {
     "frontendDist": "../dist",
