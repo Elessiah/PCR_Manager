@@ -94,9 +94,11 @@ pub fn open_db_keyring(app: &tauri::AppHandle) -> Result<Connection> {
 }
 
 /// Ouvre la DB et exécute les migrations en attente.
-/// `key` = None → mode legacy (keyring), Some(k) → clé fournie par iPhone.
-/// Si la clé ne correspond pas à la DB existante (SQLITE_NOTADB), supprime
-/// la DB corrompue/inaccessible et recrée une DB vierge avec la clé actuelle.
+/// `key` = None → mode legacy (keyring), Some(k) → clé déballée par le Secure Enclave.
+/// En mode keyring uniquement : si la clé ne correspond plus à la DB (SQLITE_NOTADB),
+/// la DB est irrécouvrable (credential perdu/réinitialisé) → suppression et re-création.
+/// En mode clé explicite, ne JAMAIS supprimer : la DB peut encore être déverrouillée
+/// par une autre clé (ex. activation SE interrompue, l'ancienne clé keyring existe encore).
 pub fn open_and_migrate(app: &tauri::AppHandle, key: Option<&str>) -> Result<Connection> {
     let mut conn = match key {
         Some(k) => open_db_with_key(app, k)?,
@@ -106,15 +108,21 @@ pub fn open_and_migrate(app: &tauri::AppHandle, key: Option<&str>) -> Result<Con
         let is_wrong_key = e.to_string().contains("not a database")
             || e.to_string().contains("SQLITE_NOTADB");
         if is_wrong_key {
+            if key.is_some() || has_mac_wrapped_key(app) {
+                // Clé explicite erronée, ou DB re-chiffrée par le Secure Enclave alors
+                // qu'on tente une ouverture keyring : la DB reste déverrouillable par
+                // ailleurs, ne pas la détruire.
+                return Err(anyhow::anyhow!(
+                    "La clé fournie ne correspond pas à la base de données existante. \
+                     Suppression refusée : restaurez une sauvegarde ou réactivez le mode de protection."
+                ));
+            }
             // La clé du keyring ne correspond plus à la DB (credential perdu/réinitialisé).
             // La DB existante est irrécouvrable : on la supprime et on repart à zéro.
             drop(conn);
             let db_path = app_data_dir(app).join("pcr.db");
             let _ = std::fs::remove_file(&db_path);
-            let mut fresh_conn = match key {
-                Some(k) => open_db_with_key(app, k)?,
-                None    => open_db_keyring(app)?,
-            };
+            let mut fresh_conn = open_db_keyring(app)?;
             run_migrations(&mut fresh_conn)?;
             return Ok(fresh_conn);
         }

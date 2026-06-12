@@ -183,10 +183,10 @@ export default function CompetencesAppareilSubsheet({
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-surface rounded-lg shadow-lg w-80 p-6">
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-base font-semibold">
+              <h2 className="text-lg font-semibold">
                 {editing.isValidated ? 'Modifier la validation' : 'Valider la compétence'}
               </h2>
               <button onClick={() => setEditing(null)} className="text-textMuted hover:text-text">

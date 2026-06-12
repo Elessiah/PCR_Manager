@@ -66,12 +66,12 @@ function AddAppareilModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
         className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-[16px] font-semibold">Ajouter un appareil</h2>
+        <h2 className="text-lg font-semibold">Ajouter un appareil</h2>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <Field>
             <Label htmlFor="designation">Désignation *</Label>
