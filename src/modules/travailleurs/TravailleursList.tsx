@@ -87,7 +87,7 @@ export default function TravailleursList() {
       />
 
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1.5 w-[320px]">
+        <div className="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1.5 w-[340px]">
           <Search size={14} className="text-textSoft"/>
           <input type="text" placeholder="Rechercher par nom, prénom, fonction…" value={q} onChange={e => setQ(e.target.value)} className="bg-transparent border-0 outline-0 flex-1 text-[13px] placeholder:text-textSoft"/>
         </div>

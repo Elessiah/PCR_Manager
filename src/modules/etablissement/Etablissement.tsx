@@ -158,7 +158,7 @@ export default function Etablissement() {
   }
 
   return (
-    <div className="space-y-4 p-8">
+    <div className="space-y-4">
       <PageHead
         title="Établissement"
         sub="Informations administratives et documents réglementaires"

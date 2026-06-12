@@ -638,10 +638,10 @@ export default function HabilitationTab({ travailleurId }: HabilitationTabProps)
       </Card>
 
       {editingGeneralComp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-surface rounded-lg shadow-lg w-80 p-6">
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-base font-semibold">
+              <h2 className="text-lg font-semibold">
                 {editingGeneralComp.isValidated ? 'Modifier la validation' : 'Valider la compétence'}
               </h2>
               <button onClick={() => setEditingGeneralComp(null)} className="text-textMuted hover:text-text">
@@ -733,7 +733,7 @@ function EditModalDosimetries({ isOpen, habilitation, onClose, onSave, isLoading
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-lg w-96 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Dosimétrie passive</h2>
@@ -801,7 +801,7 @@ function EditModalDosimetriesOp({ isOpen, habilitation, onClose, onSave, isLoadi
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-lg w-96 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Dosimétrie opérationnelle</h2>
@@ -896,7 +896,7 @@ function EditModalFormationRp({
   const title = type === 'travailleur' ? 'Formation RP travailleurs' : 'Formation RP patients';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-lg w-96 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Éditer {title}</h2>
@@ -1132,7 +1132,7 @@ function EditModalVisiteMedicale({ isOpen, habilitation, onClose, onSave, isLoad
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface rounded-lg shadow-lg w-[480px] p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Éditer Visite médicale</h2>
@@ -1223,7 +1223,7 @@ function AlerteDelaiConfirmModal({
   if (!pending) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-surface rounded-lg shadow-lg w-[480px] p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Délai d'alerte modifié</h2>

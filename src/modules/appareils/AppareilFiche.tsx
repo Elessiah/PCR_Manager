@@ -9,7 +9,7 @@ import { Card, CardBody, CardHead, CardTitle } from '../../components/ui/Card';
 import { PageHead } from '../../components/ui/PageHead';
 import { ReadField } from '../../components/ui/ReadField';
 import { Field, Label, Input, Select } from '../../components/ui/FormField';
-import { ChevronLeft, Edit, Plus, Calendar, X, Check, Trash2, Users } from 'lucide-react';
+import { ChevronLeft, Pencil, Plus, Calendar, X, Check, Trash2, Users } from 'lucide-react';
 import type { StatusColor } from '../../lib/status';
 
 function VerifRow({ label, sub, last, dateLast, dateDeadline, status }: {
@@ -285,9 +285,9 @@ export default function AppareilFiche() {
               {statutGlobalStatus === 'en_retard' && 'En retard'}
             </Badge>
             <Button className="inline-flex items-center gap-1.5" onClick={openEditModal}>
-              <Edit size={14} /> Modifier
+              <Pencil size={14} /> Modifier
             </Button>
-            <Button variant="ghost" className="inline-flex items-center gap-1.5 text-danger hover:text-danger" onClick={() => setShowDeleteModal(true)}>
+            <Button variant="dangerGhost" className="inline-flex items-center gap-1.5" onClick={() => setShowDeleteModal(true)}>
               <Trash2 size={14} /> Supprimer
             </Button>
           </>
@@ -582,7 +582,7 @@ export default function AppareilFiche() {
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditModal(false)}>
           <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h2 className="text-[16px] font-semibold">Modifier l'appareil</h2>
+            <h2 className="text-lg font-semibold">Modifier l'appareil</h2>
             <div className="space-y-4">
               <Field>
                 <Label>Désignation *</Label>

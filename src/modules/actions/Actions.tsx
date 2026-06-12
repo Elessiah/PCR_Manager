@@ -380,7 +380,7 @@ export default function Actions() {
   };
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <PageHead
         title="Actions"
         sub="Toutes les échéances réglementaires à effectuer"

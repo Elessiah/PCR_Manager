@@ -104,12 +104,12 @@ function CompetenceModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
         className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 space-y-4"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-[16px] font-semibold">
+        <h2 className="text-lg font-semibold">
           {mode.type === 'create' ? 'Ajouter une compétence' : 'Modifier la compétence'}
         </h2>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -233,12 +233,12 @@ function DeleteConfirmModal({ competence, onClose }: { competence: CompetenceRef
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
         className="bg-surface rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-[16px] font-semibold">Supprimer la compétence ?</h2>
+        <h2 className="text-lg font-semibold">Supprimer la compétence ?</h2>
         <p className="text-textSoft text-[14px]">
           <strong>{competence.libelle}</strong> sera supprimée définitivement.
           Les validations des travailleurs associées à cette compétence seront également supprimées.
@@ -311,19 +311,19 @@ export default function CompetencesList() {
   const remaining = sorted.length - displayLimit;
 
   return (
-    <>
+    <div className="space-y-4">
       <PageHead
         title="Bibliothèque de compétences"
         sub="Gérez les compétences radioprotection de votre établissement"
         actions={
-          <Button variant="primary" onClick={() => setModal({ type: 'create' })} title="Ajouter une compétence (CTRL+N)" className="inline-flex items-center gap-1.5">
+          <Button variant="primary" onClick={() => setModal({ type: 'create' })} title="Ajouter une compétence (CTRL+N)" className="inline-flex items-center gap-2">
             <Plus size={14} />
             Ajouter une compétence
           </Button>
         }
       />
 
-      <div className="p-6">
+      <div>
         <Card>
           {isLoading && (
             <div className="p-8 text-center text-textSoft text-[14px]">Chargement…</div>
@@ -437,6 +437,6 @@ export default function CompetencesList() {
       {deleteTarget && (
         <DeleteConfirmModal competence={deleteTarget} onClose={() => setDeleteTarget(null)} />
       )}
-    </>
+    </div>
   );
 }
