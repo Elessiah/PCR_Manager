@@ -20,7 +20,6 @@ out/
 
 # Rust / Cargo
 target/
-Cargo.lock
 *.rlib
 *.rmeta
 *.so
